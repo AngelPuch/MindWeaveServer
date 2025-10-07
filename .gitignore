@@ -1,0 +1,59 @@
+# ## Archivos y carpetas específicos de Visual Studio ##
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ## Carpetas de compilación ##
+**/[Bb]in/
+**/[Oo]bj/
+**/[Dd]ebug/
+**/[Rr]elease/
+**/[Dd]ebugPublic/
+**/[Rr]eleasePublic/
+
+# ## Archivos generados por Visual Studio ##
+*.vs/
+.vs/
+project.lock.json
+project.fragment.lock.json
+*.csproj.user
+*.vcxproj.filters
+
+# ## Paquetes de NuGet ##
+**/packages/
+*.nupkg
+# Excluir la carpeta de paquetes restaurados si se usa PackageReference
+*.nuget.props
+*.nuget.targets
+
+# ## Archivos de publicación ##
+**/publish/
+*.pubxml
+*.pubxml.user
+
+# ## Otros archivos y carpetas ##
+*.log
+*.tlog
+*.psess
+*.vsp
+*.vspx
+*_i.c
+*_p.c
+*.ncb
+*~
+*.*~
+*.tmp
+*.bak
+*.orig
+
+# ## Archivos del sistema operativo ##
+[Tt]humbs.db
+$RECYCLE.BIN/
+Desktop.ini
+.DS_Store
+
+# ## Herramientas de testing y cobertura de código ##
+*.coverage
+*.coveragexml
+*.CodeAnalysisLog.xml
