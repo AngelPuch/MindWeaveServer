@@ -44,12 +44,32 @@
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Contracts\DataContracts\ChatMessage.cs" />
+    <Compile Include="Contracts\DataContracts\Friend.cs" />
+    <Compile Include="Contracts\DataContracts\FriendRequestInfo.cs" />
+    <Compile Include="Contracts\DataContracts\LobbySettings.cs" />
+    <Compile Include="Contracts\DataContracts\LobbyState.cs" />
+    <Compile Include="Contracts\DataContracts\MatchHistory.cs" />
+    <Compile Include="Contracts\DataContracts\OperationResult.cs" />
+    <Compile Include="Contracts\DataContracts\PlayerStats.cs" />
+    <Compile Include="Contracts\DataContracts\UserProfile.cs" />
+    <Compile Include="Contracts\ServiceContracts\IAuthenticationManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\IChatManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\IMatchmakingManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\IProfileManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\ISocialManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\IStatsManager.cs" />
     <Compile Include="IService1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Service1.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="BusinessLogic\" />
+    <Folder Include="DataAccess\" />
+    <Folder Include="Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
