@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class MatchHistory
+    public class MatchHistoryDto
     {
         [DataMember]
         public string matchId { get; set; }

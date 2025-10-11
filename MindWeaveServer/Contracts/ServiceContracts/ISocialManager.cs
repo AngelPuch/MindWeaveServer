@@ -8,10 +8,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface ISocialManager
     {
         [OperationContract]
-        List<Friend> getFriendsList(string username);
+        List<FriendDto> getFriendsList(string username);
 
         [OperationContract]
-        List<FriendRequestInfo> getFriendRequests(string username);
+        List<FriendRequestInfoDto> getFriendRequests(string username);
 
         [OperationContract(IsOneWay = true)]
         void sendFriendRequest(string requesterUsername, string targetUsername);

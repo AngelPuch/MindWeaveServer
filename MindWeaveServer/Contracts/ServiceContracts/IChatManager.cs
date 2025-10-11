@@ -11,13 +11,13 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void sendLobbyMessage(string senderUsername, string lobbyId, string message);
 
         [OperationContract]
-        List<ChatMessage> getLobbyConversationHistory(string lobbyId, int pageNumber, int pageSize);
+        List<ChatMessageDto> getLobbyConversationHistory(string lobbyId, int pageNumber, int pageSize);
     }
 
     [ServiceContract]
     public interface IChatCallback
     {
         [OperationContract(IsOneWay = true)]
-        void receiveLobbyMessage(ChatMessage message);
+        void receiveLobbyMessage(ChatMessageDto messageDto);
     }
 }

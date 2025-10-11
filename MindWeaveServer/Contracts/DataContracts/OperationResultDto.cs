@@ -3,11 +3,11 @@
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class Friend
+    public class OperationResultDto
     {
         [DataMember]
-        public string username { get; set; }
+        public bool success { get; set; }
         [DataMember]
-        public bool isOnline { get; set; }
+        public string message { get; set; }
     }
 }

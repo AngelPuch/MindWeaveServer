@@ -3,7 +3,7 @@
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class LobbySettings
+    public class LobbySettingsDto
     {
         [DataMember]
         public int difficultyId { get; set; }

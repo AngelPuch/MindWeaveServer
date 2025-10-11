@@ -7,12 +7,12 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IProfileManager
     {
         [OperationContract]
-        UserProfile getProfile(string username);
+        UserProfileDto getProfile(string username);
 
         [OperationContract]
-        OperationResult updateProfile(string username, UserProfile newProfileData);
+        OperationResultDto updateProfile(string username, UserProfileDto newProfileDtoData);
 
         [OperationContract]
-        OperationResult changePassword(string username, string currentPassword, string newPassword);
+        OperationResultDto changePassword(string username, string currentPassword, string newPassword);
     }
 }

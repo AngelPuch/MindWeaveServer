@@ -4,7 +4,7 @@
   <edmx:Runtime>
     <!-- SSDL content -->
     <edmx:StorageModels>
-      <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+    <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
         <EntityType Name="Achievements">
           <Key>
             <PropertyRef Name="achievements_id" />
@@ -113,6 +113,8 @@
           <Property Name="gender_id" Type="int" />
           <Property Name="avatar_path" Type="varchar" MaxLength="255" />
           <Property Name="is_verified" Type="bit" Nullable="false" />
+          <Property Name="verification_code" Type="varchar" MaxLength="6" />
+          <Property Name="code_expiry_date" Type="datetime" />
         </EntityType>
         <EntityType Name="PlayerAchievements">
           <Key>
@@ -510,8 +512,7 @@
             <End Role="Puzzles" EntitySet="Puzzles" />
           </AssociationSet>
         </EntityContainer>
-      </Schema>
-    </edmx:StorageModels>
+      </Schema></edmx:StorageModels>
     <!-- CSDL content -->
     <edmx:ConceptualModels>
       <Schema Namespace="MindWeaveDBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
@@ -657,6 +658,10 @@
           <NavigationProperty Name="PlayerStats" Relationship="Self.FK_PlayerStats_Player" FromRole="Player" ToRole="PlayerStats" />
           <NavigationProperty Name="Puzzles" Relationship="Self.FK_Puzzles_Player" FromRole="Player" ToRole="Puzzles" />
           <NavigationProperty Name="Achievements" Relationship="Self.PlayerAchievements" FromRole="Player" ToRole="Achievements" />
+          <Property Name="verification_token" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
+          <Property Name="verification_token_expiry" Type="DateTime" Precision="3" />
+          <Property Name="verification_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
+          <Property Name="code_expiry_date" Type="DateTime" Precision="3" />
         </EntityType>
         <EntityType Name="PlayerStats">
           <Key>
@@ -1134,6 +1139,8 @@
           <EntitySetMapping Name="Player">
             <EntityTypeMapping TypeName="MindWeaveDBModel.Player">
               <MappingFragment StoreEntitySet="Player">
+                <ScalarProperty Name="code_expiry_date" ColumnName="code_expiry_date" />
+                <ScalarProperty Name="verification_code" ColumnName="verification_code" />
                 <ScalarProperty Name="idPlayer" ColumnName="idPlayer" />
                 <ScalarProperty Name="username" ColumnName="username" />
                 <ScalarProperty Name="email" ColumnName="email" />

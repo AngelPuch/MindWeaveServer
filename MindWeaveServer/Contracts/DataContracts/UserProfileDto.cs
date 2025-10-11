@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class UserProfile
+    public class UserProfileDto
     {
         [DataMember]
         public string username { get; set; }

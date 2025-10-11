@@ -7,19 +7,19 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IAuthenticationManager
     {
         [OperationContract]
-        OperationResult login(string username, string password);
+        OperationResultDto login(string username, string password);
 
         [OperationContract]
-        OperationResult register(UserProfile userProfile, string password);
+        OperationResultDto register(UserProfileDto userProfile, string password);
 
         [OperationContract]
-        OperationResult verifyAccount(string verificationToken);
+        OperationResultDto verifyAccount(string email, string code);
 
         [OperationContract]
-        OperationResult sendPasswordRecoveryCode(string email);
+        OperationResultDto sendPasswordRecoveryCode(string email);
 
         [OperationContract]
-        OperationResult resetPasswordWithCode(string email, string code, string newPassword);
+        OperationResultDto resetPasswordWithCode(string email, string code, string newPassword);
 
         [OperationContract(IsOneWay = true)]
         void logOut(string username);

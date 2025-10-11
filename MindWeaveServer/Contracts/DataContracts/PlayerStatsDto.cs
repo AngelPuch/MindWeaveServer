@@ -5,7 +5,7 @@ using System.Runtime.Serialization;
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class PlayerStats
+    public class PlayerStatsDto
     {
         [DataMember]
         public int puzzlesCompleted { get; set; }

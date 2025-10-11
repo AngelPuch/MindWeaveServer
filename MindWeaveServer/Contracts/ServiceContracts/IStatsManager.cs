@@ -8,16 +8,16 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IStatsManager
     {
         [OperationContract]
-        PlayerStats getPlayerStats(string username);
+        PlayerStatsDto getPlayerStats(string username);
 
         [OperationContract]
-        List<MatchHistory> getMatchHistory(string username, int pageNumber, int pageSize);
+        List<MatchHistoryDto> getMatchHistory(string username, int pageNumber, int pageSize);
     }
 
     [ServiceContract]
     public interface IStatsCallback
     {
         [OperationContract(IsOneWay = true)]
-        void notifyStatsUpdated(PlayerStats newStats);
+        void notifyStatsUpdated(PlayerStatsDto newStatsDto);
     }
 }

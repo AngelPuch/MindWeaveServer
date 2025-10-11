@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class ChatMessage
+    public class ChatMessageDto
     {
         [DataMember]
         public string senderUsername { get; set; }

@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class FriendRequestInfo
+    public class FriendRequestInfoDto
     {
        
         [DataMember]

@@ -38,6 +38,10 @@ namespace MindWeaveServer.DataAccess
         public Nullable<int> gender_id { get; set; }
         public string avatar_path { get; set; }
         public bool is_verified { get; set; }
+        public string verification_token { get; set; }
+        public Nullable<System.DateTime> verification_token_expiry { get; set; }
+        public string verification_code { get; set; }
+        public Nullable<System.DateTime> code_expiry_date { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<Friendships> Friendships { get; set; }

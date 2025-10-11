@@ -8,7 +8,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IMatchmakingManager
     {
         [OperationContract]
-        OperationResult createLobby(string hostUsername, LobbySettings settings);
+        OperationResultDto createLobby(string hostUsername, LobbySettingsDto settingsDto);
 
         [OperationContract(IsOneWay = true)]
         void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId);
@@ -33,7 +33,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void receiveLobbyInvite(string fromUsername, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        void updateLobbyState(LobbyState lobbyState);
+        void updateLobbyState(LobbyStateDto lobbyStateDto);
 
         [OperationContract(IsOneWay = true)]
         void matchFound(string matchId, List<string> players);

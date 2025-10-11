@@ -4,7 +4,7 @@ using System.Runtime.Serialization;
 namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class LobbyState
+    public class LobbyStateDto
     {
         [DataMember]
         public string lobbyId { get; set; }
@@ -16,6 +16,6 @@ namespace MindWeaveServer.Contracts.DataContracts
         public List<string> players { get; set; }
 
         [DataMember]
-        public LobbySettings currentSettings { get; set; }
+        public LobbySettingsDto currentSettingsDto { get; set; }
     }
 }
