@@ -1,0 +1,1221 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <!-- EF Runtime content -->
+  <edmx:Runtime>
+    <!-- SSDL content -->
+    <edmx:StorageModels>
+      <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityType Name="Achievements">
+          <Key>
+            <PropertyRef Name="achievements_id" />
+          </Key>
+          <Property Name="achievements_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="name" Type="varchar" MaxLength="45" Nullable="false" />
+          <Property Name="description" Type="varchar" MaxLength="255" />
+          <Property Name="icon_path" Type="varchar" MaxLength="255" />
+        </EntityType>
+        <EntityType Name="DifficultyLevels">
+          <Key>
+            <PropertyRef Name="idDifficulty" />
+          </Key>
+          <Property Name="idDifficulty" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="name" Type="varchar" MaxLength="50" Nullable="false" />
+          <Property Name="piece_count" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="ExpulsionReasons">
+          <Key>
+            <PropertyRef Name="idExpulsionReason" />
+          </Key>
+          <Property Name="idExpulsionReason" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="reason" Type="varchar" MaxLength="100" Nullable="false" />
+          <Property Name="description" Type="varchar" MaxLength="255" />
+        </EntityType>
+        <EntityType Name="Friendships">
+          <Key>
+            <PropertyRef Name="friendships_id" />
+          </Key>
+          <Property Name="friendships_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="requester_id" Type="int" Nullable="false" />
+          <Property Name="addressee_id" Type="int" Nullable="false" />
+          <Property Name="request_date" Type="date" Nullable="false" />
+          <Property Name="status_id" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Gender">
+          <Key>
+            <PropertyRef Name="idGender" />
+          </Key>
+          <Property Name="idGender" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="gender" Type="varchar" MaxLength="45" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Matches">
+          <Key>
+            <PropertyRef Name="matches_id" />
+          </Key>
+          <Property Name="matches_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="creation_time" Type="datetime" Nullable="false" />
+          <Property Name="start_time" Type="datetime" />
+          <Property Name="end_time" Type="datetime" />
+          <Property Name="match_status_id" Type="int" Nullable="false" />
+          <Property Name="puzzle_id" Type="int" Nullable="false" />
+          <Property Name="difficulty_id" Type="int" />
+        </EntityType>
+        <EntityType Name="MatchExpulsions">
+          <Key>
+            <PropertyRef Name="idMatchExpulsion" />
+          </Key>
+          <Property Name="idMatchExpulsion" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="match_id" Type="int" Nullable="false" />
+          <Property Name="expelled_player_id" Type="int" Nullable="false" />
+          <Property Name="host_player_id" Type="int" Nullable="false" />
+          <Property Name="reason_id" Type="int" Nullable="false" />
+          <Property Name="expulsion_time" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="MatchParticipants">
+          <Key>
+            <PropertyRef Name="match_participants_id" />
+          </Key>
+          <Property Name="match_participants_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="match_id" Type="int" Nullable="false" />
+          <Property Name="player_id" Type="int" Nullable="false" />
+          <Property Name="is_host" Type="bit" />
+          <Property Name="score" Type="int" />
+          <Property Name="pieces_placed" Type="int" />
+          <Property Name="final_rank" Type="int" />
+        </EntityType>
+        <EntityType Name="MatchReports">
+          <Key>
+            <PropertyRef Name="report_id" />
+          </Key>
+          <Property Name="report_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="reporter_player_id" Type="int" Nullable="false" />
+          <Property Name="reported_player_id" Type="int" Nullable="false" />
+          <Property Name="match_id" Type="int" Nullable="false" />
+          <Property Name="report_time" Type="datetime" Nullable="false" />
+        </EntityType>
+        <EntityType Name="MatchStatus">
+          <Key>
+            <PropertyRef Name="status_id" />
+          </Key>
+          <Property Name="status_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="status" Type="varchar" MaxLength="45" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Player">
+          <Key>
+            <PropertyRef Name="idPlayer" />
+          </Key>
+          <Property Name="idPlayer" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="username" Type="varchar" MaxLength="45" Nullable="false" />
+          <Property Name="email" Type="varchar" MaxLength="45" Nullable="false" />
+          <Property Name="password_hash" Type="varchar" MaxLength="255" Nullable="false" />
+          <Property Name="first_name" Type="varchar" MaxLength="45" />
+          <Property Name="last_name" Type="varchar" MaxLength="45" />
+          <Property Name="date_of_birth" Type="date" />
+          <Property Name="gender_id" Type="int" />
+          <Property Name="avatar_path" Type="varchar" MaxLength="255" />
+          <Property Name="is_verified" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="PlayerAchievements">
+          <Key>
+            <PropertyRef Name="achievements_id" />
+            <PropertyRef Name="player_id" />
+          </Key>
+          <Property Name="achievements_id" Type="int" Nullable="false" />
+          <Property Name="player_id" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="PlayerStats">
+          <Key>
+            <PropertyRef Name="player_id" />
+          </Key>
+          <Property Name="player_id" Type="int" Nullable="false" />
+          <Property Name="puzzles_completed" Type="int" />
+          <Property Name="puzzles_won" Type="int" />
+          <Property Name="total_playtime_minutes" Type="int" />
+          <Property Name="highest_score" Type="int" />
+        </EntityType>
+        <EntityType Name="Puzzles">
+          <Key>
+            <PropertyRef Name="puzzle_id" />
+          </Key>
+          <Property Name="puzzle_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="image_path" Type="varchar" MaxLength="255" Nullable="false" />
+          <Property Name="upload_date" Type="datetime" Nullable="false" />
+          <Property Name="player_id" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="RequestStatus">
+          <Key>
+            <PropertyRef Name="status_id" />
+          </Key>
+          <Property Name="status_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="status" Type="varchar" MaxLength="45" Nullable="false" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="nvarchar" MaxLength="128" Nullable="false" />
+          <Property Name="principal_id" Type="int" Nullable="false" />
+          <Property Name="diagram_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="version" Type="int" />
+          <Property Name="definition" Type="varbinary(max)" />
+        </EntityType>
+        <Association Name="FK_Achievements_has_Player_Achievements">
+          <End Role="Achievements" Type="Self.Achievements" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="PlayerAchievements" Type="Self.PlayerAchievements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Achievements">
+              <PropertyRef Name="achievements_id" />
+            </Principal>
+            <Dependent Role="PlayerAchievements">
+              <PropertyRef Name="achievements_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Achievements_has_Player_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="PlayerAchievements" Type="Self.PlayerAchievements" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="PlayerAchievements">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Friendships_Addressee">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="Friendships" Type="Self.Friendships" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="Friendships">
+              <PropertyRef Name="addressee_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Friendships_Requester">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="Friendships" Type="Self.Friendships" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="Friendships">
+              <PropertyRef Name="requester_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Friendships_RequestStatus">
+          <End Role="RequestStatus" Type="Self.RequestStatus" Multiplicity="1" />
+          <End Role="Friendships" Type="Self.Friendships" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="RequestStatus">
+              <PropertyRef Name="status_id" />
+            </Principal>
+            <Dependent Role="Friendships">
+              <PropertyRef Name="status_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Matches_DifficultyLevels">
+          <End Role="DifficultyLevels" Type="Self.DifficultyLevels" Multiplicity="0..1" />
+          <End Role="Matches" Type="Self.Matches" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DifficultyLevels">
+              <PropertyRef Name="idDifficulty" />
+            </Principal>
+            <Dependent Role="Matches">
+              <PropertyRef Name="difficulty_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Matches_MatchStatus">
+          <End Role="MatchStatus" Type="Self.MatchStatus" Multiplicity="1" />
+          <End Role="Matches" Type="Self.Matches" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="MatchStatus">
+              <PropertyRef Name="status_id" />
+            </Principal>
+            <Dependent Role="Matches">
+              <PropertyRef Name="match_status_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Matches_Puzzles">
+          <End Role="Puzzles" Type="Self.Puzzles" Multiplicity="1" />
+          <End Role="Matches" Type="Self.Matches" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Puzzles">
+              <PropertyRef Name="puzzle_id" />
+            </Principal>
+            <Dependent Role="Matches">
+              <PropertyRef Name="puzzle_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_ExpelledPlayer">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="expelled_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_HostPlayer">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="host_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_Matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_Reason">
+          <End Role="ExpulsionReasons" Type="Self.ExpulsionReasons" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ExpulsionReasons">
+              <PropertyRef Name="idExpulsionReason" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="reason_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchParticipants_Matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="MatchParticipants" Type="Self.MatchParticipants" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="MatchParticipants">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchParticipants_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="MatchParticipants" Type="Self.MatchParticipants" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchParticipants">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchReports_Matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="MatchReports">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchReports_Reported">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchReports">
+              <PropertyRef Name="reported_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchReports_Reporter">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchReports">
+              <PropertyRef Name="reporter_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Player_Gender">
+          <End Role="Gender" Type="Self.Gender" Multiplicity="0..1" />
+          <End Role="Player" Type="Self.Player" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Gender">
+              <PropertyRef Name="idGender" />
+            </Principal>
+            <Dependent Role="Player">
+              <PropertyRef Name="gender_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerStats_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="PlayerStats" Type="Self.PlayerStats" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="PlayerStats">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Puzzles_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Puzzles" Type="Self.Puzzles" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="Puzzles">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityContainer Name="MindWeaveDBModelStoreContainer">
+          <EntitySet Name="Achievements" EntityType="Self.Achievements" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="DifficultyLevels" EntityType="Self.DifficultyLevels" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="ExpulsionReasons" EntityType="Self.ExpulsionReasons" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Friendships" EntityType="Self.Friendships" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Gender" EntityType="Self.Gender" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Matches" EntityType="Self.Matches" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="MatchExpulsions" EntityType="Self.MatchExpulsions" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="MatchParticipants" EntityType="Self.MatchParticipants" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="MatchReports" EntityType="Self.MatchReports" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="MatchStatus" EntityType="Self.MatchStatus" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Player" EntityType="Self.Player" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="PlayerAchievements" EntityType="Self.PlayerAchievements" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="PlayerStats" EntityType="Self.PlayerStats" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="Puzzles" EntityType="Self.Puzzles" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="RequestStatus" EntityType="Self.RequestStatus" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" Schema="dbo" store:Type="Tables" />
+          <AssociationSet Name="FK_Achievements_has_Player_Achievements" Association="Self.FK_Achievements_has_Player_Achievements">
+            <End Role="Achievements" EntitySet="Achievements" />
+            <End Role="PlayerAchievements" EntitySet="PlayerAchievements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Achievements_has_Player_Player" Association="Self.FK_Achievements_has_Player_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="PlayerAchievements" EntitySet="PlayerAchievements" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Friendships_Addressee" Association="Self.FK_Friendships_Addressee">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Friendships_Requester" Association="Self.FK_Friendships_Requester">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Friendships_RequestStatus" Association="Self.FK_Friendships_RequestStatus">
+            <End Role="RequestStatus" EntitySet="RequestStatus" />
+            <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Matches_DifficultyLevels" Association="Self.FK_Matches_DifficultyLevels">
+            <End Role="DifficultyLevels" EntitySet="DifficultyLevels" />
+            <End Role="Matches" EntitySet="Matches" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Matches_MatchStatus" Association="Self.FK_Matches_MatchStatus">
+            <End Role="MatchStatus" EntitySet="MatchStatus" />
+            <End Role="Matches" EntitySet="Matches" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Matches_Puzzles" Association="Self.FK_Matches_Puzzles">
+            <End Role="Puzzles" EntitySet="Puzzles" />
+            <End Role="Matches" EntitySet="Matches" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_ExpelledPlayer" Association="Self.FK_MatchExpulsions_ExpelledPlayer">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_HostPlayer" Association="Self.FK_MatchExpulsions_HostPlayer">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_Matches" Association="Self.FK_MatchExpulsions_Matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_Reason" Association="Self.FK_MatchExpulsions_Reason">
+            <End Role="ExpulsionReasons" EntitySet="ExpulsionReasons" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchParticipants_Matches" Association="Self.FK_MatchParticipants_Matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="MatchParticipants" EntitySet="MatchParticipants" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchParticipants_Player" Association="Self.FK_MatchParticipants_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchParticipants" EntitySet="MatchParticipants" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchReports_Matches" Association="Self.FK_MatchReports_Matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="MatchReports" EntitySet="MatchReports" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchReports_Reported" Association="Self.FK_MatchReports_Reported">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchReports" EntitySet="MatchReports" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchReports_Reporter" Association="Self.FK_MatchReports_Reporter">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchReports" EntitySet="MatchReports" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Player_Gender" Association="Self.FK_Player_Gender">
+            <End Role="Gender" EntitySet="Gender" />
+            <End Role="Player" EntitySet="Player" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerStats_Player" Association="Self.FK_PlayerStats_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="PlayerStats" EntitySet="PlayerStats" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Puzzles_Player" Association="Self.FK_Puzzles_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="Puzzles" EntitySet="Puzzles" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:StorageModels>
+    <!-- CSDL content -->
+    <edmx:ConceptualModels>
+      <Schema Namespace="MindWeaveDBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityType Name="Achievements">
+          <Key>
+            <PropertyRef Name="achievements_id" />
+          </Key>
+          <Property Name="achievements_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="name" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="description" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
+          <Property Name="icon_path" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="Player" Relationship="Self.PlayerAchievements" FromRole="Achievements" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="DifficultyLevels">
+          <Key>
+            <PropertyRef Name="idDifficulty" />
+          </Key>
+          <Property Name="idDifficulty" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="name" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="piece_count" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Matches" Relationship="Self.FK_Matches_DifficultyLevels" FromRole="DifficultyLevels" ToRole="Matches" />
+        </EntityType>
+        <EntityType Name="ExpulsionReasons">
+          <Key>
+            <PropertyRef Name="idExpulsionReason" />
+          </Key>
+          <Property Name="idExpulsionReason" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="reason" Type="String" MaxLength="100" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="description" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
+          <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_Reason" FromRole="ExpulsionReasons" ToRole="MatchExpulsions" />
+        </EntityType>
+        <EntityType Name="Friendships">
+          <Key>
+            <PropertyRef Name="friendships_id" />
+          </Key>
+          <Property Name="friendships_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="requester_id" Type="Int32" Nullable="false" />
+          <Property Name="addressee_id" Type="Int32" Nullable="false" />
+          <Property Name="request_date" Type="DateTime" Nullable="false" Precision="0" />
+          <Property Name="status_id" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_Friendships_Addressee" FromRole="Friendships" ToRole="Player" />
+          <NavigationProperty Name="Player1" Relationship="Self.FK_Friendships_Requester" FromRole="Friendships" ToRole="Player" />
+          <NavigationProperty Name="RequestStatus" Relationship="Self.FK_Friendships_RequestStatus" FromRole="Friendships" ToRole="RequestStatus" />
+        </EntityType>
+        <EntityType Name="Gender">
+          <Key>
+            <PropertyRef Name="idGender" />
+          </Key>
+          <Property Name="idGender" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="gender1" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_Player_Gender" FromRole="Gender" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="Matches">
+          <Key>
+            <PropertyRef Name="matches_id" />
+          </Key>
+          <Property Name="matches_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="creation_time" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="start_time" Type="DateTime" Precision="3" />
+          <Property Name="end_time" Type="DateTime" Precision="3" />
+          <Property Name="match_status_id" Type="Int32" Nullable="false" />
+          <Property Name="puzzle_id" Type="Int32" Nullable="false" />
+          <Property Name="difficulty_id" Type="Int32" />
+          <NavigationProperty Name="DifficultyLevels" Relationship="Self.FK_Matches_DifficultyLevels" FromRole="Matches" ToRole="DifficultyLevels" />
+          <NavigationProperty Name="MatchStatus" Relationship="Self.FK_Matches_MatchStatus" FromRole="Matches" ToRole="MatchStatus" />
+          <NavigationProperty Name="Puzzles" Relationship="Self.FK_Matches_Puzzles" FromRole="Matches" ToRole="Puzzles" />
+          <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_Matches" FromRole="Matches" ToRole="MatchExpulsions" />
+          <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Matches" FromRole="Matches" ToRole="MatchParticipants" />
+          <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Matches" FromRole="Matches" ToRole="MatchReports" />
+        </EntityType>
+        <EntityType Name="MatchExpulsions">
+          <Key>
+            <PropertyRef Name="idMatchExpulsion" />
+          </Key>
+          <Property Name="idMatchExpulsion" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="match_id" Type="Int32" Nullable="false" />
+          <Property Name="expelled_player_id" Type="Int32" Nullable="false" />
+          <Property Name="host_player_id" Type="Int32" Nullable="false" />
+          <Property Name="reason_id" Type="Int32" Nullable="false" />
+          <Property Name="expulsion_time" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="ExpulsionReasons" Relationship="Self.FK_MatchExpulsions_Reason" FromRole="MatchExpulsions" ToRole="ExpulsionReasons" />
+          <NavigationProperty Name="Matches" Relationship="Self.FK_MatchExpulsions_Matches" FromRole="MatchExpulsions" ToRole="Matches" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_MatchExpulsions_ExpelledPlayer" FromRole="MatchExpulsions" ToRole="Player" />
+          <NavigationProperty Name="Player1" Relationship="Self.FK_MatchExpulsions_HostPlayer" FromRole="MatchExpulsions" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="MatchParticipants">
+          <Key>
+            <PropertyRef Name="match_participants_id" />
+          </Key>
+          <Property Name="match_participants_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="match_id" Type="Int32" Nullable="false" />
+          <Property Name="player_id" Type="Int32" Nullable="false" />
+          <Property Name="is_host" Type="Boolean" />
+          <Property Name="score" Type="Int32" />
+          <Property Name="pieces_placed" Type="Int32" />
+          <Property Name="final_rank" Type="Int32" />
+          <NavigationProperty Name="Matches" Relationship="Self.FK_MatchParticipants_Matches" FromRole="MatchParticipants" ToRole="Matches" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_MatchParticipants_Player" FromRole="MatchParticipants" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="MatchReports">
+          <Key>
+            <PropertyRef Name="report_id" />
+          </Key>
+          <Property Name="report_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="reporter_player_id" Type="Int32" Nullable="false" />
+          <Property Name="reported_player_id" Type="Int32" Nullable="false" />
+          <Property Name="match_id" Type="Int32" Nullable="false" />
+          <Property Name="report_time" Type="DateTime" Nullable="false" Precision="3" />
+          <NavigationProperty Name="Matches" Relationship="Self.FK_MatchReports_Matches" FromRole="MatchReports" ToRole="Matches" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_MatchReports_Reported" FromRole="MatchReports" ToRole="Player" />
+          <NavigationProperty Name="Player1" Relationship="Self.FK_MatchReports_Reporter" FromRole="MatchReports" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="MatchStatus">
+          <Key>
+            <PropertyRef Name="status_id" />
+          </Key>
+          <Property Name="status_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="status" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="Matches" Relationship="Self.FK_Matches_MatchStatus" FromRole="MatchStatus" ToRole="Matches" />
+        </EntityType>
+        <EntityType Name="Player">
+          <Key>
+            <PropertyRef Name="idPlayer" />
+          </Key>
+          <Property Name="idPlayer" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="username" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="email" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="password_hash" Type="String" MaxLength="255" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="first_name" Type="String" MaxLength="45" FixedLength="false" Unicode="false" />
+          <Property Name="last_name" Type="String" MaxLength="45" FixedLength="false" Unicode="false" />
+          <Property Name="date_of_birth" Type="DateTime" Precision="0" />
+          <Property Name="gender_id" Type="Int32" />
+          <Property Name="avatar_path" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
+          <Property Name="is_verified" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="Friendships" Relationship="Self.FK_Friendships_Addressee" FromRole="Player" ToRole="Friendships" />
+          <NavigationProperty Name="Friendships1" Relationship="Self.FK_Friendships_Requester" FromRole="Player" ToRole="Friendships" />
+          <NavigationProperty Name="Gender" Relationship="Self.FK_Player_Gender" FromRole="Player" ToRole="Gender" />
+          <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_ExpelledPlayer" FromRole="Player" ToRole="MatchExpulsions" />
+          <NavigationProperty Name="MatchExpulsions1" Relationship="Self.FK_MatchExpulsions_HostPlayer" FromRole="Player" ToRole="MatchExpulsions" />
+          <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Player" FromRole="Player" ToRole="MatchParticipants" />
+          <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Reported" FromRole="Player" ToRole="MatchReports" />
+          <NavigationProperty Name="MatchReports1" Relationship="Self.FK_MatchReports_Reporter" FromRole="Player" ToRole="MatchReports" />
+          <NavigationProperty Name="PlayerStats" Relationship="Self.FK_PlayerStats_Player" FromRole="Player" ToRole="PlayerStats" />
+          <NavigationProperty Name="Puzzles" Relationship="Self.FK_Puzzles_Player" FromRole="Player" ToRole="Puzzles" />
+          <NavigationProperty Name="Achievements" Relationship="Self.PlayerAchievements" FromRole="Player" ToRole="Achievements" />
+        </EntityType>
+        <EntityType Name="PlayerStats">
+          <Key>
+            <PropertyRef Name="player_id" />
+          </Key>
+          <Property Name="player_id" Type="Int32" Nullable="false" />
+          <Property Name="puzzles_completed" Type="Int32" />
+          <Property Name="puzzles_won" Type="Int32" />
+          <Property Name="total_playtime_minutes" Type="Int32" />
+          <Property Name="highest_score" Type="Int32" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_PlayerStats_Player" FromRole="PlayerStats" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="Puzzles">
+          <Key>
+            <PropertyRef Name="puzzle_id" />
+          </Key>
+          <Property Name="puzzle_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="image_path" Type="String" MaxLength="255" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="upload_date" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="player_id" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Matches" Relationship="Self.FK_Matches_Puzzles" FromRole="Puzzles" ToRole="Matches" />
+          <NavigationProperty Name="Player" Relationship="Self.FK_Puzzles_Player" FromRole="Puzzles" ToRole="Player" />
+        </EntityType>
+        <EntityType Name="RequestStatus">
+          <Key>
+            <PropertyRef Name="status_id" />
+          </Key>
+          <Property Name="status_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="status" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="Friendships" Relationship="Self.FK_Friendships_RequestStatus" FromRole="RequestStatus" ToRole="Friendships" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="String" MaxLength="128" FixedLength="false" Unicode="true" Nullable="false" />
+          <Property Name="principal_id" Type="Int32" Nullable="false" />
+          <Property Name="diagram_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="version" Type="Int32" />
+          <Property Name="definition" Type="Binary" MaxLength="Max" FixedLength="false" />
+        </EntityType>
+        <Association Name="FK_Matches_DifficultyLevels">
+          <End Role="DifficultyLevels" Type="Self.DifficultyLevels" Multiplicity="0..1" />
+          <End Role="Matches" Type="Self.Matches" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="DifficultyLevels">
+              <PropertyRef Name="idDifficulty" />
+            </Principal>
+            <Dependent Role="Matches">
+              <PropertyRef Name="difficulty_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_Reason">
+          <End Role="ExpulsionReasons" Type="Self.ExpulsionReasons" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="ExpulsionReasons">
+              <PropertyRef Name="idExpulsionReason" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="reason_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Friendships_Addressee">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="Friendships" Type="Self.Friendships" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="Friendships">
+              <PropertyRef Name="addressee_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Friendships_Requester">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="Friendships" Type="Self.Friendships" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="Friendships">
+              <PropertyRef Name="requester_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Friendships_RequestStatus">
+          <End Role="RequestStatus" Type="Self.RequestStatus" Multiplicity="1" />
+          <End Role="Friendships" Type="Self.Friendships" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="RequestStatus">
+              <PropertyRef Name="status_id" />
+            </Principal>
+            <Dependent Role="Friendships">
+              <PropertyRef Name="status_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Player_Gender">
+          <End Role="Gender" Type="Self.Gender" Multiplicity="0..1" />
+          <End Role="Player" Type="Self.Player" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Gender">
+              <PropertyRef Name="idGender" />
+            </Principal>
+            <Dependent Role="Player">
+              <PropertyRef Name="gender_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Matches_MatchStatus">
+          <End Role="MatchStatus" Type="Self.MatchStatus" Multiplicity="1" />
+          <End Role="Matches" Type="Self.Matches" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="MatchStatus">
+              <PropertyRef Name="status_id" />
+            </Principal>
+            <Dependent Role="Matches">
+              <PropertyRef Name="match_status_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Matches_Puzzles">
+          <End Role="Puzzles" Type="Self.Puzzles" Multiplicity="1" />
+          <End Role="Matches" Type="Self.Matches" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Puzzles">
+              <PropertyRef Name="puzzle_id" />
+            </Principal>
+            <Dependent Role="Matches">
+              <PropertyRef Name="puzzle_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_Matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchParticipants_Matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="MatchParticipants" Type="Self.MatchParticipants" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="MatchParticipants">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchReports_Matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="MatchReports">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_ExpelledPlayer">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="expelled_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchExpulsions_HostPlayer">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchExpulsions">
+              <PropertyRef Name="host_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchParticipants_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="MatchParticipants" Type="Self.MatchParticipants" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchParticipants">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchReports_Reported">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchReports">
+              <PropertyRef Name="reported_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_MatchReports_Reporter">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="MatchReports">
+              <PropertyRef Name="reporter_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerStats_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="PlayerStats" Type="Self.PlayerStats" Multiplicity="0..1" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="PlayerStats">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Puzzles_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="Puzzles" Type="Self.Puzzles" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="Puzzles">
+              <PropertyRef Name="player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="PlayerAchievements">
+          <End Role="Achievements" Type="Self.Achievements" Multiplicity="*" />
+          <End Role="Player" Type="Self.Player" Multiplicity="*" />
+        </Association>
+        <EntityContainer Name="MindWeaveDBEntities" annotation:LazyLoadingEnabled="true">
+          <EntitySet Name="Achievements" EntityType="Self.Achievements" />
+          <EntitySet Name="DifficultyLevels" EntityType="Self.DifficultyLevels" />
+          <EntitySet Name="ExpulsionReasons" EntityType="Self.ExpulsionReasons" />
+          <EntitySet Name="Friendships" EntityType="Self.Friendships" />
+          <EntitySet Name="Gender" EntityType="Self.Gender" />
+          <EntitySet Name="Matches" EntityType="Self.Matches" />
+          <EntitySet Name="MatchExpulsions" EntityType="Self.MatchExpulsions" />
+          <EntitySet Name="MatchParticipants" EntityType="Self.MatchParticipants" />
+          <EntitySet Name="MatchReports" EntityType="Self.MatchReports" />
+          <EntitySet Name="MatchStatus" EntityType="Self.MatchStatus" />
+          <EntitySet Name="Player" EntityType="Self.Player" />
+          <EntitySet Name="PlayerStats" EntityType="Self.PlayerStats" />
+          <EntitySet Name="Puzzles" EntityType="Self.Puzzles" />
+          <EntitySet Name="RequestStatus" EntityType="Self.RequestStatus" />
+          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" />
+          <AssociationSet Name="FK_Matches_DifficultyLevels" Association="Self.FK_Matches_DifficultyLevels">
+            <End Role="DifficultyLevels" EntitySet="DifficultyLevels" />
+            <End Role="Matches" EntitySet="Matches" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_Reason" Association="Self.FK_MatchExpulsions_Reason">
+            <End Role="ExpulsionReasons" EntitySet="ExpulsionReasons" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Friendships_Addressee" Association="Self.FK_Friendships_Addressee">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Friendships_Requester" Association="Self.FK_Friendships_Requester">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Friendships_RequestStatus" Association="Self.FK_Friendships_RequestStatus">
+            <End Role="RequestStatus" EntitySet="RequestStatus" />
+            <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Player_Gender" Association="Self.FK_Player_Gender">
+            <End Role="Gender" EntitySet="Gender" />
+            <End Role="Player" EntitySet="Player" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Matches_MatchStatus" Association="Self.FK_Matches_MatchStatus">
+            <End Role="MatchStatus" EntitySet="MatchStatus" />
+            <End Role="Matches" EntitySet="Matches" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Matches_Puzzles" Association="Self.FK_Matches_Puzzles">
+            <End Role="Puzzles" EntitySet="Puzzles" />
+            <End Role="Matches" EntitySet="Matches" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_Matches" Association="Self.FK_MatchExpulsions_Matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchParticipants_Matches" Association="Self.FK_MatchParticipants_Matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="MatchParticipants" EntitySet="MatchParticipants" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchReports_Matches" Association="Self.FK_MatchReports_Matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="MatchReports" EntitySet="MatchReports" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_ExpelledPlayer" Association="Self.FK_MatchExpulsions_ExpelledPlayer">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchExpulsions_HostPlayer" Association="Self.FK_MatchExpulsions_HostPlayer">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchParticipants_Player" Association="Self.FK_MatchParticipants_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchParticipants" EntitySet="MatchParticipants" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchReports_Reported" Association="Self.FK_MatchReports_Reported">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchReports" EntitySet="MatchReports" />
+          </AssociationSet>
+          <AssociationSet Name="FK_MatchReports_Reporter" Association="Self.FK_MatchReports_Reporter">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="MatchReports" EntitySet="MatchReports" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerStats_Player" Association="Self.FK_PlayerStats_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="PlayerStats" EntitySet="PlayerStats" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Puzzles_Player" Association="Self.FK_Puzzles_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="Puzzles" EntitySet="Puzzles" />
+          </AssociationSet>
+          <AssociationSet Name="PlayerAchievements" Association="Self.PlayerAchievements">
+            <End Role="Achievements" EntitySet="Achievements" />
+            <End Role="Player" EntitySet="Player" />
+          </AssociationSet>
+        </EntityContainer>
+      </Schema>
+    </edmx:ConceptualModels>
+    <!-- C-S mapping content -->
+    <edmx:Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="MindWeaveDBModelStoreContainer" CdmEntityContainer="MindWeaveDBEntities">
+          <EntitySetMapping Name="Achievements">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.Achievements">
+              <MappingFragment StoreEntitySet="Achievements">
+                <ScalarProperty Name="achievements_id" ColumnName="achievements_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="description" ColumnName="description" />
+                <ScalarProperty Name="icon_path" ColumnName="icon_path" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="DifficultyLevels">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.DifficultyLevels">
+              <MappingFragment StoreEntitySet="DifficultyLevels">
+                <ScalarProperty Name="idDifficulty" ColumnName="idDifficulty" />
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="piece_count" ColumnName="piece_count" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="ExpulsionReasons">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.ExpulsionReasons">
+              <MappingFragment StoreEntitySet="ExpulsionReasons">
+                <ScalarProperty Name="idExpulsionReason" ColumnName="idExpulsionReason" />
+                <ScalarProperty Name="reason" ColumnName="reason" />
+                <ScalarProperty Name="description" ColumnName="description" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Friendships">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.Friendships">
+              <MappingFragment StoreEntitySet="Friendships">
+                <ScalarProperty Name="friendships_id" ColumnName="friendships_id" />
+                <ScalarProperty Name="requester_id" ColumnName="requester_id" />
+                <ScalarProperty Name="addressee_id" ColumnName="addressee_id" />
+                <ScalarProperty Name="request_date" ColumnName="request_date" />
+                <ScalarProperty Name="status_id" ColumnName="status_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Gender">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.Gender">
+              <MappingFragment StoreEntitySet="Gender">
+                <ScalarProperty Name="idGender" ColumnName="idGender" />
+                <ScalarProperty Name="gender1" ColumnName="gender" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Matches">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.Matches">
+              <MappingFragment StoreEntitySet="Matches">
+                <ScalarProperty Name="matches_id" ColumnName="matches_id" />
+                <ScalarProperty Name="creation_time" ColumnName="creation_time" />
+                <ScalarProperty Name="start_time" ColumnName="start_time" />
+                <ScalarProperty Name="end_time" ColumnName="end_time" />
+                <ScalarProperty Name="match_status_id" ColumnName="match_status_id" />
+                <ScalarProperty Name="puzzle_id" ColumnName="puzzle_id" />
+                <ScalarProperty Name="difficulty_id" ColumnName="difficulty_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="MatchExpulsions">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.MatchExpulsions">
+              <MappingFragment StoreEntitySet="MatchExpulsions">
+                <ScalarProperty Name="idMatchExpulsion" ColumnName="idMatchExpulsion" />
+                <ScalarProperty Name="match_id" ColumnName="match_id" />
+                <ScalarProperty Name="expelled_player_id" ColumnName="expelled_player_id" />
+                <ScalarProperty Name="host_player_id" ColumnName="host_player_id" />
+                <ScalarProperty Name="reason_id" ColumnName="reason_id" />
+                <ScalarProperty Name="expulsion_time" ColumnName="expulsion_time" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="MatchParticipants">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.MatchParticipants">
+              <MappingFragment StoreEntitySet="MatchParticipants">
+                <ScalarProperty Name="match_participants_id" ColumnName="match_participants_id" />
+                <ScalarProperty Name="match_id" ColumnName="match_id" />
+                <ScalarProperty Name="player_id" ColumnName="player_id" />
+                <ScalarProperty Name="is_host" ColumnName="is_host" />
+                <ScalarProperty Name="score" ColumnName="score" />
+                <ScalarProperty Name="pieces_placed" ColumnName="pieces_placed" />
+                <ScalarProperty Name="final_rank" ColumnName="final_rank" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="MatchReports">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.MatchReports">
+              <MappingFragment StoreEntitySet="MatchReports">
+                <ScalarProperty Name="report_id" ColumnName="report_id" />
+                <ScalarProperty Name="reporter_player_id" ColumnName="reporter_player_id" />
+                <ScalarProperty Name="reported_player_id" ColumnName="reported_player_id" />
+                <ScalarProperty Name="match_id" ColumnName="match_id" />
+                <ScalarProperty Name="report_time" ColumnName="report_time" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="MatchStatus">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.MatchStatus">
+              <MappingFragment StoreEntitySet="MatchStatus">
+                <ScalarProperty Name="status_id" ColumnName="status_id" />
+                <ScalarProperty Name="status" ColumnName="status" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Player">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.Player">
+              <MappingFragment StoreEntitySet="Player">
+                <ScalarProperty Name="idPlayer" ColumnName="idPlayer" />
+                <ScalarProperty Name="username" ColumnName="username" />
+                <ScalarProperty Name="email" ColumnName="email" />
+                <ScalarProperty Name="password_hash" ColumnName="password_hash" />
+                <ScalarProperty Name="first_name" ColumnName="first_name" />
+                <ScalarProperty Name="last_name" ColumnName="last_name" />
+                <ScalarProperty Name="date_of_birth" ColumnName="date_of_birth" />
+                <ScalarProperty Name="gender_id" ColumnName="gender_id" />
+                <ScalarProperty Name="avatar_path" ColumnName="avatar_path" />
+                <ScalarProperty Name="is_verified" ColumnName="is_verified" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="PlayerStats">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.PlayerStats">
+              <MappingFragment StoreEntitySet="PlayerStats">
+                <ScalarProperty Name="player_id" ColumnName="player_id" />
+                <ScalarProperty Name="puzzles_completed" ColumnName="puzzles_completed" />
+                <ScalarProperty Name="puzzles_won" ColumnName="puzzles_won" />
+                <ScalarProperty Name="total_playtime_minutes" ColumnName="total_playtime_minutes" />
+                <ScalarProperty Name="highest_score" ColumnName="highest_score" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Puzzles">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.Puzzles">
+              <MappingFragment StoreEntitySet="Puzzles">
+                <ScalarProperty Name="puzzle_id" ColumnName="puzzle_id" />
+                <ScalarProperty Name="image_path" ColumnName="image_path" />
+                <ScalarProperty Name="upload_date" ColumnName="upload_date" />
+                <ScalarProperty Name="player_id" ColumnName="player_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="RequestStatus">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.RequestStatus">
+              <MappingFragment StoreEntitySet="RequestStatus">
+                <ScalarProperty Name="status_id" ColumnName="status_id" />
+                <ScalarProperty Name="status" ColumnName="status" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="sysdiagrams">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.sysdiagrams">
+              <MappingFragment StoreEntitySet="sysdiagrams">
+                <ScalarProperty Name="name" ColumnName="name" />
+                <ScalarProperty Name="principal_id" ColumnName="principal_id" />
+                <ScalarProperty Name="diagram_id" ColumnName="diagram_id" />
+                <ScalarProperty Name="version" ColumnName="version" />
+                <ScalarProperty Name="definition" ColumnName="definition" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <AssociationSetMapping Name="PlayerAchievements" TypeName="MindWeaveDBModel.PlayerAchievements" StoreEntitySet="PlayerAchievements">
+            <EndProperty Name="Achievements">
+              <ScalarProperty Name="achievements_id" ColumnName="achievements_id" />
+            </EndProperty>
+            <EndProperty Name="Player">
+              <ScalarProperty Name="idPlayer" ColumnName="player_id" />
+            </EndProperty>
+          </AssociationSetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </edmx:Mappings>
+  </edmx:Runtime>
+  <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <Connection>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="MetadataArtifactProcessing" Value="EmbedInOutputAssembly" />
+      </DesignerInfoPropertySet>
+    </Connection>
+    <Options>
+      <DesignerInfoPropertySet>
+        <DesignerProperty Name="ValidateOnBuild" Value="true" />
+        <DesignerProperty Name="EnablePluralization" Value="false" />
+        <DesignerProperty Name="IncludeForeignKeysInModel" Value="true" />
+        <DesignerProperty Name="UseLegacyProvider" Value="false" />
+        <DesignerProperty Name="CodeGenerationStrategy" Value="Ninguno" />
+      </DesignerInfoPropertySet>
+    </Options>
+    <!-- Diagram content (shape and connector positions) -->
+    <Diagrams></Diagrams>
+  </Designer>
+</edmx:Edmx>
