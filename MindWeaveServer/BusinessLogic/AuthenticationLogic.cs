@@ -1,8 +1,10 @@
 ﻿using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Email.Templates;
+using MindWeaveServer.Utilities.Validators;
 using System;
 using System.Data.Entity;
 using System.Linq;
@@ -94,6 +96,39 @@ namespace MindWeaveServer.BusinessLogic
                 context.SaveChanges();
 
                 return new OperationResultDto { success = true, message = "Account verified successfully. You can now log in." };
+            }
+     
+        }
+
+        public async Task<OperationResultDto> loginAsync(LoginDto loginData)
+        {
+            // 1. Validar la entrada con FluentValidation
+            var validator = new LoginDtoValidator();
+            var validationResult = await validator.ValidateAsync(loginData);
+            if (!validationResult.IsValid)
+            {
+                return new OperationResultDto { success = false, message = validationResult.Errors.First().ErrorMessage };
+            }
+
+            using (var context = new MindWeaveDBEntities1())
+            {
+                // 2. Buscar al jugador en la BD
+                var player = await context.Player.FirstOrDefaultAsync(p => p.username.Equals(loginData.Username, StringComparison.OrdinalIgnoreCase));
+
+                // 3. Verificar si el jugador existe y la contraseña es correcta
+                if (player == null || !PasswordHasher.verifyPassword(loginData.Password, player.password_hash))
+                {
+                    return new OperationResultDto { success = false, message = Resources.Lang.LoginInvalidCredentials };
+                }
+
+                // 4. Verificar si la cuenta está activada
+                if (!player.is_verified)
+                {
+                    return new OperationResultDto { success = false, message = Resources.Lang.LoginAccountNotVerified };
+                }
+
+                // 5. ¡Éxito!
+                return new OperationResultDto { success = true, message = "Login exitoso." };
             }
         }
     }

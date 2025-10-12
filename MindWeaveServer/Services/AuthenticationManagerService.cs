@@ -1,5 +1,6 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.Utilities.Email;
 using System;
@@ -60,6 +61,20 @@ namespace MindWeaveServer.Services
         public void logOut(string username)
         {
             throw new NotImplementedException();
+        }
+
+        public OperationResultDto login(LoginDto loginCredentials)
+        {
+            try
+            {
+                // Llamamos a la lógica y esperamos el resultado
+                return authenticationLogic.loginAsync(loginCredentials).Result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return new OperationResultDto { success = false, message = "Ocurrió un error inesperado en el servidor." };
+            }
         }
     }
 }

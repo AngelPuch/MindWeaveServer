@@ -49,6 +49,9 @@
     <Reference Include="EntityFramework.SqlServer, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <HintPath>..\packages\EntityFramework.6.5.1\lib\net45\EntityFramework.SqlServer.dll</HintPath>
     </Reference>
+    <Reference Include="FluentValidation, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7de548da2fbae0f0, processorArchitecture=MSIL">
+      <HintPath>..\packages\FluentValidation.10.4.0\lib\netstandard2.0\FluentValidation.dll</HintPath>
+    </Reference>
     <Reference Include="MailKit, Version=4.14.0.0, Culture=neutral, PublicKeyToken=4e064fe7c44a8f1b, processorArchitecture=MSIL">
       <HintPath>..\packages\MailKit.4.14.0\lib\net47\MailKit.dll</HintPath>
     </Reference>
@@ -93,15 +96,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
-    <Compile Include="Contracts\DataContracts\ChatMessageDto.cs" />
-    <Compile Include="Contracts\DataContracts\FriendDto.cs" />
-    <Compile Include="Contracts\DataContracts\FriendRequestInfoDto.cs" />
-    <Compile Include="Contracts\DataContracts\LobbySettingsDto.cs" />
-    <Compile Include="Contracts\DataContracts\LobbyStateDto.cs" />
-    <Compile Include="Contracts\DataContracts\MatchHistoryDto.cs" />
-    <Compile Include="Contracts\DataContracts\OperationResultDto.cs" />
-    <Compile Include="Contracts\DataContracts\PlayerStatsDto.cs" />
-    <Compile Include="Contracts\DataContracts\UserProfileDto.cs" />
+    <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
+    <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
+    <Compile Include="Contracts\DataContracts\Social\FriendDto.cs" />
+    <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
+    <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />
+    <Compile Include="Contracts\DataContracts\Matchmaking\LobbyStateDto.cs" />
+    <Compile Include="Contracts\DataContracts\Stats\MatchHistoryDto.cs" />
+    <Compile Include="Contracts\DataContracts\Shared\OperationResultDto.cs" />
+    <Compile Include="Contracts\DataContracts\Stats\PlayerStatsDto.cs" />
+    <Compile Include="Contracts\DataContracts\Authentication\UserProfileDto.cs" />
     <Compile Include="Contracts\ServiceContracts\IAuthenticationManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IChatManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IMatchmakingManager.cs" />
@@ -177,6 +181,7 @@
     <Compile Include="Utilities\Email\IEmailTemplate.cs" />
     <Compile Include="Utilities\PasswordHasher.cs" />
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />
+    <Compile Include="Utilities\Validators\LoginDtoValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
