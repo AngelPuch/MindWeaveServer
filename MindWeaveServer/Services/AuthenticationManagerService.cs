@@ -26,7 +26,7 @@ namespace MindWeaveServer.Services
             {
                 // TO-DO: Implementar un sistema de logging real
                 Console.WriteLine(ex.ToString());
-                return new OperationResultDto { success = false, message = "An unexpected server error occurred during registration." };
+                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
         }
 
@@ -39,7 +39,7 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                return new OperationResultDto { success = false, message = "An unexpected server error occurred during verification." };
+                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
         }
 
@@ -68,7 +68,7 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                return new OperationResultDto { success = false, message = "Ocurrió un error inesperado en el servidor." };
+                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
         }
     }

@@ -170,9 +170,6 @@
     <Compile Include="DataAccess\RequestStatus.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
-    <Compile Include="DataAccess\sysdiagrams.cs">
-      <DependentUpon>MindWeaveDB.tt</DependentUpon>
-    </Compile>
     <Compile Include="IService1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources\Lang.Designer.cs">
@@ -188,6 +185,7 @@
     <Compile Include="Utilities\PasswordHasher.cs" />
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />
     <Compile Include="Utilities\Validators\LoginDtoValidator.cs" />
+    <Compile Include="Utilities\Validators\UserProfileDtoValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

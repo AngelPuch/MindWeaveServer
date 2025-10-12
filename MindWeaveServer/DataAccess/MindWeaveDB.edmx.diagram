@@ -19,7 +19,6 @@
         <EntityTypeShape EntityType="MindWeaveDBModel.PlayerStats" Width="1.5" PointX="5.25" PointY="23.25" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.Puzzles" Width="1.5" PointX="5.25" PointY="26.125" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.RequestStatus" Width="1.5" PointX="3" PointY="6.125" IsExpanded="true" />
-        <EntityTypeShape EntityType="MindWeaveDBModel.sysdiagrams" Width="1.5" PointX="0.75" PointY="0.75" IsExpanded="true" />
         <AssociationConnector Association="MindWeaveDBModel.FK_Matches_DifficultyLevels" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_MatchExpulsions_Reason" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_Friendships_Addressee" ManuallyRouted="false" />

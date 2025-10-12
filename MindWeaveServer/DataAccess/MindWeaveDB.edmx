@@ -4,7 +4,7 @@
   <edmx:Runtime>
     <!-- SSDL content -->
     <edmx:StorageModels>
-      <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+    <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
         <EntityType Name="Achievements">
           <Key>
             <PropertyRef Name="achievements_id" />
@@ -111,7 +111,7 @@
           <Property Name="last_name" Type="varchar" MaxLength="45" />
           <Property Name="date_of_birth" Type="date" />
           <Property Name="gender_id" Type="int" />
-          <Property Name="avatar_path" Type="varchar" MaxLength="255" />
+          <Property Name="avatar_path" Type="varchar" MaxLength="64" />
           <Property Name="is_verified" Type="bit" Nullable="false" />
           <Property Name="verification_code" Type="varchar" MaxLength="6" />
           <Property Name="code_expiry_date" Type="datetime" />
@@ -149,16 +149,6 @@
           </Key>
           <Property Name="status_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="status" Type="varchar" MaxLength="45" Nullable="false" />
-        </EntityType>
-        <EntityType Name="sysdiagrams">
-          <Key>
-            <PropertyRef Name="diagram_id" />
-          </Key>
-          <Property Name="name" Type="nvarchar" MaxLength="128" Nullable="false" />
-          <Property Name="principal_id" Type="int" Nullable="false" />
-          <Property Name="diagram_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
-          <Property Name="version" Type="int" />
-          <Property Name="definition" Type="varbinary(max)" />
         </EntityType>
         <Association Name="FK_Achievements_has_Player_Achievements">
           <End Role="Achievements" Type="Self.Achievements" Multiplicity="1">
@@ -430,7 +420,6 @@
           <EntitySet Name="PlayerStats" EntityType="Self.PlayerStats" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Puzzles" EntityType="Self.Puzzles" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="RequestStatus" EntityType="Self.RequestStatus" Schema="dbo" store:Type="Tables" />
-          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" Schema="dbo" store:Type="Tables" />
           <AssociationSet Name="FK_Achievements_has_Player_Achievements" Association="Self.FK_Achievements_has_Player_Achievements">
             <End Role="Achievements" EntitySet="Achievements" />
             <End Role="PlayerAchievements" EntitySet="PlayerAchievements" />
@@ -512,8 +501,7 @@
             <End Role="Puzzles" EntitySet="Puzzles" />
           </AssociationSet>
         </EntityContainer>
-      </Schema>
-    </edmx:StorageModels>
+      </Schema></edmx:StorageModels>
     <!-- CSDL content -->
     <edmx:ConceptualModels>
       <Schema Namespace="MindWeaveDBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
@@ -646,7 +634,7 @@
           <Property Name="last_name" Type="String" MaxLength="45" FixedLength="false" Unicode="false" />
           <Property Name="date_of_birth" Type="DateTime" Precision="0" />
           <Property Name="gender_id" Type="Int32" />
-          <Property Name="avatar_path" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
+          <Property Name="avatar_path" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
           <Property Name="is_verified" Type="Boolean" Nullable="false" />
           <Property Name="verification_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
           <Property Name="code_expiry_date" Type="DateTime" Precision="3" />
@@ -691,16 +679,6 @@
           <Property Name="status_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
           <Property Name="status" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
           <NavigationProperty Name="Friendships" Relationship="Self.FK_Friendships_RequestStatus" FromRole="RequestStatus" ToRole="Friendships" />
-        </EntityType>
-        <EntityType Name="sysdiagrams">
-          <Key>
-            <PropertyRef Name="diagram_id" />
-          </Key>
-          <Property Name="name" Type="String" MaxLength="128" FixedLength="false" Unicode="true" Nullable="false" />
-          <Property Name="principal_id" Type="Int32" Nullable="false" />
-          <Property Name="diagram_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
-          <Property Name="version" Type="Int32" />
-          <Property Name="definition" Type="Binary" MaxLength="Max" FixedLength="false" />
         </EntityType>
         <Association Name="FK_Matches_DifficultyLevels">
           <End Role="DifficultyLevels" Type="Self.DifficultyLevels" Multiplicity="0..1" />
@@ -947,7 +925,6 @@
           <EntitySet Name="PlayerStats" EntityType="Self.PlayerStats" />
           <EntitySet Name="Puzzles" EntityType="Self.Puzzles" />
           <EntitySet Name="RequestStatus" EntityType="Self.RequestStatus" />
-          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" />
           <AssociationSet Name="FK_Matches_DifficultyLevels" Association="Self.FK_Matches_DifficultyLevels">
             <End Role="DifficultyLevels" EntitySet="DifficultyLevels" />
             <End Role="Matches" EntitySet="Matches" />
@@ -1179,17 +1156,6 @@
               <MappingFragment StoreEntitySet="RequestStatus">
                 <ScalarProperty Name="status_id" ColumnName="status_id" />
                 <ScalarProperty Name="status" ColumnName="status" />
-              </MappingFragment>
-            </EntityTypeMapping>
-          </EntitySetMapping>
-          <EntitySetMapping Name="sysdiagrams">
-            <EntityTypeMapping TypeName="MindWeaveDBModel.sysdiagrams">
-              <MappingFragment StoreEntitySet="sysdiagrams">
-                <ScalarProperty Name="name" ColumnName="name" />
-                <ScalarProperty Name="principal_id" ColumnName="principal_id" />
-                <ScalarProperty Name="diagram_id" ColumnName="diagram_id" />
-                <ScalarProperty Name="version" ColumnName="version" />
-                <ScalarProperty Name="definition" ColumnName="definition" />
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>

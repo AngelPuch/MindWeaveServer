@@ -39,6 +39,5 @@ namespace MindWeaveServer.DataAccess
         public virtual DbSet<PlayerStats> PlayerStats { get; set; }
         public virtual DbSet<Puzzles> Puzzles { get; set; }
         public virtual DbSet<RequestStatus> RequestStatus { get; set; }
-        public virtual DbSet<sysdiagrams> sysdiagrams { get; set; }
     }
 }

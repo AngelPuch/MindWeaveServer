@@ -117,16 +117,97 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="GenericServerError" xml:space="preserve">
+    <value>An unexpected server error occurred.</value>
+  </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
-    <value>Username cannot be empty.</value>
+    <value>Your account has not been verified. Please check your email.</value>
   </data>
   <data name="LoginInvalidCredentials" xml:space="preserve">
     <value>Password cannot be empty.</value>
   </data>
   <data name="LoginPasswordNotEmpty" xml:space="preserve">
-    <value>Incorrect username or password.</value>
+    <value>Incorrect email or password.</value>
   </data>
-  <data name="LoginUsernameNotEmpty" xml:space="preserve">
-    <value>Your account has not been verified. Please check your email.</value>
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>Login successful.</value>
+  </data>
+  <data name="RegistrationSuccessful" xml:space="preserve">
+    <value>Registration successful. A verification code has been sent to your email.</value>
+  </data>
+  <data name="RegistrationUsernameOrEmailExists" xml:space="preserve">
+    <value>Username or email is already taken</value>
+  </data>
+  <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
+    <value>You must be at least 13 years old to register.</value>
+  </data>
+  <data name="ValidationDateOfBirthRealistic" xml:space="preserve">
+    <value>The date of birth does not seem realistic.</value>
+  </data>
+  <data name="ValidationDateOfBirthRequired" xml:space="preserve">
+    <value>Date of birth is required.</value>
+  </data>
+  <data name="ValidationEmailFormat" xml:space="preserve">
+    <value>The email format is invalid</value>
+  </data>
+  <data name="ValidationEmailRequired" xml:space="preserve">
+    <value>Email is required.</value>
+  </data>
+  <data name="ValidationFirstNameLength" xml:space="preserve">
+    <value>First name cannot exceed 45 characters.</value>
+  </data>
+  <data name="ValidationFirstNameRequired" xml:space="preserve">
+    <value>First name is required.</value>
+  </data>
+  <data name="ValidationLastNameLength" xml:space="preserve">
+    <value>Last name cannot exceed 45 characters</value>
+  </data>
+  <data name="ValidationNoLeadingOrTrailingWhitespace" xml:space="preserve">
+    <value>The field cannot start or end with spaces.</value>
+  </data>
+  <data name="ValidationOnlyLetters" xml:space="preserve">
+    <value>This field can only contain letters.</value>
+  </data>
+  <data name="ValidationPasswordComplexity" xml:space="preserve">
+    <value>Password must include at least one uppercase letter, one lowercase letter, and one number.</value>
+  </data>
+  <data name="ValidationPasswordLength" xml:space="preserve">
+    <value>Password must be at least 8 characters long.</value>
+  </data>
+  <data name="ValidationPasswordNoSpaces" xml:space="preserve">
+    <value>assword cannot contain spaces.</value>
+  </data>
+  <data name="ValidationPasswordRequired" xml:space="preserve">
+    <value>Password cannot be empty</value>
+  </data>
+  <data name="ValidationProfileOrPasswordRequired" xml:space="preserve">
+    <value>User profile and password are required.</value>
+  </data>
+  <data name="ValidationUsernameAlphanumeric" xml:space="preserve">
+    <value>Username can only contain letters and numbers.</value>
+  </data>
+  <data name="ValidationUsernameLength" xml:space="preserve">
+    <value>Username must be between 3 and 16 characters.</value>
+  </data>
+  <data name="ValidationUsernameRequired" xml:space="preserve">
+    <value>Username cannot be empty.</value>
+  </data>
+  <data name="VerificationAccountAlreadyVerified" xml:space="preserve">
+    <value>This account is already verified.</value>
+  </data>
+  <data name="VerificationCodeInvalidFormat" xml:space="preserve">
+    <value>The verification code must contain 6 digits only.</value>
+  </data>
+  <data name="VerificationEmailAndCodeRequired" xml:space="preserve">
+    <value>Email and code are required.</value>
+  </data>
+  <data name="VerificationEmailNotFound" xml:space="preserve">
+    <value>No pending verification found for this email.</value>
+  </data>
+  <data name="VerificationInvalidOrExpiredCode" xml:space="preserve">
+    <value>VerificationInvalidOrExpiredCode</value>
+  </data>
+  <data name="VerificationSuccessful" xml:space="preserve">
+    <value>Account verified successfully. You can now log in.</value>
   </data>
 </root>

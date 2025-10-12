@@ -117,16 +117,97 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="GenericServerError" xml:space="preserve">
+    <value>Ocurrió un error inesperado en el servidor.</value>
+  </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
-    <value>El nombre de usuario no puede estar vacío.</value>
+    <value>Tu cuenta no ha sido verificada. Revisa tu correo</value>
   </data>
   <data name="LoginInvalidCredentials" xml:space="preserve">
     <value>La contraseña no puede estar vacía.</value>
   </data>
   <data name="LoginPasswordNotEmpty" xml:space="preserve">
-    <value>El usuario o la contraseña son incorrectos.</value>
+    <value>El email o la contraseña son incorrectos.</value>
   </data>
-  <data name="LoginUsernameNotEmpty" xml:space="preserve">
-    <value>Tu cuenta no ha sido verificada. Revisa tu correo.</value>
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>Sesión iniciada.</value>
+  </data>
+  <data name="RegistrationSuccessful" xml:space="preserve">
+    <value>Registro exitoso. Se ha enviado un código de verificación a tu correo electrónico.</value>
+  </data>
+  <data name="RegistrationUsernameOrEmailExists" xml:space="preserve">
+    <value>El nombre de usuario o el correo electrónico ya están en uso.</value>
+  </data>
+  <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
+    <value>"Debes tener al menos 13 años para registrarte.</value>
+  </data>
+  <data name="ValidationDateOfBirthRealistic" xml:space="preserve">
+    <value>La fecha de nacimiento no parece realista.</value>
+  </data>
+  <data name="ValidationDateOfBirthRequired" xml:space="preserve">
+    <value>La fecha de nacimiento es obligatoria</value>
+  </data>
+  <data name="ValidationEmailFormat" xml:space="preserve">
+    <value>El formato del correo electrónico no es válido.</value>
+  </data>
+  <data name="ValidationEmailRequired" xml:space="preserve">
+    <value>El correo electrónico es obligatorio.</value>
+  </data>
+  <data name="ValidationFirstNameLength" xml:space="preserve">
+    <value>El nombre no puede exceder los 45 caracteres.</value>
+  </data>
+  <data name="ValidationFirstNameRequired" xml:space="preserve">
+    <value>El nombre es obligatorio.</value>
+  </data>
+  <data name="ValidationLastNameLength" xml:space="preserve">
+    <value>El apellido no puede exceder los 45 caracteres.</value>
+  </data>
+  <data name="ValidationNoLeadingOrTrailingWhitespace" xml:space="preserve">
+    <value>El campo no puede comenzar ni terminar con espacios.</value>
+  </data>
+  <data name="ValidationOnlyLetters" xml:space="preserve">
+    <value>Este campo solo puede contener letras.</value>
+  </data>
+  <data name="ValidationPasswordComplexity" xml:space="preserve">
+    <value>La contraseña debe incluir al menos una mayúscula, una minúscula y un número</value>
+  </data>
+  <data name="ValidationPasswordLength" xml:space="preserve">
+    <value>La contraseña debe tener al menos 8 caracteres.</value>
+  </data>
+  <data name="ValidationPasswordNoSpaces" xml:space="preserve">
+    <value>La contraseña no puede contener espacios.</value>
+  </data>
+  <data name="ValidationPasswordRequired" xml:space="preserve">
+    <value>La contraseña no puede estar vacía</value>
+  </data>
+  <data name="ValidationProfileOrPasswordRequired" xml:space="preserve">
+    <value>El perfil de usuario y la contraseña son obligatorios.</value>
+  </data>
+  <data name="ValidationUsernameAlphanumeric" xml:space="preserve">
+    <value>El nombre de usuario solo puede contener letras y números.</value>
+  </data>
+  <data name="ValidationUsernameLength" xml:space="preserve">
+    <value>El nombre de usuario debe tener entre 3 y 16 caracteres</value>
+  </data>
+  <data name="ValidationUsernameRequired" xml:space="preserve">
+    <value>El nombre de usuario no puede estar vacío.</value>
+  </data>
+  <data name="VerificationAccountAlreadyVerified" xml:space="preserve">
+    <value>Esta cuenta ya ha sido verificada.</value>
+  </data>
+  <data name="VerificationCodeInvalidFormat" xml:space="preserve">
+    <value>El código de verificación solo debe contener 6 números.</value>
+  </data>
+  <data name="VerificationEmailAndCodeRequired" xml:space="preserve">
+    <value>El correo electrónico y el código son obligatorios.</value>
+  </data>
+  <data name="VerificationEmailNotFound" xml:space="preserve">
+    <value>No se encontró una verificación pendiente para este correo.</value>
+  </data>
+  <data name="VerificationInvalidOrExpiredCode" xml:space="preserve">
+    <value>Código de verificación inválido o expirado.</value>
+  </data>
+  <data name="VerificationSuccessful" xml:space="preserve">
+    <value>Cuenta verificada correctamente. Ya puedes iniciar sesión.</value>
   </data>
 </root>

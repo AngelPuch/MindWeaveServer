@@ -61,7 +61,16 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
-        ///   Busca una cadena traducida similar a El nombre de usuario no puede estar vacío..
+        ///   Busca una cadena traducida similar a Ocurrió un error inesperado en el servidor..
+        /// </summary>
+        public static string GenericServerError {
+            get {
+                return ResourceManager.GetString("GenericServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Tu cuenta no ha sido verificada. Revisa tu correo.
         /// </summary>
         public static string LoginAccountNotVerified {
             get {
@@ -79,7 +88,7 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
-        ///   Busca una cadena traducida similar a El usuario o la contraseña son incorrectos..
+        ///   Busca una cadena traducida similar a El email o la contraseña son incorrectos..
         /// </summary>
         public static string LoginPasswordNotEmpty {
             get {
@@ -88,11 +97,245 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
-        ///   Busca una cadena traducida similar a Tu cuenta no ha sido verificada. Revisa tu correo..
+        ///   Busca una cadena traducida similar a Sesión iniciada..
         /// </summary>
-        public static string LoginUsernameNotEmpty {
+        public static string LoginSuccessful {
             get {
-                return ResourceManager.GetString("LoginUsernameNotEmpty", resourceCulture);
+                return ResourceManager.GetString("LoginSuccessful", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Registro exitoso. Se ha enviado un código de verificación a tu correo electrónico..
+        /// </summary>
+        public static string RegistrationSuccessful {
+            get {
+                return ResourceManager.GetString("RegistrationSuccessful", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre de usuario o el correo electrónico ya están en uso..
+        /// </summary>
+        public static string RegistrationUsernameOrEmailExists {
+            get {
+                return ResourceManager.GetString("RegistrationUsernameOrEmailExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a &quot;Debes tener al menos 13 años para registrarte..
+        /// </summary>
+        public static string ValidationDateOfBirthMinimumAge {
+            get {
+                return ResourceManager.GetString("ValidationDateOfBirthMinimumAge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La fecha de nacimiento no parece realista..
+        /// </summary>
+        public static string ValidationDateOfBirthRealistic {
+            get {
+                return ResourceManager.GetString("ValidationDateOfBirthRealistic", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La fecha de nacimiento es obligatoria.
+        /// </summary>
+        public static string ValidationDateOfBirthRequired {
+            get {
+                return ResourceManager.GetString("ValidationDateOfBirthRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El formato del correo electrónico no es válido..
+        /// </summary>
+        public static string ValidationEmailFormat {
+            get {
+                return ResourceManager.GetString("ValidationEmailFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El correo electrónico es obligatorio..
+        /// </summary>
+        public static string ValidationEmailRequired {
+            get {
+                return ResourceManager.GetString("ValidationEmailRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre no puede exceder los 45 caracteres..
+        /// </summary>
+        public static string ValidationFirstNameLength {
+            get {
+                return ResourceManager.GetString("ValidationFirstNameLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre es obligatorio..
+        /// </summary>
+        public static string ValidationFirstNameRequired {
+            get {
+                return ResourceManager.GetString("ValidationFirstNameRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El apellido no puede exceder los 45 caracteres..
+        /// </summary>
+        public static string ValidationLastNameLength {
+            get {
+                return ResourceManager.GetString("ValidationLastNameLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El campo no puede comenzar ni terminar con espacios..
+        /// </summary>
+        public static string ValidationNoLeadingOrTrailingWhitespace {
+            get {
+                return ResourceManager.GetString("ValidationNoLeadingOrTrailingWhitespace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Este campo solo puede contener letras..
+        /// </summary>
+        public static string ValidationOnlyLetters {
+            get {
+                return ResourceManager.GetString("ValidationOnlyLetters", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La contraseña debe incluir al menos una mayúscula, una minúscula y un número.
+        /// </summary>
+        public static string ValidationPasswordComplexity {
+            get {
+                return ResourceManager.GetString("ValidationPasswordComplexity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La contraseña debe tener al menos 8 caracteres..
+        /// </summary>
+        public static string ValidationPasswordLength {
+            get {
+                return ResourceManager.GetString("ValidationPasswordLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La contraseña no puede contener espacios..
+        /// </summary>
+        public static string ValidationPasswordNoSpaces {
+            get {
+                return ResourceManager.GetString("ValidationPasswordNoSpaces", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La contraseña no puede estar vacía.
+        /// </summary>
+        public static string ValidationPasswordRequired {
+            get {
+                return ResourceManager.GetString("ValidationPasswordRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El perfil de usuario y la contraseña son obligatorios..
+        /// </summary>
+        public static string ValidationProfileOrPasswordRequired {
+            get {
+                return ResourceManager.GetString("ValidationProfileOrPasswordRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre de usuario solo puede contener letras y números..
+        /// </summary>
+        public static string ValidationUsernameAlphanumeric {
+            get {
+                return ResourceManager.GetString("ValidationUsernameAlphanumeric", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre de usuario debe tener entre 3 y 16 caracteres.
+        /// </summary>
+        public static string ValidationUsernameLength {
+            get {
+                return ResourceManager.GetString("ValidationUsernameLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre de usuario no puede estar vacío..
+        /// </summary>
+        public static string ValidationUsernameRequired {
+            get {
+                return ResourceManager.GetString("ValidationUsernameRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Esta cuenta ya ha sido verificada..
+        /// </summary>
+        public static string VerificationAccountAlreadyVerified {
+            get {
+                return ResourceManager.GetString("VerificationAccountAlreadyVerified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El código de verificación solo debe contener 6 números..
+        /// </summary>
+        public static string VerificationCodeInvalidFormat {
+            get {
+                return ResourceManager.GetString("VerificationCodeInvalidFormat", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El correo electrónico y el código son obligatorios..
+        /// </summary>
+        public static string VerificationEmailAndCodeRequired {
+            get {
+                return ResourceManager.GetString("VerificationEmailAndCodeRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No se encontró una verificación pendiente para este correo..
+        /// </summary>
+        public static string VerificationEmailNotFound {
+            get {
+                return ResourceManager.GetString("VerificationEmailNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Código de verificación inválido o expirado..
+        /// </summary>
+        public static string VerificationInvalidOrExpiredCode {
+            get {
+                return ResourceManager.GetString("VerificationInvalidOrExpiredCode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Cuenta verificada correctamente. Ya puedes iniciar sesión..
+        /// </summary>
+        public static string VerificationSuccessful {
+            get {
+                return ResourceManager.GetString("VerificationSuccessful", resourceCulture);
             }
         }
     }
