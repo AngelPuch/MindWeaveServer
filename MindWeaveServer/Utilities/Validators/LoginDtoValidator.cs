@@ -9,11 +9,11 @@ namespace MindWeaveServer.Utilities.Validators
         public LoginDtoValidator()
         {
             // Regla: el usuario no puede estar vacío.
-            RuleFor(x => x.Username)
+            RuleFor(x => x.email)
                 .NotEmpty().WithMessage(x => Lang.LoginUsernameNotEmpty);
 
             // Regla: la contraseña no puede estar vacía.
-            RuleFor(x => x.Password)
+            RuleFor(x => x.password)
                 .NotEmpty().WithMessage(x => Lang.LoginPasswordNotEmpty);
         }
     }

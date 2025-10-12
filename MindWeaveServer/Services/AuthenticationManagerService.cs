@@ -15,12 +15,7 @@ namespace MindWeaveServer.Services
         {
             authenticationLogic = new AuthenticationLogic(new SmtpEmailService());
         }
-
-        public OperationResultDto login(string username, string password)
-        {
-            throw new NotImplementedException();
-        }
-
+        
         public OperationResultDto register(UserProfileDto userProfile, string password)
         {
             try

@@ -6,9 +6,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Authentication
     public class LoginDto
     {
         [DataMember]
-        public string Username { get; set; }
+        public string email { get; set; }
 
         [DataMember]
-        public string Password { get; set; }
+        public string password { get; set; }
     }
 }

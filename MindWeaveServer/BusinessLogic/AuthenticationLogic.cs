@@ -54,6 +54,7 @@ namespace MindWeaveServer.BusinessLogic
                 };
 
                 context.Player.Add(newPlayer);
+
                 await context.SaveChangesAsync();
 
                 var emailTemplate = new VerificationEmailTemplate(newPlayer.username, verificationCode);
@@ -105,6 +106,7 @@ namespace MindWeaveServer.BusinessLogic
             // 1. Validar la entrada con FluentValidation
             var validator = new LoginDtoValidator();
             var validationResult = await validator.ValidateAsync(loginData);
+
             if (!validationResult.IsValid)
             {
                 return new OperationResultDto { success = false, message = validationResult.Errors.First().ErrorMessage };
@@ -113,10 +115,10 @@ namespace MindWeaveServer.BusinessLogic
             using (var context = new MindWeaveDBEntities1())
             {
                 // 2. Buscar al jugador en la BD
-                var player = await context.Player.FirstOrDefaultAsync(p => p.username.Equals(loginData.Username, StringComparison.OrdinalIgnoreCase));
+                var player = await context.Player.FirstOrDefaultAsync(p => p.email.Equals(loginData.email, StringComparison.OrdinalIgnoreCase));
 
                 // 3. Verificar si el jugador existe y la contraseña es correcta
-                if (player == null || !PasswordHasher.verifyPassword(loginData.Password, player.password_hash))
+                if (player == null || !PasswordHasher.verifyPassword(loginData.password, player.password_hash))
                 {
                     return new OperationResultDto { success = false, message = Resources.Lang.LoginInvalidCredentials };
                 }
