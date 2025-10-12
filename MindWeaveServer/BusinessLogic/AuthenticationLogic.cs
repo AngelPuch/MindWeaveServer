@@ -28,7 +28,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { success = false, message = "User profile and password are required." };
             }
 
-            using (var context = new MindWeaveDBEntities())
+            using (var context = new MindWeaveDBEntities1())
             {
                 if (context.Player.Any(p => p.username == userProfile.username || p.email == userProfile.email))
                 {
@@ -68,7 +68,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { success = false, message = "Email and code are required." };
             }
 
-            using (var context = new MindWeaveDBEntities())
+            using (var context = new MindWeaveDBEntities1())
             {
                 var playerToVerify = context.Player.FirstOrDefault(p => p.email == email);
 

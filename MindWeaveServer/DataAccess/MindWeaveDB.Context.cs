@@ -13,10 +13,10 @@ namespace MindWeaveServer.DataAccess
     using System.Data.Entity;
     using System.Data.Entity.Infrastructure;
     
-    public partial class MindWeaveDBEntities : DbContext
+    public partial class MindWeaveDBEntities1 : DbContext
     {
-        public MindWeaveDBEntities()
-            : base("name=MindWeaveDBEntities")
+        public MindWeaveDBEntities1()
+            : base("name=MindWeaveDBEntities1")
         {
         }
     

@@ -109,64 +109,64 @@
     <Compile Include="Contracts\ServiceContracts\ISocialManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IStatsManager.cs" />
     <Compile Include="DataAccess\Achievements.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\DifficultyLevels.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\ExpulsionReasons.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\Friendships.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\Gender.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\Matches.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\MatchExpulsions.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\MatchParticipants.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\MatchReports.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\MatchStatus.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
-    <Compile Include="DataAccess\MindWeaveBD.Context.cs">
+    <Compile Include="DataAccess\MindWeaveDB.Context.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
-      <DependentUpon>MindWeaveBD.Context.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.Context.tt</DependentUpon>
     </Compile>
-    <Compile Include="DataAccess\MindWeaveBD.cs">
+    <Compile Include="DataAccess\MindWeaveDB.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
-    <Compile Include="DataAccess\MindWeaveBD.Designer.cs">
+    <Compile Include="DataAccess\MindWeaveDB.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
-      <DependentUpon>MindWeaveBD.edmx</DependentUpon>
+      <DependentUpon>MindWeaveDB.edmx</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\Player.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\PlayerStats.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\Puzzles.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\RequestStatus.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="DataAccess\sysdiagrams.cs">
-      <DependentUpon>MindWeaveBD.tt</DependentUpon>
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="IService1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -180,30 +180,30 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <EntityDeploy Include="DataAccess\MindWeaveBD.edmx">
+    <EntityDeploy Include="DataAccess\MindWeaveDB.edmx">
       <Generator>EntityModelCodeGenerator</Generator>
-      <LastGenOutput>MindWeaveBD.Designer.cs</LastGenOutput>
+      <LastGenOutput>MindWeaveDB.Designer.cs</LastGenOutput>
     </EntityDeploy>
-    <None Include="DataAccess\MindWeaveBD.edmx.diagram">
-      <DependentUpon>MindWeaveBD.edmx</DependentUpon>
+    <None Include="DataAccess\MindWeaveDB.edmx.diagram">
+      <DependentUpon>MindWeaveDB.edmx</DependentUpon>
     </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <Content Include="DataAccess\MindWeaveBD.Context.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <DependentUpon>MindWeaveBD.edmx</DependentUpon>
-      <LastGenOutput>MindWeaveBD.Context.cs</LastGenOutput>
-    </Content>
-    <Content Include="DataAccess\MindWeaveBD.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <DependentUpon>MindWeaveBD.edmx</DependentUpon>
-      <LastGenOutput>MindWeaveBD.cs</LastGenOutput>
-    </Content>
+    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
   <ItemGroup>
-    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+    <Content Include="DataAccess\MindWeaveDB.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>MindWeaveDB.edmx</DependentUpon>
+      <LastGenOutput>MindWeaveDB.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="DataAccess\MindWeaveDB.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>MindWeaveDB.edmx</DependentUpon>
+      <LastGenOutput>MindWeaveDB.cs</LastGenOutput>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

@@ -4,7 +4,7 @@
   <edmx:Runtime>
     <!-- SSDL content -->
     <edmx:StorageModels>
-    <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+      <Schema Namespace="MindWeaveDBModel.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2012" Alias="Self" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
         <EntityType Name="Achievements">
           <Key>
             <PropertyRef Name="achievements_id" />
@@ -104,7 +104,7 @@
             <PropertyRef Name="idPlayer" />
           </Key>
           <Property Name="idPlayer" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
-          <Property Name="username" Type="varchar" MaxLength="45" Nullable="false" />
+          <Property Name="username" Type="nvarchar" MaxLength="16" Nullable="false" />
           <Property Name="email" Type="varchar" MaxLength="45" Nullable="false" />
           <Property Name="password_hash" Type="varchar" MaxLength="255" Nullable="false" />
           <Property Name="first_name" Type="varchar" MaxLength="45" />
@@ -512,7 +512,8 @@
             <End Role="Puzzles" EntitySet="Puzzles" />
           </AssociationSet>
         </EntityContainer>
-      </Schema></edmx:StorageModels>
+      </Schema>
+    </edmx:StorageModels>
     <!-- CSDL content -->
     <edmx:ConceptualModels>
       <Schema Namespace="MindWeaveDBModel" Alias="Self" annotation:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:customannotation="http://schemas.microsoft.com/ado/2013/11/edm/customannotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
@@ -638,7 +639,7 @@
             <PropertyRef Name="idPlayer" />
           </Key>
           <Property Name="idPlayer" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
-          <Property Name="username" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
+          <Property Name="username" Type="String" MaxLength="16" FixedLength="false" Unicode="true" Nullable="false" />
           <Property Name="email" Type="String" MaxLength="45" FixedLength="false" Unicode="false" Nullable="false" />
           <Property Name="password_hash" Type="String" MaxLength="255" FixedLength="false" Unicode="false" Nullable="false" />
           <Property Name="first_name" Type="String" MaxLength="45" FixedLength="false" Unicode="false" />
@@ -647,6 +648,8 @@
           <Property Name="gender_id" Type="Int32" />
           <Property Name="avatar_path" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
           <Property Name="is_verified" Type="Boolean" Nullable="false" />
+          <Property Name="verification_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
+          <Property Name="code_expiry_date" Type="DateTime" Precision="3" />
           <NavigationProperty Name="Friendships" Relationship="Self.FK_Friendships_Addressee" FromRole="Player" ToRole="Friendships" />
           <NavigationProperty Name="Friendships1" Relationship="Self.FK_Friendships_Requester" FromRole="Player" ToRole="Friendships" />
           <NavigationProperty Name="Gender" Relationship="Self.FK_Player_Gender" FromRole="Player" ToRole="Gender" />
@@ -658,10 +661,6 @@
           <NavigationProperty Name="PlayerStats" Relationship="Self.FK_PlayerStats_Player" FromRole="Player" ToRole="PlayerStats" />
           <NavigationProperty Name="Puzzles" Relationship="Self.FK_Puzzles_Player" FromRole="Player" ToRole="Puzzles" />
           <NavigationProperty Name="Achievements" Relationship="Self.PlayerAchievements" FromRole="Player" ToRole="Achievements" />
-          <Property Name="verification_token" Type="String" MaxLength="255" FixedLength="false" Unicode="true" />
-          <Property Name="verification_token_expiry" Type="DateTime" Precision="3" />
-          <Property Name="verification_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
-          <Property Name="code_expiry_date" Type="DateTime" Precision="3" />
         </EntityType>
         <EntityType Name="PlayerStats">
           <Key>
@@ -933,7 +932,7 @@
           <End Role="Achievements" Type="Self.Achievements" Multiplicity="*" />
           <End Role="Player" Type="Self.Player" Multiplicity="*" />
         </Association>
-        <EntityContainer Name="MindWeaveDBEntities" annotation:LazyLoadingEnabled="true">
+        <EntityContainer Name="MindWeaveDBEntities1" annotation:LazyLoadingEnabled="true">
           <EntitySet Name="Achievements" EntityType="Self.Achievements" />
           <EntitySet Name="DifficultyLevels" EntityType="Self.DifficultyLevels" />
           <EntitySet Name="ExpulsionReasons" EntityType="Self.ExpulsionReasons" />
@@ -1031,7 +1030,7 @@
     <!-- C-S mapping content -->
     <edmx:Mappings>
       <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
-        <EntityContainerMapping StorageEntityContainer="MindWeaveDBModelStoreContainer" CdmEntityContainer="MindWeaveDBEntities">
+        <EntityContainerMapping StorageEntityContainer="MindWeaveDBModelStoreContainer" CdmEntityContainer="MindWeaveDBEntities1">
           <EntitySetMapping Name="Achievements">
             <EntityTypeMapping TypeName="MindWeaveDBModel.Achievements">
               <MappingFragment StoreEntitySet="Achievements">
@@ -1139,8 +1138,6 @@
           <EntitySetMapping Name="Player">
             <EntityTypeMapping TypeName="MindWeaveDBModel.Player">
               <MappingFragment StoreEntitySet="Player">
-                <ScalarProperty Name="code_expiry_date" ColumnName="code_expiry_date" />
-                <ScalarProperty Name="verification_code" ColumnName="verification_code" />
                 <ScalarProperty Name="idPlayer" ColumnName="idPlayer" />
                 <ScalarProperty Name="username" ColumnName="username" />
                 <ScalarProperty Name="email" ColumnName="email" />
@@ -1151,6 +1148,8 @@
                 <ScalarProperty Name="gender_id" ColumnName="gender_id" />
                 <ScalarProperty Name="avatar_path" ColumnName="avatar_path" />
                 <ScalarProperty Name="is_verified" ColumnName="is_verified" />
+                <ScalarProperty Name="verification_code" ColumnName="verification_code" />
+                <ScalarProperty Name="code_expiry_date" ColumnName="code_expiry_date" />
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>
