@@ -100,6 +100,8 @@
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
+    <Compile Include="Contracts\DataContracts\Profile\GenderDto.cs" />
+    <Compile Include="Contracts\DataContracts\Profile\UserProfileEditDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />
@@ -224,6 +226,7 @@
       <LastGenOutput>MindWeaveDB.cs</LastGenOutput>
     </Content>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <VSToolsPath Condition="'$(VSToolsPath)' == '' and '$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' != '11.0'">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>

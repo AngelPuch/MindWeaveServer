@@ -1,5 +1,7 @@
 ﻿using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Stats;
+
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -15,9 +17,12 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         UserProfileDto getProfile(string username);
 
         [OperationContract]
-        OperationResultDto updateProfile(string username, UserProfileDto newProfileDtoData);
+        Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData);
 
         [OperationContract]
         OperationResultDto changePassword(string username, string currentPassword, string newPassword);
+
+        [OperationContract]
+        Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username);
     }
 }

@@ -1,5 +1,6 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
@@ -30,14 +31,30 @@ namespace MindWeaveServer.Services
             throw new NotImplementedException();
         }
 
-        public OperationResultDto updateProfile(string username, UserProfileDto newProfileDtoData)
-        {
-            throw new NotImplementedException();
-        }
+       
 
         public OperationResultDto changePassword(string username, string currentPassword, string newPassword)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
+        {
+            return await profileLogic.getPlayerProfileForEditAsync(username);
+        }
+
+        // REEMPLAZA ESTE MÉTODO VACÍO:
+        // public OperationResultDto updateProfile(string username, UserProfileDto newProfileDtoData)
+        // {
+        //     throw new NotImplementedException();
+        // }
+
+        // POR ESTE MÉTODO CORREGIDO Y ASÍNCRONO:
+        public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
+        {
+            // Creamos una instancia de la lógica y la llamamos
+            var profileLogic = new ProfileLogic();
+            return await profileLogic.updateProfileAsync(username, updatedProfileData);
         }
     }
 }
