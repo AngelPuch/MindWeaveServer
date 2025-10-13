@@ -1,0 +1,21 @@
+﻿using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace MindWeaveServer.Contracts.DataContracts.Stats
+{
+    [DataContract]
+    public class PlayerProfileViewDto
+    {
+        [DataMember]
+        public string username { get; set; }
+
+        [DataMember]
+        public string avatarPath { get; set; }
+
+        [DataMember]
+        public PlayerStatsDto stats { get; set; }
+
+        [DataMember]
+        public List<AchievementDto> achievements { get; set; }
+    }
+}

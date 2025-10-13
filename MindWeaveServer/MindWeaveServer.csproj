@@ -98,13 +98,16 @@
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
+    <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbyStateDto.cs" />
+    <Compile Include="Contracts\DataContracts\Stats\AchievementDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\MatchHistoryDto.cs" />
     <Compile Include="Contracts\DataContracts\Shared\OperationResultDto.cs" />
+    <Compile Include="Contracts\DataContracts\Stats\PlayerProfileViewDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\PlayerStatsDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\UserProfileDto.cs" />
     <Compile Include="Contracts\ServiceContracts\IAuthenticationManager.cs" />
@@ -179,6 +182,7 @@
     </Compile>
     <Compile Include="Service1.cs" />
     <Compile Include="Services\AuthenticationManagerService.cs" />
+    <Compile Include="Services\ProfileManagerService.cs" />
     <Compile Include="Utilities\Email\Templates\VerificationEmailTemplate.cs" />
     <Compile Include="Utilities\Email\IEmailService.cs" />
     <Compile Include="Utilities\Email\IEmailTemplate.cs" />

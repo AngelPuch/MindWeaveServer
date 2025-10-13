@@ -32,20 +32,19 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { success = false, message = profileValidationResult.Errors.First().ErrorMessage };
             }
 
-            // --- VALIDACIONES DE CONTRASEÑA ---
             if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
             {
                 return new OperationResultDto { success = false, message = Resources.Lang.ValidationPasswordLength };
             }
-            if (password.Any(char.IsWhiteSpace)) // SIN ESPACIOS
+            if (password.Any(char.IsWhiteSpace)) 
             {
                 return new OperationResultDto { success = false, message = Resources.Lang.ValidationPasswordNoSpaces };
             }
-            if (!password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit)) // COMPLEJIDAD
+            if (!password.Any(char.IsUpper) || !password.Any(char.IsLower) || !password.Any(char.IsDigit)) 
             {
                 return new OperationResultDto { success = false, message = Resources.Lang.ValidationPasswordComplexity };
             }
-            // --- FIN DE VALIDACIONES DE CONTRASEÑA ---
+            
 
             using (var context = new MindWeaveDBEntities1())
             {
@@ -130,34 +129,47 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        public async Task<OperationResultDto> loginAsync(LoginDto loginData)
+        public async Task<LoginResultDto> loginAsync(LoginDto loginData)
         {
             var validator = new LoginDtoValidator();
             var validationResult = await validator.ValidateAsync(loginData);
 
             if (!validationResult.IsValid)
             {
-                return new OperationResultDto { success = false, message = validationResult.Errors.First().ErrorMessage };
+                return new LoginResultDto
+                {
+                    operationResult = new OperationResultDto { success = false, message = validationResult.Errors.First().ErrorMessage }
+                };
             }
 
             using (var context = new MindWeaveDBEntities1())
             {
-                // Correcto: 'FirstOrDefaultAsync' en un método async.
                 var player = await context.Player.FirstOrDefaultAsync(p => p.email.Equals(loginData.email, StringComparison.OrdinalIgnoreCase));
 
                 if (player == null || !PasswordHasher.verifyPassword(loginData.password, player.password_hash))
                 {
-                    // Correcto: Usando la clave para credenciales incorrectas.
-                    return new OperationResultDto { success = false, message = Resources.Lang.LoginPasswordNotEmpty };
+                    return new LoginResultDto
+                    {
+                        operationResult = new OperationResultDto { success = false, message = Resources.Lang.LoginPasswordNotEmpty }
+                    };
                 }
 
                 if (!player.is_verified)
                 {
-                    return new OperationResultDto { success = false, message = Resources.Lang.LoginAccountNotVerified };
+                    return new LoginResultDto
+                    {
+                        operationResult = new OperationResultDto { success = false, message = Resources.Lang.LoginAccountNotVerified }
+                    };
                 }
 
-                return new OperationResultDto { success = true, message = Resources.Lang.LoginSuccessful };
+                return new LoginResultDto
+                {
+                    operationResult = new OperationResultDto { success = true, message = Resources.Lang.LoginSuccessful },
+                    username = player.username,
+                    avatarPath = player.avatar_path 
+                };
             }
         }
+
     }
 }

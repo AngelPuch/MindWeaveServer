@@ -8,7 +8,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IAuthenticationManager
     {
         [OperationContract]
-        OperationResultDto login(LoginDto loginCredentials);
+        LoginResultDto login(LoginDto loginCredentials);
 
         [OperationContract]
         OperationResultDto register(UserProfileDto userProfile, string password);

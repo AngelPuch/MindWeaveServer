@@ -4,6 +4,7 @@ using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.Utilities.Email;
 using System;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
@@ -58,17 +59,19 @@ namespace MindWeaveServer.Services
             throw new NotImplementedException();
         }
 
-        public OperationResultDto login(LoginDto loginCredentials)
+        public LoginResultDto login(LoginDto loginCredentials)
         {
             try
             {
-                // Llamamos a la lógica y esperamos el resultado
                 return authenticationLogic.loginAsync(loginCredentials).Result;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
-                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new LoginResultDto
+                {
+                    operationResult = new OperationResultDto { success = false, message = Resources.Lang.GenericServerError }
+                };
             }
         }
     }
