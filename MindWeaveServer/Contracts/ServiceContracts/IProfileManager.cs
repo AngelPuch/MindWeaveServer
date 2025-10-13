@@ -24,5 +24,8 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract]
         Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username);
+
+        [OperationContract]
+        Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath);
     }
 }

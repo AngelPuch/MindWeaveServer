@@ -56,5 +56,10 @@ namespace MindWeaveServer.Services
             var profileLogic = new ProfileLogic();
             return await profileLogic.updateProfileAsync(username, updatedProfileData);
         }
+        public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
+        {
+            var profileLogic = new ProfileLogic();
+            return await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
+        }
     }
 }

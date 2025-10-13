@@ -4,6 +4,7 @@ using MindWeaveServer.Contracts.DataContracts; // <-- CORREGIDO: Usamos el names
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.DataAccess;
+using MindWeaveServer.Resources;
 using System;
 using System.Data.Entity;
 using System.Linq;
@@ -114,5 +115,51 @@ namespace MindWeaveServer.BusinessLogic
 
             return result;
         }
+
+        // <summary>
+        /// Actualiza únicamente la ruta del avatar de un jugador en la base de datos.
+        /// Se usa para seleccionar avatares precargados.
+        /// </summary>
+        public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
+        {
+            var result = new OperationResultDto { success = false };
+
+            if (string.IsNullOrWhiteSpace(newAvatarPath))
+            {
+                result.message = Lang.ErrorAvatarPathCannotBeEmpty;
+                return result;
+            }
+
+            try
+            {
+                using (var context = new MindWeaveDBEntities1())
+                {
+                    var playerToUpdate = await context.Player
+                        .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
+
+                    if (playerToUpdate == null)
+                    {
+                        result.message = Lang.ErrorPlayerNotFound;
+                        return result;
+                    }
+
+                    // Actualizamos únicamente el campo del avatar
+                    playerToUpdate.avatar_path = newAvatarPath;
+
+                    await context.SaveChangesAsync();
+
+                    result.success = true;
+                    result.message = Lang.SuccessAvatarUpdated;
+                }
+            }
+            catch (Exception)
+            {
+                result.message = Lang.ErrorAvatarUpdateFailed;
+            }
+
+            return result;
+        }
+
+
     }
 }

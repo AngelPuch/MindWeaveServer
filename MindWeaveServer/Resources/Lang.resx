@@ -117,14 +117,20 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="ErrorAvatarPathCannotBeEmpty" xml:space="preserve">
+    <value>La ruta del avatar no puede estar vacía.</value>
+  </data>
+  <data name="ErrorAvatarUpdateFailed" xml:space="preserve">
+    <value>Ocurrió un error inesperado al actualizar la ruta del avatar.</value>
+  </data>
+  <data name="ErrorPlayerNotFound" xml:space="preserve">
+    <value>Jugador no encontrado.</value>
+  </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>Ocurrió un error inesperado en el servidor.</value>
   </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
     <value>Tu cuenta no ha sido verificada. Revisa tu correo</value>
-  </data>
-  <data name="LoginInvalidCredentials" xml:space="preserve">
-    <value>La contraseña no puede estar vacía.</value>
   </data>
   <data name="LoginPasswordNotEmpty" xml:space="preserve">
     <value>El email o la contraseña son incorrectos.</value>
@@ -138,8 +144,11 @@
   <data name="RegistrationUsernameOrEmailExists" xml:space="preserve">
     <value>El nombre de usuario o el correo electrónico ya están en uso.</value>
   </data>
+  <data name="SuccessAvatarUpdated" xml:space="preserve">
+    <value>Avatar actualizado correctamente.</value>
+  </data>
   <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
-    <value>"Debes tener al menos 13 años para registrarte.</value>
+    <value>Debes tener al menos 13 años para registrarte.</value>
   </data>
   <data name="ValidationDateOfBirthRealistic" xml:space="preserve">
     <value>La fecha de nacimiento no parece realista.</value>

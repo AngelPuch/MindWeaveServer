@@ -61,6 +61,33 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a La ruta del avatar no puede estar vacía..
+        /// </summary>
+        public static string ErrorAvatarPathCannotBeEmpty {
+            get {
+                return ResourceManager.GetString("ErrorAvatarPathCannotBeEmpty", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Ocurrió un error inesperado al actualizar la ruta del avatar..
+        /// </summary>
+        public static string ErrorAvatarUpdateFailed {
+            get {
+                return ResourceManager.GetString("ErrorAvatarUpdateFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Jugador no encontrado..
+        /// </summary>
+        public static string ErrorPlayerNotFound {
+            get {
+                return ResourceManager.GetString("ErrorPlayerNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Ocurrió un error inesperado en el servidor..
         /// </summary>
         public static string GenericServerError {
@@ -75,15 +102,6 @@ namespace MindWeaveServer.Resources {
         public static string LoginAccountNotVerified {
             get {
                 return ResourceManager.GetString("LoginAccountNotVerified", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Busca una cadena traducida similar a La contraseña no puede estar vacía..
-        /// </summary>
-        public static string LoginInvalidCredentials {
-            get {
-                return ResourceManager.GetString("LoginInvalidCredentials", resourceCulture);
             }
         }
         
@@ -124,7 +142,16 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
-        ///   Busca una cadena traducida similar a &quot;Debes tener al menos 13 años para registrarte..
+        ///   Busca una cadena traducida similar a Avatar actualizado correctamente..
+        /// </summary>
+        public static string SuccessAvatarUpdated {
+            get {
+                return ResourceManager.GetString("SuccessAvatarUpdated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Debes tener al menos 13 años para registrarte..
         /// </summary>
         public static string ValidationDateOfBirthMinimumAge {
             get {

@@ -117,14 +117,20 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="ErrorAvatarPathCannotBeEmpty" xml:space="preserve">
+    <value>Avatar path cannot be empty.</value>
+  </data>
+  <data name="ErrorAvatarUpdateFailed" xml:space="preserve">
+    <value>An unexpected error occurred while updating the avatar path.</value>
+  </data>
+  <data name="ErrorPlayerNotFound" xml:space="preserve">
+    <value>Player not found</value>
+  </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>An unexpected server error occurred.</value>
   </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
     <value>Your account has not been verified. Please check your email.</value>
-  </data>
-  <data name="LoginInvalidCredentials" xml:space="preserve">
-    <value>Password cannot be empty.</value>
   </data>
   <data name="LoginPasswordNotEmpty" xml:space="preserve">
     <value>Incorrect email or password.</value>
@@ -137,6 +143,9 @@
   </data>
   <data name="RegistrationUsernameOrEmailExists" xml:space="preserve">
     <value>Username or email is already taken</value>
+  </data>
+  <data name="SuccessAvatarUpdated" xml:space="preserve">
+    <value>Avatar updated successfully.</value>
   </data>
   <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
     <value>You must be at least 13 years old to register.</value>
