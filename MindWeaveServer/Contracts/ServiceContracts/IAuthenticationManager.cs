@@ -1,6 +1,7 @@
 ﻿using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using System.ServiceModel;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
@@ -8,10 +9,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IAuthenticationManager
     {
         [OperationContract]
-        LoginResultDto login(LoginDto loginCredentials);
+        Task<LoginResultDto> login(LoginDto loginCredentials); // <--- Cambiado a Task<T>
 
         [OperationContract]
-        OperationResultDto register(UserProfileDto userProfile, string password);
+        Task<OperationResultDto> register(UserProfileDto userProfile, string password);
 
         [OperationContract]
         OperationResultDto verifyAccount(string email, string code);

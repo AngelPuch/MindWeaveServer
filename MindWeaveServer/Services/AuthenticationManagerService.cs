@@ -16,16 +16,15 @@ namespace MindWeaveServer.Services
         {
             authenticationLogic = new AuthenticationLogic(new SmtpEmailService());
         }
-        
-        public OperationResultDto register(UserProfileDto userProfile, string password)
+
+        public async Task<OperationResultDto> register(UserProfileDto userProfile, string password)
         {
             try
             {
-                return authenticationLogic.registerPlayerAsync(userProfile, password).Result;
+                return await authenticationLogic.registerPlayerAsync(userProfile, password);
             }
             catch (Exception ex)
             {
-                // TO-DO: Implementar un sistema de logging real
                 Console.WriteLine(ex.ToString());
                 return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
@@ -59,11 +58,11 @@ namespace MindWeaveServer.Services
             throw new NotImplementedException();
         }
 
-        public LoginResultDto login(LoginDto loginCredentials)
+        public async Task<LoginResultDto> login(LoginDto loginCredentials)
         {
             try
             {
-                return authenticationLogic.loginAsync(loginCredentials).Result;
+                return await authenticationLogic.loginAsync(loginCredentials);
             }
             catch (Exception ex)
             {
@@ -74,5 +73,6 @@ namespace MindWeaveServer.Services
                 };
             }
         }
+
     }
 }
