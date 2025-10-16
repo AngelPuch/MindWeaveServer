@@ -43,6 +43,19 @@ namespace MindWeaveServer.Services
             }
         }
 
+        public OperationResultDto resendVerificationCode(string email)
+        {
+            try
+            {
+                return authenticationLogic.resendVerificationCodeAsync(email).Result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+            }
+        }
+
         public OperationResultDto sendPasswordRecoveryCode(string email)
         {
             throw new NotImplementedException();

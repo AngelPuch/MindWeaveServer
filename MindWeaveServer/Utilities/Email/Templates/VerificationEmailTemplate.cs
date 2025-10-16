@@ -21,7 +21,7 @@ namespace MindWeaveServer.Utilities.Email.Templates
                         <div style='background-color: #f2f2f2; border-radius: 8px; padding: 10px 20px; margin: 20px auto; display: inline-block;'>
                             <h1 style='font-size: 32px; letter-spacing: 4px; margin: 0;'>{verificationCode}</h1>
                         </div>
-                        <p>This code will expire in 24 hours.</p>
+                        <p>This code will expire in 5 minutes.</p>
                         <hr style='border: none; border-top: 1px solid #eee;' />
                         <p style='font-size: 12px; color: #888;'>If you did not create this account, you can safely ignore this email.</p>
                     </div>

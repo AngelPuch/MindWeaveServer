@@ -9,13 +9,16 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IAuthenticationManager
     {
         [OperationContract]
-        Task<LoginResultDto> login(LoginDto loginCredentials); // <--- Cambiado a Task<T>
+        Task<LoginResultDto> login(LoginDto loginCredentials);
 
         [OperationContract]
         Task<OperationResultDto> register(UserProfileDto userProfile, string password);
 
         [OperationContract]
         OperationResultDto verifyAccount(string email, string code);
+
+        [OperationContract]
+        OperationResultDto resendVerificationCode(string email);
 
         [OperationContract]
         OperationResultDto sendPasswordRecoveryCode(string email);

@@ -67,7 +67,7 @@ namespace MindWeaveServer.BusinessLogic
                     gender_id = userProfile.genderId,
                     is_verified = false,
                     verification_code = verificationCode,
-                    code_expiry_date = DateTime.UtcNow.AddMinutes(15)
+                    code_expiry_date = DateTime.UtcNow.AddMinutes(5)
                 };
 
                 context.Player.Add(newPlayer);
@@ -168,6 +168,45 @@ namespace MindWeaveServer.BusinessLogic
                     username = player.username,
                     avatarPath = player.avatar_path 
                 };
+            }
+        }
+
+        // ... al final de la clase AuthenticationLogic
+
+        public async Task<OperationResultDto> resendVerificationCodeAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return new OperationResultDto { success = false, message = Resources.Lang.ValidationEmailRequired };
+            }
+
+            using (var context = new MindWeaveDBEntities1())
+            {
+                var playerToVerify = await context.Player.FirstOrDefaultAsync(p => p.email == email);
+
+                if (playerToVerify == null)
+                {
+                    // Por seguridad, no revelamos si el email existe o no.
+                    return new OperationResultDto { success = false, message = Resources.Lang.VerificationEmailNotFound };
+                }
+
+                if (playerToVerify.is_verified)
+                {
+                    return new OperationResultDto { success = false, message = Resources.Lang.VerificationAccountAlreadyVerified };
+                }
+
+                // Generar y asignar nuevo código y expiración
+                string newVerificationCode = random.Next(100000, 999999).ToString("D6");
+                playerToVerify.verification_code = newVerificationCode;
+                playerToVerify.code_expiry_date = DateTime.UtcNow.AddMinutes(5);
+
+                await context.SaveChangesAsync();
+
+                // Enviar el nuevo correo
+                var emailTemplate = new VerificationEmailTemplate(playerToVerify.username, newVerificationCode);
+                await emailService.sendEmailAsync(playerToVerify.email, playerToVerify.username, emailTemplate);
+
+                return new OperationResultDto { success = true, message = Resources.Lang.RegistrationSuccessful }; // Puedes crear una clave de recurso nueva si lo prefieres.
             }
         }
 
