@@ -48,9 +48,31 @@ namespace MindWeaveServer.BusinessLogic
 
             using (var context = new MindWeaveDBEntities1())
             {
-                if (await context.Player.AnyAsync(p => p.username == userProfile.username || p.email == userProfile.email))
+                var existingPlayer = await context.Player.FirstOrDefaultAsync(p => p.username == userProfile.username || p.email == userProfile.email);
+                if (existingPlayer != null)
                 {
-                    return new OperationResultDto { success = false, message = Resources.Lang.RegistrationUsernameOrEmailExists };
+                    if (existingPlayer.is_verified)
+                    {
+                        return new OperationResultDto { success = false, message = Resources.Lang.RegistrationUsernameOrEmailExists };
+                    }
+
+                    // Si el jugador existe pero no está verificado, actualizamos sus datos y reenviamos el código.
+                    string newVerificationCode = random.Next(100000, 999999).ToString("D6");
+
+                    existingPlayer.password_hash = PasswordHasher.hashPassword(password);
+                    existingPlayer.first_name = userProfile.firstName.Trim();
+                    existingPlayer.last_name = userProfile.lastName?.Trim();
+                    existingPlayer.date_of_birth = userProfile.dateOfBirth;
+                    existingPlayer.gender_id = userProfile.genderId;
+                    existingPlayer.verification_code = newVerificationCode;
+                    existingPlayer.code_expiry_date = DateTime.UtcNow.AddMinutes(5);
+
+                    await context.SaveChangesAsync();
+
+                    var emailTemplateRe = new VerificationEmailTemplate(existingPlayer.username, newVerificationCode);
+                    await emailService.sendEmailAsync(existingPlayer.email, existingPlayer.username, emailTemplateRe);
+
+                    return new OperationResultDto { success = true, message = Resources.Lang.RegistrationSuccessful };
                 }
 
                 string verificationCode = random.Next(100000, 999999).ToString("D6");
