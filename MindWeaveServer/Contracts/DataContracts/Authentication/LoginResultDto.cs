@@ -13,5 +13,8 @@ namespace MindWeaveServer.Contracts.DataContracts.Authentication
 
         [DataMember]
         public string avatarPath { get; set; }
+
+        [DataMember]
+        public string resultCode { get; set; }
     }
 }

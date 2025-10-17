@@ -180,7 +180,8 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     return new LoginResultDto
                     {
-                        operationResult = new OperationResultDto { success = false, message = Resources.Lang.LoginAccountNotVerified }
+                        operationResult = new OperationResultDto { success = false, message = Resources.Lang.LoginAccountNotVerified },
+                        resultCode = "ACCOUNT_NOT_VERIFIED"
                     };
                 }
 
