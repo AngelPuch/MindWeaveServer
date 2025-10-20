@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Utilities
 {
-    public class PasswordHasher
+    internal class PasswordHasher
     {
         public static string hashPassword(string password)
         {

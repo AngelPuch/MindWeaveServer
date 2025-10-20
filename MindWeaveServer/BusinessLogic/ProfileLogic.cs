@@ -1,6 +1,4 @@
-﻿// MindWeaveServer/BusinessLogic/ProfileLogic.cs
-
-using MindWeaveServer.Contracts.DataContracts; // <-- CORREGIDO: Usamos el namespace correcto
+﻿using MindWeaveServer.Contracts.DataContracts; // <-- CORREGIDO: Usamos el namespace correcto
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.DataAccess;

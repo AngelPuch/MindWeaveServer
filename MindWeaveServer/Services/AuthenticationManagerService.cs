@@ -2,7 +2,11 @@
 using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.DataAccess;
+using MindWeaveServer.DataAccess.Repositories;
+using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Email;
+using MindWeaveServer.Utilities.Validators;
 using System;
 using System.Threading.Tasks;
 
@@ -14,7 +18,40 @@ namespace MindWeaveServer.Services
 
         public AuthenticationManagerService()
         {
-            authenticationLogic = new AuthenticationLogic(new SmtpEmailService());
+            var emailService = new SmtpEmailService();
+            var passwordService = new PasswordService();
+            var passwordPolicyValidator = new PasswordPolicyValidator();
+            var verificationCodeService = new VerificationCodeService();
+            var userProfileValidator = new UserProfileDtoValidator();
+            var loginValidator = new LoginDtoValidator();
+            var dbContext = new MindWeaveDBEntities1();
+            var playerRepository = new PlayerRepository(dbContext);
+
+            authenticationLogic = new AuthenticationLogic(
+                playerRepository,
+                emailService,
+                passwordService,
+                passwordPolicyValidator,
+                verificationCodeService,
+                userProfileValidator,
+                loginValidator
+            );
+        }
+
+        public async Task<LoginResultDto> login(LoginDto loginCredentials)
+        {
+            try
+            {
+                return await authenticationLogic.loginAsync(loginCredentials);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+                return new LoginResultDto
+                {
+                    operationResult = new OperationResultDto { success = false, message = Resources.Lang.GenericServerError }
+                };
+            }
         }
 
         public async Task<OperationResultDto> register(UserProfileDto userProfile, string password)
@@ -30,11 +67,11 @@ namespace MindWeaveServer.Services
             }
         }
 
-        public OperationResultDto verifyAccount(string email, string code)
+        public async Task<OperationResultDto> verifyAccount(string email, string code)
         {
             try
             {
-                return authenticationLogic.verifyAccount(email, code);
+                return await authenticationLogic.verifyAccountAsync(email, code);
             }
             catch (Exception ex)
             {
@@ -43,11 +80,11 @@ namespace MindWeaveServer.Services
             }
         }
 
-        public OperationResultDto resendVerificationCode(string email)
+        public async Task<OperationResultDto> resendVerificationCode(string email)
         {
             try
             {
-                return authenticationLogic.resendVerificationCodeAsync(email).Result;
+                return await authenticationLogic.resendVerificationCodeAsync(email);
             }
             catch (Exception ex)
             {
@@ -71,21 +108,6 @@ namespace MindWeaveServer.Services
             throw new NotImplementedException();
         }
 
-        public async Task<LoginResultDto> login(LoginDto loginCredentials)
-        {
-            try
-            {
-                return await authenticationLogic.loginAsync(loginCredentials);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-                return new LoginResultDto
-                {
-                    operationResult = new OperationResultDto { success = false, message = Resources.Lang.GenericServerError }
-                };
-            }
-        }
 
     }
 }

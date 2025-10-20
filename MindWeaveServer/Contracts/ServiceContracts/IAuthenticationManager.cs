@@ -15,10 +15,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         Task<OperationResultDto> register(UserProfileDto userProfile, string password);
 
         [OperationContract]
-        OperationResultDto verifyAccount(string email, string code);
+        Task<OperationResultDto> verifyAccount(string email, string code);
 
         [OperationContract]
-        OperationResultDto resendVerificationCode(string email);
+        Task<OperationResultDto> resendVerificationCode(string email);
 
         [OperationContract]
         OperationResultDto sendPasswordRecoveryCode(string email);

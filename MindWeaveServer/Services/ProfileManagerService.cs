@@ -31,7 +31,7 @@ namespace MindWeaveServer.Services
             throw new NotImplementedException();
         }
 
-       
+
 
         public OperationResultDto changePassword(string username, string currentPassword, string newPassword)
         {
