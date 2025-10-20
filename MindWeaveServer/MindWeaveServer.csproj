@@ -98,6 +98,7 @@
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\Mappers\ProfileMapper.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
+    <Compile Include="BusinessLogic\SocialLogic.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
@@ -108,6 +109,7 @@
     <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbyStateDto.cs" />
+    <Compile Include="Contracts\DataContracts\Social\PlayerSearchResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\AchievementDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\MatchHistoryDto.cs" />
     <Compile Include="Contracts\DataContracts\Shared\OperationResultDto.cs" />
@@ -120,6 +122,7 @@
     <Compile Include="Contracts\ServiceContracts\IProfileManager.cs" />
     <Compile Include="Contracts\ServiceContracts\ISocialManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IStatsManager.cs" />
+    <Compile Include="DataAccess\Abstractions\IFriendshipRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IGenderRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IPlayerRepository.cs" />
     <Compile Include="DataAccess\Achievements.cs">
@@ -176,6 +179,7 @@
     <Compile Include="DataAccess\Puzzles.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
+    <Compile Include="DataAccess\Repositories\FriendshipRepository.cs" />
     <Compile Include="DataAccess\Repositories\GenderRepository.cs" />
     <Compile Include="DataAccess\Repositories\PlayerRepository.cs" />
     <Compile Include="DataAccess\RequestStatus.cs">
@@ -191,12 +195,14 @@
     <Compile Include="Service1.cs" />
     <Compile Include="Services\AuthenticationManagerService.cs" />
     <Compile Include="Services\ProfileManagerService.cs" />
+    <Compile Include="Services\SocialManagerService.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordPolicyValidator.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordService.cs" />
     <Compile Include="Utilities\Abstractions\IVerificationCodeService.cs" />
     <Compile Include="Utilities\Email\Templates\VerificationEmailTemplate.cs" />
     <Compile Include="Utilities\Email\IEmailService.cs" />
     <Compile Include="Utilities\Email\IEmailTemplate.cs" />
+    <Compile Include="Utilities\FriendshipStatusConstants.cs" />
     <Compile Include="Utilities\PasswordHasher.cs" />
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />
     <Compile Include="Utilities\PasswordService.cs" />
