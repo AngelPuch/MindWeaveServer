@@ -30,6 +30,7 @@ namespace MindWeaveServer.DataAccess
         public int puzzle_id { get; set; }
         public Nullable<int> difficulty_id { get; set; }
         public string lobby_code { get; set; }
+        public int host_player_id { get; set; }
     
         public virtual DifficultyLevels DifficultyLevels { get; set; }
         public virtual MatchStatus MatchStatus { get; set; }
