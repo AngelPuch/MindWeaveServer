@@ -18,136 +18,164 @@ namespace MindWeaveServer.BusinessLogic
     public class MatchmakingLogic
     {
         private readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies;
-        private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
-        private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
-        private const int MAX_PLAYERS_PER_LOBBY = 4; // Límite de jugadores
+    private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
+    private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
+    private const int MAX_PLAYERS_PER_LOBBY = 4;
 
-        public MatchmakingLogic(
-            ConcurrentDictionary<string, LobbyStateDto> lobbies,
-            ConcurrentDictionary<string, IMatchmakingCallback> callbacks)
+    public MatchmakingLogic(
+        ConcurrentDictionary<string, LobbyStateDto> lobbies,
+        ConcurrentDictionary<string, IMatchmakingCallback> callbacks)
+    {
+        this.activeLobbies = lobbies;
+        this.userCallbacks = callbacks;
+    }
+
+    public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
+    {
+        string currentLobbyCode = null;
+        Matches newMatch = null;
+        LobbyStateDto initialState = null;
+        bool addedToMemory = false;
+        int attempts = 0;
+
+        // *** CAMBIO: El DbContext AHORA es local a esta llamada, seguro para PerSession/PerCall ***
+        using (var context = new MindWeaveDBEntities1())
         {
-            this.activeLobbies = lobbies;
-            this.userCallbacks = callbacks;
-        }
-
-        public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
-        {
-            string currentLobbyCode = null;
-            Matches newMatch = null;
-            LobbyStateDto initialState = null;
-            bool addedToMemory = false;
-            int attempts = 0;
-
-            // **PUNTO DE REVISIÓN 1: Contexto de Base de Datos**
-            // ¿Es seguro crear un nuevo DbContext aquí? Si el servicio WCF es Singleton,
-            // podría ser mejor inyectar una *factoría* de DbContext o usar un contexto por operación.
-            // Por ahora, asumimos que está bien, pero es algo a considerar.
-            using (var context = new MindWeaveDBEntities1())
+            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Getting host player {hostUsername}...");
+            var hostPlayer = await context.Player.AsNoTracking().FirstOrDefaultAsync(p => p.username == hostUsername);
+            if (hostPlayer == null)
             {
-                // **PUNTO DE REVISIÓN 2: Obtener Host Player**
-                // Correcto: Busca al jugador por nombre de usuario.
-                var hostPlayer = await context.Player.AsNoTracking().FirstOrDefaultAsync(p => p.username == hostUsername);
-                if (hostPlayer == null)
+                Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Host player {hostUsername} not found.");
+                return new LobbyCreationResultDto { success = false, message = "Host player not found." }; // TODO: Lang
+            }
+            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Host player found (ID: {hostPlayer.idPlayer}). Generating lobby code...");
+
+            // --- Intento de Generación y Guardado en BD ---
+            while (newMatch == null && attempts < MAX_LOBBY_CODE_GENERATION_ATTEMPTS)
+            {
+                attempts++;
+                currentLobbyCode = LobbyCodeGenerator.generateUniqueCode();
+                Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Attempt {attempts}, generated code: {currentLobbyCode}");
+
+                // Verifica si ya existe en memoria (rápido)
+                if (activeLobbies.ContainsKey(currentLobbyCode))
                 {
-                    return new LobbyCreationResultDto { success = false, message = "Host player not found." }; // TODO: Lang
-                }
-                Console.WriteLine($"Host player found: {hostPlayer.username} (ID: {hostPlayer.idPlayer})"); // Log añadido
-
-                // --- Intento de Generación y Guardado en BD ---
-                while (newMatch == null && attempts < MAX_LOBBY_CODE_GENERATION_ATTEMPTS)    
-                {
-                    attempts++;
-                    currentLobbyCode = LobbyCodeGenerator.generateUniqueCode();
-
-                    if (activeLobbies.ContainsKey(currentLobbyCode))
-                    {
-                        Console.WriteLine($"Lobby code {currentLobbyCode} already exists in memory. Regenerating...");
-                        continue;
-                    }
-
-                    // **PUNTO DE REVISIÓN 3: Creación de la Entidad 'Matches'**
-                    // Verifica que TODAS las columnas NOT NULL y FK tengan valores válidos.
-                    newMatch = new Matches
-                    {
-                        creation_time = DateTime.UtcNow,
-                        // ¿Existe MatchStatus con status_id = 1 en tu BD?
-                        match_status_id = 1,
-                        // ¿Existe Puzzle con puzzle_id = 1 (o el valor de settings.preloadedPuzzleId)?
-                        puzzle_id = settings.preloadedPuzzleId ?? 3,
-                        // ¿Existe DifficultyLevel con difficulty_id = 1 (o el valor de settings.difficultyId)?
-                        difficulty_id = settings.difficultyId > 0 ? settings.difficultyId : 1,
-                        lobby_code = currentLobbyCode,
-                        // ¿Existe la columna 'host_player_id' en la BD y en el modelo EDMX? ¿Es NOT NULL?
-                        host_player_id = hostPlayer.idPlayer
-                        // ¿Hay alguna otra columna NOT NULL en 'Matches' que falte aquí?
-                    };
-
-                    // **Log ANTES de guardar:**
-                    Console.WriteLine($"Attempting to save Match: Code={newMatch.lobby_code}, HostID={newMatch.host_player_id}, StatusID={newMatch.match_status_id}, PuzzleID={newMatch.puzzle_id}, DifficultyID={newMatch.difficulty_id}");
-
-                    context.Matches.Add(newMatch);
-
-                    try
-                    {
-                        // **PUNTO DE REVISIÓN 4: SaveChangesAsync()**
-                        // Aquí es donde ocurre el DbUpdateException.
-                        await context.SaveChangesAsync();
-                        Console.WriteLine($"Match record created in DB with lobby_code: {currentLobbyCode}, ID: {newMatch.matches_id}");
-                    }
-                    // **PUNTO DE REVISIÓN 5: Manejo de Excepciones**
-                    // Este bloque intenta capturar el error específico.
-                    catch (DbUpdateException dbEx)
-                    {
-                        string innerError = dbEx.InnerException?.InnerException?.Message ?? dbEx.InnerException?.Message ?? dbEx.Message;
-                        Console.WriteLine($"!!! DbUpdateException saving match: {innerError}");
-                        Console.WriteLine($"--- Full DbUpdateException Trace: {dbEx.ToString()}");
-
-                        // Manejo específico para violación UNIQUE de lobby_code
-                        if (innerError.Contains("UNIQUE KEY constraint") && (innerError.Contains("lobby_code") || innerError.Contains("UQ__Matches"))) // Ajusta UQ__Matches si tu constraint tiene otro nombre
-                        {
-                            Console.WriteLine($"Lobby code {currentLobbyCode} collision detected in database. Regenerating attempt {attempts}...");
-                            if (newMatch != null) { context.Entry(newMatch).State = EntityState.Detached; }
-                            newMatch = null; // Fuerza reintento
-                        }
-                        else // Otro error de BD (FK, NOT NULL, etc.)
-                        {
-                            // Retorna el mensaje de error interno, es más útil para depurar
-                            return new LobbyCreationResultDto { success = false, message = $"Database error: {innerError}", lobbyCode = null, initialLobbyState = null };
-                        }
-                    }
-                    catch (Exception ex) // Otros errores
-                    {
-                        Console.WriteLine($"!!! Generic Error saving match: {ex.ToString()}");
-                        return new LobbyCreationResultDto { success = false, message = "Failed to save lobby data.", lobbyCode = null, initialLobbyState = null }; // TODO: Lang
-                    }
-                } // Fin while
-
-                if (newMatch == null)
-                {
-                    Console.WriteLine("Failed to generate a unique lobby code after multiple attempts.");
-                    return new LobbyCreationResultDto { success = false, message = "Failed to generate unique lobby code.", lobbyCode = null, initialLobbyState = null }; // TODO: Lang
+                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Code {currentLobbyCode} exists in memory. Retrying...");
+                    continue;
                 }
 
-                // --- Añadir a Memoria (Sin cambios aparentes aquí) ---
-                initialState = new LobbyStateDto { /* ... */ };
-                activeLobbies.AddOrUpdate(newMatch.lobby_code, initialState, (key, existing) => initialState);
+                // Verifica si ya existe en BD (más lento, pero necesario por si el server reinició)
+                // NOTA: Podrías quitar esta verificación si confías en el manejo de UNIQUE constraint
+                bool codeExistsInDb = await context.Matches.AnyAsync(m => m.lobby_code == currentLobbyCode);
+                if (codeExistsInDb)
+                {
+                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Code {currentLobbyCode} exists in DB. Retrying...");
+                    continue; // Intenta generar otro código
+                }
+
+                // Crea la entidad Match
+                newMatch = new Matches
+                {
+                    creation_time = DateTime.UtcNow,
+                    match_status_id = 1, // Asume 1 = 'Waiting'/'Pending'
+                    puzzle_id = settings.preloadedPuzzleId ?? 3, // Default a 3 si es null
+                    difficulty_id = settings.difficultyId > 0 ? settings.difficultyId : 1, // Default a 1 si es 0 o menos
+                    lobby_code = currentLobbyCode,
+                    host_player_id = hostPlayer.idPlayer
+                };
+
+                Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Match entity prepared for DB. Code={newMatch.lobby_code}, HostID={newMatch.host_player_id}, StatusID={newMatch.match_status_id}, PuzzleID={newMatch.puzzle_id}, DifficultyID={newMatch.difficulty_id}");
+                context.Matches.Add(newMatch);
+
+                try
+                {
+                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: BEFORE SaveChangesAsync for {currentLobbyCode}");
+                    await context.SaveChangesAsync();
+                    // Si llegamos aquí, ¡se guardó!
+                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: AFTER SaveChangesAsync for {currentLobbyCode}. Match ID: {newMatch.matches_id}");
+                }
+                catch (DbUpdateException dbEx) // Error al guardar (FK, UNIQUE, etc.)
+                {
+                    string errorDetails = dbEx.InnerException?.InnerException?.Message ?? dbEx.InnerException?.Message ?? dbEx.Message;
+                    Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: DbUpdateException saving match {currentLobbyCode}: {errorDetails}");
+                    Console.WriteLine($"--- Full DbUpdateException Trace: {dbEx.ToString()}"); // Log completo
+
+                    // Si es error de UNIQUE en lobby_code, reintenta
+                    if (errorDetails.Contains("UNIQUE KEY constraint") && (errorDetails.Contains("lobby_code") || errorDetails.Contains("UQ__Matches")))
+                    {
+                        Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Lobby code collision in DB. Detaching entity and retrying...");
+                        if (context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; }
+                        newMatch = null; // Fuerza el reintento del while
+                    }
+                    else // Otro error de BD, no reintentable
+                    {
+                        return new LobbyCreationResultDto { success = false, message = $"Database error: {errorDetails}", lobbyCode = null, initialLobbyState = null }; // Mensaje específico
+                    }
+                }
+                catch (Exception ex) // Otros errores durante el guardado
+                {
+                    Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Generic Exception saving match {currentLobbyCode}: {ex.ToString()}");
+                    return new LobbyCreationResultDto { success = false, message = $"Failed to save lobby data: {ex.Message}", lobbyCode = null, initialLobbyState = null }; // Mensaje simple
+                }
+            } // Fin while
+
+            // Si salimos del while porque se agotaron los intentos
+            if (newMatch == null)
+            {
+                Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Failed to generate and save a unique lobby code after {attempts} attempts.");
+                return new LobbyCreationResultDto { success = false, message = "Failed to generate a unique lobby code.", lobbyCode = null, initialLobbyState = null }; // TODO: Lang
+            }
+
+            // --- Guardado en BD exitoso, ahora añadir a memoria ---
+            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Creating initial LobbyStateDto for {currentLobbyCode}...");
+            initialState = new LobbyStateDto
+            {
+                lobbyId = newMatch.lobby_code,
+                hostUsername = hostUsername,
+                players = new List<string> { hostUsername }, // Inicia solo con el host
+                currentSettingsDto = settings // Guarda las settings iniciales
+            };
+
+            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Adding lobby {currentLobbyCode} to activeLobbies dictionary...");
+            // Intenta añadir al diccionario concurrente
+            if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
+            {
                 addedToMemory = true;
-                Console.WriteLine($"Lobby {newMatch.lobby_code} added to active lobbies memory.");
-
-            } // Fin using context
-
-            if (addedToMemory && initialState != null)
-            {
-                return new LobbyCreationResultDto { /* ... success ... */ };
+                Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Lobby {currentLobbyCode} successfully added to memory.");
             }
             else
             {
-                return new LobbyCreationResultDto { success = false, message = "Failed to add lobby to memory.", lobbyCode = null, initialLobbyState = null }; // TODO: Lang
+                // Esto sería muy raro si la verificación inicial funcionó, pero es una salvaguarda
+                Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Failed to add lobby {currentLobbyCode} to memory dictionary (race condition?).");
+                // Considera eliminar el registro de la BD si falla aquí? O marcarlo como inválido?
+                // Por ahora, retornamos error.
+                return new LobbyCreationResultDto { success = false, message = "Failed to register lobby in memory after DB save.", lobbyCode = null, initialLobbyState = null };
             }
+
+        } // Fin using context
+
+        // --- Retorno final ---
+        if (addedToMemory && initialState != null) // Debería cumplirse si TryAdd tuvo éxito
+        {
+            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Returning SUCCESS result for lobby {currentLobbyCode}.");
+            return new LobbyCreationResultDto
+            {
+                success = true,
+                message = "Lobby created successfully.",
+                lobbyCode = currentLobbyCode,
+                initialLobbyState = initialState
+            };
         }
+        else
+        {
+            // Este caso ahora es menos probable, pero se mantiene por seguridad
+            Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Returning FAILURE (unexpected state) after DB save for {currentLobbyCode}.");
+            return new LobbyCreationResultDto { success = false, message = "Unexpected error after saving lobby.", lobbyCode = null, initialLobbyState = null };
+        }
+    } // Fin
 
 
-        public void joinLobby(string username, string lobbyCode)
+    public void joinLobby(string username, string lobbyCode)
         {
             // Intenta encontrar el lobby en el diccionario de lobbies activos.
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
