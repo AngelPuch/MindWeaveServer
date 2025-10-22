@@ -75,7 +75,7 @@ namespace MindWeaveServer.BusinessLogic
                      .Select(p => new PlayerSearchResultDto // Usar el DTO directamente
                      {
                          username = p.username,
-                         avatarPath = p.avatar_path
+                         avatarPath = p.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
                      })
                     .Take(10) // Aplicar el límite final aquí
                     .ToListAsync();
@@ -240,7 +240,7 @@ namespace MindWeaveServer.BusinessLogic
                     {
                         username = friendEntity.username,
                         isOnline = isOnlinePlaceholder,
-                        avatarPath = friendEntity.avatar_path
+                        avatarPath = friendEntity.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
                     });
                 }
                 else
@@ -271,7 +271,10 @@ namespace MindWeaveServer.BusinessLogic
                 .Select(req => new FriendRequestInfoDto
                 {
                     requesterUsername = req.Player1.username, // Player1 is the requester
-                    requestDate = req.request_date
+                    requestDate = req.request_date,
+                    avatarPath = req.Player1.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+
+
                 }).ToList();
 
             return requestInfoDtos;

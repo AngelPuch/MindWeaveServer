@@ -12,5 +12,7 @@ namespace MindWeaveServer.Contracts.DataContracts
 
         [DataMember]
         public DateTime requestDate { get; set; }
+        [DataMember]
+        public string avatarPath { get; set; }
     }
 }
