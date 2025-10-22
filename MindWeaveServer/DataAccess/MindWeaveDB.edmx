@@ -58,6 +58,7 @@
           <Property Name="match_status_id" Type="int" Nullable="false" />
           <Property Name="puzzle_id" Type="int" Nullable="false" />
           <Property Name="difficulty_id" Type="int" />
+          <Property Name="lobby_code" Type="varchar" MaxLength="6" />
         </EntityType>
         <EntityType Name="MatchExpulsions">
           <Key>
@@ -571,6 +572,7 @@
           <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_Matches" FromRole="Matches" ToRole="MatchExpulsions" />
           <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Matches" FromRole="Matches" ToRole="MatchParticipants" />
           <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Matches" FromRole="Matches" ToRole="MatchReports" />
+          <Property Name="lobby_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
         </EntityType>
         <EntityType Name="MatchExpulsions">
           <Key>
@@ -1058,6 +1060,7 @@
           <EntitySetMapping Name="Matches">
             <EntityTypeMapping TypeName="MindWeaveDBModel.Matches">
               <MappingFragment StoreEntitySet="Matches">
+                <ScalarProperty Name="lobby_code" ColumnName="lobby_code" />
                 <ScalarProperty Name="matches_id" ColumnName="matches_id" />
                 <ScalarProperty Name="creation_time" ColumnName="creation_time" />
                 <ScalarProperty Name="start_time" ColumnName="start_time" />

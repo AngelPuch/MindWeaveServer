@@ -15,6 +15,8 @@ namespace MindWeaveServer.Contracts.DataContracts
         [DataMember]
         public List<string> players { get; set; }
 
+
+
         [DataMember]
         public LobbySettingsDto currentSettingsDto { get; set; }
     }

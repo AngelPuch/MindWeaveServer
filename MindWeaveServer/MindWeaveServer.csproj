@@ -97,11 +97,13 @@
   <ItemGroup>
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\Mappers\ProfileMapper.cs" />
+    <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
     <Compile Include="BusinessLogic\SocialLogic.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
+    <Compile Include="Contracts\DataContracts\Matchmaking\LobbyCreationResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\AvatarUpdateResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\GenderDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\UserProfileEditDto.cs" />
@@ -194,6 +196,7 @@
     </Compile>
     <Compile Include="Service1.cs" />
     <Compile Include="Services\AuthenticationManagerService.cs" />
+    <Compile Include="Services\MatchmakingManagerService.cs" />
     <Compile Include="Services\ProfileManagerService.cs" />
     <Compile Include="Services\SocialManagerService.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordPolicyValidator.cs" />
@@ -203,6 +206,7 @@
     <Compile Include="Utilities\Email\IEmailService.cs" />
     <Compile Include="Utilities\Email\IEmailTemplate.cs" />
     <Compile Include="Utilities\FriendshipStatusConstants.cs" />
+    <Compile Include="Utilities\LobbyCodeGenerator.cs" />
     <Compile Include="Utilities\PasswordHasher.cs" />
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />
     <Compile Include="Utilities\PasswordService.cs" />

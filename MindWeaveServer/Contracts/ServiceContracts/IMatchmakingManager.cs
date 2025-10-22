@@ -1,6 +1,8 @@
 ﻿using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using System.Collections.Generic;
 using System.ServiceModel;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
@@ -8,7 +10,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IMatchmakingManager
     {
         [OperationContract]
-        OperationResultDto createLobby(string hostUsername, LobbySettingsDto settingsDto);
+        Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto);
 
         [OperationContract(IsOneWay = true)]
         void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId);
