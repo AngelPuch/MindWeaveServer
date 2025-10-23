@@ -117,6 +117,30 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="EmailCodeInfoPasswordRecovery" xml:space="preserve">
+    <value>Tu código de recuperación es:</value>
+  </data>
+  <data name="EmailExpiryInfo" xml:space="preserve">
+    <value>Este código expirará en {0} minutos.</value>
+  </data>
+  <data name="EmailGreeting" xml:space="preserve">
+    <value>¡Hola {0}!</value>
+  </data>
+  <data name="EmailIgnoreInfo" xml:space="preserve">
+    <value>Si no solicitaste esto, puedes ignorar este correo de forma segura.</value>
+  </data>
+  <data name="EmailInstructionPasswordRecovery" xml:space="preserve">
+    <value>Solicitaste restablecer tu contraseña para Mind Weave.</value>
+  </data>
+  <data name="EmailSubjectPasswordRecovery" xml:space="preserve">
+    <value>Recuperación de Contraseña - Mind Weave</value>
+  </data>
+  <data name="ErrorAccountNotFound" xml:space="preserve">
+    <value>No se encontró una cuenta asociada a esos datos.</value>
+  </data>
+  <data name="ErrorAllFieldsRequired" xml:space="preserve">
+    <value>Todos los campos son requeridos.</value>
+  </data>
   <data name="ErrorAvatarPathCannotBeEmpty" xml:space="preserve">
     <value>La ruta del avatar no puede estar vacía.</value>
   </data>
@@ -128,6 +152,12 @@
   </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>Ocurrió un error inesperado en el servidor.</value>
+  </data>
+  <data name="InfoPasswordResetSuccess" xml:space="preserve">
+    <value>Tu contraseña ha sido restablecida correctamente. Ya puedes iniciar sesión.</value>
+  </data>
+  <data name="InfoRecoveryCodeSent" xml:space="preserve">
+    <value>Se ha enviado un código de recuperación a tu correo electrónico.</value>
   </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
     <value>Tu cuenta no ha sido verificada. Revisa tu correo</value>

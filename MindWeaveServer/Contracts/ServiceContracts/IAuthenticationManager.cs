@@ -21,10 +21,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         Task<OperationResultDto> resendVerificationCode(string email);
 
         [OperationContract]
-        OperationResultDto sendPasswordRecoveryCode(string email);
+        Task<OperationResultDto> sendPasswordRecoveryCodeAsync(string email);
 
         [OperationContract]
-        OperationResultDto resetPasswordWithCode(string email, string code, string newPassword);
+        Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword);
 
         [OperationContract(IsOneWay = true)]
         void logOut(string username);

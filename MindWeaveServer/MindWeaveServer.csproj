@@ -202,6 +202,7 @@
     <Compile Include="Utilities\Abstractions\IPasswordPolicyValidator.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordService.cs" />
     <Compile Include="Utilities\Abstractions\IVerificationCodeService.cs" />
+    <Compile Include="Utilities\Email\Templates\PasswordRecoveryEmailTemplate.cs" />
     <Compile Include="Utilities\Email\Templates\VerificationEmailTemplate.cs" />
     <Compile Include="Utilities\Email\IEmailService.cs" />
     <Compile Include="Utilities\Email\IEmailTemplate.cs" />

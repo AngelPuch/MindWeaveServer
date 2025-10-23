@@ -117,6 +117,30 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="EmailCodeInfoPasswordRecovery" xml:space="preserve">
+    <value>Your recovery code is:</value>
+  </data>
+  <data name="EmailExpiryInfo" xml:space="preserve">
+    <value>This code will expire in {0} minutes.</value>
+  </data>
+  <data name="EmailGreeting" xml:space="preserve">
+    <value>Hello {0}!</value>
+  </data>
+  <data name="EmailIgnoreInfo" xml:space="preserve">
+    <value>If you didn't request this, you can safely ignore this email.</value>
+  </data>
+  <data name="EmailInstructionPasswordRecovery" xml:space="preserve">
+    <value>You requested a password reset for Mind Weave.</value>
+  </data>
+  <data name="EmailSubjectPasswordRecovery" xml:space="preserve">
+    <value>Password Recovery - Mind Weave</value>
+  </data>
+  <data name="ErrorAccountNotFound" xml:space="preserve">
+    <value>No account found associated with that data.</value>
+  </data>
+  <data name="ErrorAllFieldsRequired" xml:space="preserve">
+    <value>All fields are required.</value>
+  </data>
   <data name="ErrorAvatarPathCannotBeEmpty" xml:space="preserve">
     <value>Avatar path cannot be empty.</value>
   </data>
@@ -128,6 +152,12 @@
   </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>An unexpected server error occurred.</value>
+  </data>
+  <data name="InfoPasswordResetSuccess" xml:space="preserve">
+    <value>Your password has been reset successfully. You can now log in.</value>
+  </data>
+  <data name="InfoRecoveryCodeSent" xml:space="preserve">
+    <value>A recovery code has been sent to your email address.</value>
   </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
     <value>Your account has not been verified. Please check your email.</value>
@@ -214,7 +244,7 @@
     <value>No pending verification found for this email.</value>
   </data>
   <data name="VerificationInvalidOrExpiredCode" xml:space="preserve">
-    <value>VerificationInvalidOrExpiredCode</value>
+    <value>Invalid or expired verification code.</value>
   </data>
   <data name="VerificationSuccessful" xml:space="preserve">
     <value>Account verified successfully. You can now log in.</value>

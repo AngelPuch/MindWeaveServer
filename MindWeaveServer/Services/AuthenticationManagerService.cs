@@ -93,14 +93,31 @@ namespace MindWeaveServer.Services
             }
         }
 
-        public OperationResultDto sendPasswordRecoveryCode(string email)
+        public async Task<OperationResultDto> sendPasswordRecoveryCodeAsync(string email)
         {
-            throw new NotImplementedException();
+            try
+            {
+                return await authenticationLogic.sendPasswordRecoveryCodeAsync(email);
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Service Error - SendPasswordRecovery]: {ex.ToString()}");
+                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+            }
         }
 
-        public OperationResultDto resetPasswordWithCode(string email, string code, string newPassword)
+        public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
         {
-            throw new NotImplementedException();
+            try
+            {
+                return await authenticationLogic.resetPasswordWithCodeAsync(email, code, newPassword);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Service Error - ResetPassword]: {ex.ToString()}");
+                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+            }
         }
 
         public void logOut(string username)

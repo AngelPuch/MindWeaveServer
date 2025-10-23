@@ -61,6 +61,78 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Tu código de recuperación es:.
+        /// </summary>
+        public static string EmailCodeInfoPasswordRecovery {
+            get {
+                return ResourceManager.GetString("EmailCodeInfoPasswordRecovery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Este código expirará en {0} minutos..
+        /// </summary>
+        public static string EmailExpiryInfo {
+            get {
+                return ResourceManager.GetString("EmailExpiryInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a ¡Hola {0}!.
+        /// </summary>
+        public static string EmailGreeting {
+            get {
+                return ResourceManager.GetString("EmailGreeting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Si no solicitaste esto, puedes ignorar este correo de forma segura..
+        /// </summary>
+        public static string EmailIgnoreInfo {
+            get {
+                return ResourceManager.GetString("EmailIgnoreInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Solicitaste restablecer tu contraseña para Mind Weave..
+        /// </summary>
+        public static string EmailInstructionPasswordRecovery {
+            get {
+                return ResourceManager.GetString("EmailInstructionPasswordRecovery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Recuperación de Contraseña - Mind Weave.
+        /// </summary>
+        public static string EmailSubjectPasswordRecovery {
+            get {
+                return ResourceManager.GetString("EmailSubjectPasswordRecovery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No se encontró una cuenta asociada a esos datos..
+        /// </summary>
+        public static string ErrorAccountNotFound {
+            get {
+                return ResourceManager.GetString("ErrorAccountNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Todos los campos son requeridos..
+        /// </summary>
+        public static string ErrorAllFieldsRequired {
+            get {
+                return ResourceManager.GetString("ErrorAllFieldsRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a La ruta del avatar no puede estar vacía..
         /// </summary>
         public static string ErrorAvatarPathCannotBeEmpty {
@@ -93,6 +165,24 @@ namespace MindWeaveServer.Resources {
         public static string GenericServerError {
             get {
                 return ResourceManager.GetString("GenericServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Tu contraseña ha sido restablecida correctamente. Ya puedes iniciar sesión..
+        /// </summary>
+        public static string InfoPasswordResetSuccess {
+            get {
+                return ResourceManager.GetString("InfoPasswordResetSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Se ha enviado un código de recuperación a tu correo electrónico..
+        /// </summary>
+        public static string InfoRecoveryCodeSent {
+            get {
+                return ResourceManager.GetString("InfoRecoveryCodeSent", resourceCulture);
             }
         }
         

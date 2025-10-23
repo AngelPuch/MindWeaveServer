@@ -228,6 +228,90 @@ namespace MindWeaveServer.BusinessLogic
 
         }
 
+        public async Task<OperationResultDto> sendPasswordRecoveryCodeAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return new OperationResultDto { success = false, message = Lang.ValidationEmailRequired };
+            }
+
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            if (player == null)
+            {
+                return new OperationResultDto { success = false, message = Lang.ErrorAccountNotFound };
+            }
+
+            string recoveryCode = verificationCodeService.generateVerificationCode();
+            DateTime expiryTime = verificationCodeService.getVerificationExpiryTime();
+
+            player.verification_code = recoveryCode;
+            player.code_expiry_date = expiryTime;
+
+            try
+            {
+                await playerRepository.saveChangesAsync();
+                var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, recoveryCode);
+                await emailService.sendEmailAsync(player.email, player.username, emailTemplate);
+                return new OperationResultDto { success = true, message = Lang.InfoRecoveryCodeSent };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending recovery code for {email}: {ex.Message}");
+                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+            }
+        }
+
+        public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(newPassword))
+            {
+                return new OperationResultDto { success = false, message = Lang.ErrorAllFieldsRequired };
+            }
+
+            if (code.Length != 6 || !code.All(char.IsDigit))
+            {
+                return new OperationResultDto { success = false, message = Lang.VerificationCodeInvalidFormat };
+            }
+
+            var passwordValidation = passwordPolicyValidator.validate(newPassword);
+            if (!passwordValidation.success)
+            {
+                return passwordValidation;
+            }
+
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            if (player == null)
+            {
+                return new OperationResultDto { success = false, message = Lang.ErrorAccountNotFound };
+            }
+
+            if (player.verification_code != code || player.code_expiry_date < DateTime.UtcNow)
+            {
+                return new OperationResultDto { success = false, message = Lang.VerificationInvalidOrExpiredCode };
+            }
+
+            player.password_hash = passwordService.hashPassword(newPassword);
+            player.verification_code = null;
+            player.code_expiry_date = null;
+            if (!player.is_verified)
+            {
+                player.is_verified = true;
+            }
+
+            try
+            {
+                await playerRepository.saveChangesAsync();
+                return new OperationResultDto { success = true, message = Lang.InfoPasswordResetSuccess };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error resetting password for {email}: {ex.Message}"); // Log simple
+                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+            }
+        }
+
         private async Task sendVerificationEmailAsync(string email, string username, string code)
         {
             var emailTemplate = new VerificationEmailTemplate(username, code);
