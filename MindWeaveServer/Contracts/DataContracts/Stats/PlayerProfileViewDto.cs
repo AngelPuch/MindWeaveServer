@@ -1,6 +1,4 @@
-﻿// MindWeaveServer/Contracts/DataContracts/Stats/PlayerProfileViewDto.cs
-
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace MindWeaveServer.Contracts.DataContracts.Stats

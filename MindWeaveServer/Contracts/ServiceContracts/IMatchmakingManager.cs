@@ -27,7 +27,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId);
 
-        [OperationContract(IsOneWay = true)] // IsOneWay es adecuado aquí
+        [OperationContract(IsOneWay = true)] 
         void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId);
 
     }
@@ -35,9 +35,6 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     [ServiceContract]
     public interface IMatchmakingCallback
     {
-        [OperationContract(IsOneWay = true)]
-        void receiveLobbyInvite(string fromUsername, string lobbyId);
-
         [OperationContract(IsOneWay = true)]
         void updateLobbyState(LobbyStateDto lobbyStateDto);
 

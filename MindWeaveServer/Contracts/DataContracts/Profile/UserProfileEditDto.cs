@@ -1,12 +1,10 @@
-﻿// MindWeaveServer/Contracts/DataContracts/Profile/UserProfileForEditDto.cs
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace MindWeaveServer.Contracts.DataContracts.Profile
 {
-    // DTO principal para el formulario de edición
+    
     [DataContract]
     public class UserProfileForEditDto
     {

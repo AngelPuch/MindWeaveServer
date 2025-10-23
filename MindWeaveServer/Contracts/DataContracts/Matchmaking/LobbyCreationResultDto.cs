@@ -1,15 +1,14 @@
-﻿// MindWeaveServer/Contracts/DataContracts/Matchmaking/LobbyCreationResultDto.cs
-using System.Runtime.Serialization;
+﻿using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts.Matchmaking // O donde prefieras ponerlo
+namespace MindWeaveServer.Contracts.DataContracts.Matchmaking 
 {
     [DataContract]
-    public class LobbyCreationResultDto : OperationResultDto // Hereda de OperationResultDto
+    public class LobbyCreationResultDto : OperationResultDto 
     {
         [DataMember]
-        public string lobbyCode { get; set; } // El código generado
+        public string lobbyCode { get; set; } 
 
         [DataMember]
-        public LobbyStateDto initialLobbyState { get; set; } // El estado inicial del lobby
+        public LobbyStateDto initialLobbyState { get; set; } 
     }
 }

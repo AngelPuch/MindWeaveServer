@@ -1,11 +1,11 @@
 ﻿using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts // O MindWeaveServer.Contracts.DataContracts.Puzzle
+namespace MindWeaveServer.Contracts.DataContracts 
 {
     [DataContract]
-    public class UploadResultDto : OperationResultDto // Hereda de OperationResultDto
+    public class UploadResultDto : OperationResultDto 
     {
         [DataMember]
-        public int newPuzzleId { get; set; } // ID del puzzle recién creado
+        public int newPuzzleId { get; set; } 
     }
 }

@@ -1,16 +1,17 @@
-﻿// MindWeaveServer/BusinessLogic/MatchmakingLogic.cs
-using MindWeaveServer.Contracts.DataContracts;
+﻿using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
-using MindWeaveServer.Contracts.ServiceContracts; // Para IMatchmakingCallback
+using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
-using MindWeaveServer.Utilities; // Para LobbyCodeGenerator
+using MindWeaveServer.Resources;
+using MindWeaveServer.Services;
+using MindWeaveServer.Utilities; 
 using System;
-using System.Collections.Concurrent; // Para ConcurrentDictionary
+using System.Collections.Concurrent; 
 using System.Collections.Generic;
 using System.Data.Entity;
-using System.Data.Entity.Infrastructure; // Para DbUpdateException
+using System.Data.Entity.Infrastructure; 
 using System.Linq;
-using System.ServiceModel; // Para CommunicationState
+using System.ServiceModel; 
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic
@@ -38,7 +39,6 @@ namespace MindWeaveServer.BusinessLogic
         bool addedToMemory = false;
         int attempts = 0;
 
-        // *** CAMBIO: El DbContext AHORA es local a esta llamada, seguro para PerSession/PerCall ***
         using (var context = new MindWeaveDBEntities1())
         {
             Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Getting host player {hostUsername}...");
@@ -50,36 +50,31 @@ namespace MindWeaveServer.BusinessLogic
             }
             Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Host player found (ID: {hostPlayer.idPlayer}). Generating lobby code...");
 
-            // --- Intento de Generación y Guardado en BD ---
             while (newMatch == null && attempts < MAX_LOBBY_CODE_GENERATION_ATTEMPTS)
             {
                 attempts++;
                 currentLobbyCode = LobbyCodeGenerator.generateUniqueCode();
                 Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Attempt {attempts}, generated code: {currentLobbyCode}");
 
-                // Verifica si ya existe en memoria (rápido)
                 if (activeLobbies.ContainsKey(currentLobbyCode))
                 {
                     Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Code {currentLobbyCode} exists in memory. Retrying...");
                     continue;
                 }
 
-                // Verifica si ya existe en BD (más lento, pero necesario por si el server reinició)
-                // NOTA: Podrías quitar esta verificación si confías en el manejo de UNIQUE constraint
                 bool codeExistsInDb = await context.Matches.AnyAsync(m => m.lobby_code == currentLobbyCode);
                 if (codeExistsInDb)
                 {
                     Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Code {currentLobbyCode} exists in DB. Retrying...");
-                    continue; // Intenta generar otro código
+                    continue; 
                 }
 
-                // Crea la entidad Match
                 newMatch = new Matches
                 {
                     creation_time = DateTime.UtcNow,
-                    match_status_id = 1, // Asume 1 = 'Waiting'/'Pending'
-                    puzzle_id = settings.preloadedPuzzleId ?? 3, // Default a 3 si es null
-                    difficulty_id = 1, // Default a 1 si es 0 o menos
+                    match_status_id = 1,
+                    puzzle_id = settings.preloadedPuzzleId ?? 3, 
+                    difficulty_id = 1,
                     lobby_code = currentLobbyCode
                 };
 
@@ -90,67 +85,57 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: BEFORE SaveChangesAsync for {currentLobbyCode}");
                     await context.SaveChangesAsync();
-                    // Si llegamos aquí, ¡se guardó!
                     Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: AFTER SaveChangesAsync for {currentLobbyCode}. Match ID: {newMatch.matches_id}");
-                    // *** NUEVO: Crear y guardar MatchParticipants para el host ***
                     var hostParticipant = new MatchParticipants
                     {
-                        match_id = newMatch.matches_id, // Usar el ID de la partida recién creada
+                        match_id = newMatch.matches_id,
                         player_id = hostPlayer.idPlayer,
-                        is_host = true // Marcar como host
-                        // score, pieces_placed, final_rank son nullables, no se asignan al crear
+                        is_host = true 
                     };
                     context.MatchParticipants.Add(hostParticipant);
-                    await context.SaveChangesAsync(); // Guardar el participante host
+                    await context.SaveChangesAsync(); 
                     Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Host participant saved for Match ID: {newMatch.matches_id}, Player ID: {hostPlayer.idPlayer}");
                     // Si llegamos aquí todo se guardo
                     }
-                    catch (DbUpdateException dbEx) // Error al guardar (FK, UNIQUE, etc.)
+                    catch (DbUpdateException dbEx) 
                     {
                     string errorDetails = dbEx.InnerException?.InnerException?.Message ?? dbEx.InnerException?.Message ?? dbEx.Message;
                     Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: DbUpdateException saving match {currentLobbyCode}: {errorDetails}");
-                    Console.WriteLine($"--- Full DbUpdateException Trace: {dbEx.ToString()}"); // Log completo
-
-                    // Si es error de UNIQUE en lobby_code, reintenta
+                    Console.WriteLine($"--- Full DbUpdateException Trace: {dbEx.ToString()}"); 
                     if (errorDetails.Contains("UNIQUE KEY constraint") && (errorDetails.Contains("lobby_code") || errorDetails.Contains("UQ__Matches")))
                     {
                         Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Lobby code collision in DB. Detaching entity and retrying...");
                         if (context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; }
-                        newMatch = null; // Fuerza el reintento del while
+                        newMatch = null;
                     }
-                    else // Otro error de BD, no reintentable
+                    else 
                     {
                         if (newMatch != null && context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; } 
                         return new LobbyCreationResultDto { success = false, message = $"Database error: {errorDetails}", lobbyCode = null, initialLobbyState = null }; // Mensaje específico
                     }
                 }
-                catch (Exception ex) // Otros errores durante el guardado
+                catch (Exception ex) 
                 {
                     Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Generic Exception saving match {currentLobbyCode}: {ex.ToString()}");
                     if (newMatch != null && context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; }
                         return new LobbyCreationResultDto { success = false, message = $"Failed to save lobby data: {ex.Message}", lobbyCode = null, initialLobbyState = null }; // Mensaje simple
                 }
-            } // Fin while
-
-            // Si salimos del while porque se agotaron los intentos
+            } 
             if (newMatch == null)
             {
                 Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Failed to generate and save a unique lobby code after {attempts} attempts.");
                 return new LobbyCreationResultDto { success = false, message = "Failed to generate a unique lobby code.", lobbyCode = null, initialLobbyState = null }; // TODO: Lang
             }
-
-            // --- Guardado en BD exitoso, ahora añadir a memoria ---
             Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Creating initial LobbyStateDto for {currentLobbyCode}...");
             initialState = new LobbyStateDto
             {
                 lobbyId = newMatch.lobby_code,
                 hostUsername = hostUsername,
-                players = new List<string> { hostUsername }, // Inicia solo con el host
-                currentSettingsDto = settings // Guarda las settings iniciales
+                players = new List<string> { hostUsername },
+                currentSettingsDto = settings 
             };
 
             Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Adding lobby {currentLobbyCode} to activeLobbies dictionary...");
-            // Intenta añadir al diccionario concurrente
             if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
             {
                 addedToMemory = true;
@@ -158,17 +143,13 @@ namespace MindWeaveServer.BusinessLogic
             }
             else
             {
-                // Esto sería muy raro si la verificación inicial funcionó, pero es una salvaguarda
                 Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Failed to add lobby {currentLobbyCode} to memory dictionary (race condition?).");
-                // Considera eliminar el registro de la BD si falla aquí? O marcarlo como inválido?
-                // Por ahora, retornamos error.
+                
                 return new LobbyCreationResultDto { success = false, message = "Failed to register lobby in memory after DB save.", lobbyCode = null, initialLobbyState = null };
             }
 
-        } // Fin using context
-
-        // --- Retorno final ---
-        if (addedToMemory && initialState != null) // Debería cumplirse si TryAdd tuvo éxito
+        }
+        if (addedToMemory && initialState != null) 
         {
             Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Returning SUCCESS result for lobby {currentLobbyCode}.");
             return new LobbyCreationResultDto
@@ -181,7 +162,6 @@ namespace MindWeaveServer.BusinessLogic
         }
         else
         {
-            // Este caso ahora es menos probable, pero se mantiene por seguridad
             Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Returning FAILURE (unexpected state) after DB save for {currentLobbyCode}.");
             return new LobbyCreationResultDto { success = false, message = "Unexpected error after saving lobby.", lobbyCode = null, initialLobbyState = null };
         }
@@ -190,7 +170,6 @@ namespace MindWeaveServer.BusinessLogic
 
     public async void joinLobby(string username, string lobbyCode)
         {
-            // Intenta encontrar el lobby en el diccionario de lobbies activos.
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
                 Console.WriteLine($"JoinLobby Error: Lobby {lobbyCode} not found for user {username}.");
@@ -199,10 +178,8 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             bool addedToMemory = false;
-            int matchId = -1; // Para buscar la partida en la BD
-            int playerId = -1; // Para el nuevo participante
-                               // .
-            lock (lobbyState) // Bloquea el estado de ESTE lobby para modificarlo de forma segura.
+            int matchId = -1;
+            int playerId = -1; 
             {
                 if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
                 {
@@ -214,7 +191,6 @@ namespace MindWeaveServer.BusinessLogic
                 if (lobbyState.players.Contains(username))
                 {
                     Console.WriteLine($"JoinLobby Info: User {username} already in lobby {lobbyCode}. Resending state.");
-                    // No se añade, pero se reenviará el estado actual fuera del lock.a
                 }
                 else
                 {
@@ -222,23 +198,20 @@ namespace MindWeaveServer.BusinessLogic
                     addedToMemory = true;
                     Console.WriteLine($"User {username} joined lobby {lobbyCode}. Players: {string.Join(", ", lobbyState.players)}");
                 }
-            } // Fin lock
-
-            // --- Lógica de Base de Datos (fuera del lock de memoria) ---
-            if (addedToMemory) // Solo si se añadió a la memoria, intentamos añadirlo a la BD
+            } 
+            if (addedToMemory) 
             {
                 using (var context = new MindWeaveDBEntities1())
                 {
                     try
                     {
-                        // Buscar el ID de la partida (Match) usando el lobbyCode
                         var match = await context.Matches
-                                                .AsNoTracking() // No necesitamos rastrear la partida
+                                                .AsNoTracking() 
                                                 .FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
 
                         // Buscar el ID del jugador
                         var player = await context.Player
-                                                .AsNoTracking() // No necesitamos rastrear al jugador
+                                                .AsNoTracking()
                                                 .FirstOrDefaultAsync(p => p.username == username);
 
                         if (match != null && player != null)
@@ -246,18 +219,16 @@ namespace MindWeaveServer.BusinessLogic
                             matchId = match.matches_id;
                             playerId = player.idPlayer;
 
-                            // Verificar si ya existe por alguna razón (doble join rápido?)
                             bool alreadyExists = await context.MatchParticipants
                                                             .AnyAsync(mp => mp.match_id == matchId && mp.player_id == playerId);
 
                             if (!alreadyExists)
                             {
-                                // Crear el nuevo participante (NO es host)
                                 var newParticipant = new MatchParticipants
                                 {
                                     match_id = matchId,
                                     player_id = playerId,
-                                    is_host = false // El que se une nunca es el host
+                                    is_host = false 
                                 };
                                 context.MatchParticipants.Add(newParticipant);
                                 await context.SaveChangesAsync();
@@ -270,17 +241,11 @@ namespace MindWeaveServer.BusinessLogic
                     catch (Exception ex)
                     {
                         Console.WriteLine($"!!! JoinLobby DB ERROR for PlayerID={playerId}, MatchID={matchId}: {ex.ToString()}");
-                        // ¿Qué hacemos si falla la BD? ¿Quitarlo de la memoria? ¿Notificar?
-                        // Por ahora, solo logueamos. El estado en memoria ya lo incluye.
                     }
-                } // Fin using context
-            } // Fin if(addedToMemory)
-
-            // Enviar actualización a todos fuera del lock
+                }
+            } 
             sendLobbyUpdateToAll(lobbyState);
         }
-
-        // Método leaveLobby: Ahora también debe eliminar al participante de MatchParticipants
         public async void leaveLobby(string username, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
@@ -299,7 +264,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (!lobbyState.players.Remove(username))
                 {
                     Console.WriteLine($"LeaveLobby Info: User {username} was not in lobby {lobbyCode}.");
-                    return; // No estaba en el lobby
+                    return;
                 }
                 removedFromMemory = true; // Se quitó de la memoria
 
@@ -317,22 +282,18 @@ namespace MindWeaveServer.BusinessLogic
                     lobbyClosed = true;
                     Console.WriteLine($"Last player {username} left lobby {lobbyCode}. Lobby closing.");
                 }
-            } // Fin lock
-
-            // --- Lógica de Base de Datos (fuera del lock) ---
+            }
             if (removedFromMemory)
             {
                 using (var context = new MindWeaveDBEntities1())
                 {
                     try
                     {
-                        // Buscamos la partida y el jugador para obtener IDs
                         var match = await context.Matches.FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
                         var player = await context.Player.FirstOrDefaultAsync(p => p.username == username);
 
                         if (match != null && player != null)
                         {
-                            // Buscamos la entrada del participante
                             var participantToRemove = await context.MatchParticipants
                                                                 .FirstOrDefaultAsync(mp => mp.match_id == match.matches_id && mp.player_id == player.idPlayer);
 
@@ -342,11 +303,9 @@ namespace MindWeaveServer.BusinessLogic
                                 await context.SaveChangesAsync();
                                 Console.WriteLine($"LeaveLobby DB: Removed participant PlayerID={player.idPlayer} from MatchID={match.matches_id}");
 
-                                // Si el lobby se cierra (host se fue o último jugador), actualizamos estado de la partida
                                 if (lobbyClosed && match.match_status_id == 1) // Si estaba 'Waiting'
                                 {
-                                    match.match_status_id = 3; // Cambiar a 'Canceled' (asumiendo ID 3)
-                                                               // Opcional: Poner end_time?
+                                    match.match_status_id = 3; 
                                     await context.SaveChangesAsync();
                                     Console.WriteLine($"LeaveLobby DB: MatchID={match.matches_id} status updated to Canceled.");
                                 }
@@ -358,15 +317,14 @@ namespace MindWeaveServer.BusinessLogic
                     catch (Exception ex)
                     {
                         Console.WriteLine($"!!! LeaveLobby DB ERROR for user {username}, lobby {lobbyCode}: {ex.ToString()}");
-                        // Loguear el error, la salida de memoria ya ocurrió.
+  
                     }
-                } // Fin using context
-            } // Fin if(removedFromMemory)
+                } 
+            }
 
-            // --- Lógica de Callbacks y Limpieza de Memoria ---
             if (!lobbyClosed)
             {
-                sendLobbyUpdateToAll(lobbyState); // Notificar a los restantes
+                sendLobbyUpdateToAll(lobbyState); 
             }
             else
             {
@@ -389,20 +347,18 @@ namespace MindWeaveServer.BusinessLogic
         {
             Console.WriteLine($"Handling disconnect for user: {username}");
             List<string> lobbiesToLeave = activeLobbies
-                .Where(kvp => kvp.Value.players.Contains(username)) // Encontrar lobbies donde estaba el usuario
-                .Select(kvp => kvp.Key) // Obtener los códigos de lobby
-                .ToList(); // Materializar la lista antes de iterar
+                .Where(kvp => kvp.Value.players.Contains(username)) 
+                .Select(kvp => kvp.Key) 
+                .ToList(); 
 
             foreach (var lobbyCode in lobbiesToLeave)
             {
                 Console.WriteLine($"User {username} was in lobby {lobbyCode}. Forcing leave due to disconnect.");
-                leaveLobby(username, lobbyCode); // Llama a la lógica de salida normal
+                leaveLobby(username, lobbyCode); 
             }
+            userCallbacks.TryRemove(username, out _);
+            Console.WriteLine($"Removed matchmaking callback for disconnected user: {username}");
         }
-
-        // Método startGame: Ya no necesita buscar el host_player_id en Matches.
-        // La validación de si el que inicia es el host se hace con lobbyState.hostUsername.
-        // Podríamos añadir una consulta a MatchParticipants para doble verificación si fuera necesario.
         public async void startGame(string hostUsername, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
@@ -416,15 +372,14 @@ namespace MindWeaveServer.BusinessLogic
 
             lock (lobbyState)
             {
-                // Validación principal: ¿El usuario que llama es el host en memoria?
                 if (lobbyState.hostUsername != hostUsername)
                 {
                     Console.WriteLine($"StartGame Error: User {hostUsername} is not host of {lobbyCode}.");
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("You are not the host."));
                     return;
                 }
-                // Opcional: Validación mínima de jugadores
-                if (lobbyState.players.Count < 1) // O el mínimo que definas
+             
+                if (lobbyState.players.Count < 1) 
                 {
                     Console.WriteLine($"StartGame Error: Not enough players in lobby {lobbyCode}.");
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Not enough players to start."));
@@ -433,9 +388,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 Console.WriteLine($"Host {hostUsername} is starting game for lobby {lobbyCode}.");
                 currentPlayers = lobbyState.players.ToList();
-            } // Fin lock
-
-            // --- Lógica de Base de Datos (fuera del lock) ---
+            } 
             bool dbUpdateSuccess = false;
             using (var context = new MindWeaveDBEntities1())
             {
@@ -455,16 +408,14 @@ namespace MindWeaveServer.BusinessLogic
                 catch (Exception ex)
                 {
                     Console.WriteLine($"!!! StartGame DB ERROR for lobby {lobbyCode}: {ex.ToString()}");
-                    // Notificar al host del error de BD?
+       
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Database error starting the match."));
-                    return; // No continuar si falla la BD
+                    return; 
                 }
-            } // Fin using context
-
-            // --- Lógica de Callbacks y Limpieza de Memoria (solo si la BD se actualizó) ---
+            } 
             if (dbUpdateSuccess)
             {
-                string matchId = lobbyCode; // Usando lobbyCode como Id temporalmente
+                string matchId = lobbyCode; 
                 foreach (var playerUsername in currentPlayers)
                 {
                     sendCallbackToUser(playerUsername, cb => cb.matchFound(matchId, currentPlayers));
@@ -477,8 +428,6 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        // Método kickPlayer: Ya no necesita host_player_id. Usa lobbyState.hostUsername.
-        // Debe eliminar al jugador de MatchParticipants.
         public async void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState)) return;
@@ -494,12 +443,9 @@ namespace MindWeaveServer.BusinessLogic
                     kickedFromMemory = true;
                     Console.WriteLine($"Player {playerToKickUsername} kicked from {lobbyCode} in memory by {hostUsername}.");
                 }
-            } // Fin lock
-
-            // --- Lógica de Base de Datos y Callbacks (si se eliminó de memoria) ---
+            } 
             if (kickedFromMemory)
             {
-                // Eliminar de BD (similar a leaveLobby)
                 using (var context = new MindWeaveDBEntities1())
                 {
                     try
@@ -520,52 +466,73 @@ namespace MindWeaveServer.BusinessLogic
                         }
                     }
                     catch (Exception ex) { Console.WriteLine($"!!! KickPlayer DB ERROR: {ex.ToString()}"); }
-                } // Fin using context
-
-                // Notificar al jugador expulsado
+                } 
                 sendCallbackToUser(playerToKickUsername, cb => cb.kickedFromLobby("Kicked by host.")); // TODO: Lang Key
-                // Notificar a los restantes
                 sendLobbyUpdateToAll(lobbyState);
             }
         }
 
         public void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyCode)
         {
-            if (!activeLobbies.ContainsKey(lobbyCode))
+            // 1. Validar lobby
+            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
-                Console.WriteLine($"Invite Error: Lobby {lobbyCode} does not exist.");
-                // Podríamos enviar un mensaje al invitador
-                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} no longer exists.")); // Reutilizamos callback
-                return;
-            }
-            // Verificar si el invitado está online (tiene callback registrado)
-            if (!userCallbacks.ContainsKey(invitedUsername))
-            {
-                Console.WriteLine($"Invite Error: User {invitedUsername} is not online/connected.");
-                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} is not online.")); // Reutilizamos callback
+                Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Error: Lobby {lobbyCode} not found.");
+                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} no longer exists.")); // Notificar al invitador
                 return;
             }
 
-            Console.WriteLine($"Sending invite to {invitedUsername} for lobby {lobbyCode} from {inviterUsername}.");
-            sendCallbackToUser(invitedUsername, cb => cb.receiveLobbyInvite(inviterUsername, lobbyCode));
+            // *** CAMBIO: Validar si el invitado está ONLINE usando SocialManagerService ***
+            if (!SocialManagerService.ConnectedUsers.ContainsKey(invitedUsername)) // Accede al diccionario estático
+            {
+                Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Error: User {invitedUsername} is not online.");
+                // *** CAMBIO: Usar mensaje de Lang ***
+                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} {Lang.ErrorUserNotOnline}")); // Notificar al invitador
+                return;
+            }
+
+            // 3. Validaciones adicionales (lobby lleno, ya está dentro)
+            lock (lobbyState)
+            {
+                if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Error: Lobby {lobbyCode} is full.");
+                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} is full."));
+                    return;
+                }
+
+                if (lobbyState.players.Contains(invitedUsername))
+                {
+                    Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Info: User {invitedUsername} is already in lobby {lobbyCode}.");
+                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} is already in the lobby."));
+                    return;
+                }
+            } // Fin lock
+
+            // *** CAMBIO: Enviar invitación usando el helper estático de SocialManagerService ***
+            Console.WriteLine($"[{DateTime.UtcNow:O}] Sending lobby invite notification via Social Service to {invitedUsername} for lobby {lobbyCode} from {inviterUsername}.");
+            SocialManagerService.SendNotificationToUser(invitedUsername, cb => cb.notifyLobbyInvite(inviterUsername, lobbyCode));
+
+            // Opcional: Notificar al invitador que se envió (podrías usar lobbyCreationFailed con un mensaje de éxito)
+            // sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Invitation sent to {invitedUsername}.")); // Un poco hacky
         }
 
-
-        // --- Métodos Auxiliares ---
 
         private void sendLobbyUpdateToAll(LobbyStateDto lobbyState)
         {
             if (lobbyState == null) return;
-            List<string> currentPlayers = lobbyState.players.ToList(); // Copia segura fuera de lock
-            Console.WriteLine($"Sending lobby update for {lobbyState.lobbyId} to: {string.Join(", ", currentPlayers)}");
-            foreach (var username in currentPlayers)
+            List<string> currentPlayersSnapshot;
+            lock (lobbyState) 
+            {
+                currentPlayersSnapshot = lobbyState.players.ToList();
+            }
+            Console.WriteLine($"Sending lobby update for {lobbyState.lobbyId} to: {string.Join(", ", currentPlayersSnapshot)}");
+            foreach (var username in currentPlayersSnapshot)
             {
                 sendCallbackToUser(username, cb => cb.updateLobbyState(lobbyState));
             }
         }
 
-        // Método changeDifficulty: La validación del host se hace con lobbyState.hostUsername.
-        // El resto sigue igual, actualiza el ID en la BD.
         public async void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
         {
             if (!activeLobbies.TryGetValue(lobbyId, out LobbyStateDto lobbyState))
@@ -579,7 +546,6 @@ namespace MindWeaveServer.BusinessLogic
 
             lock (lobbyState)
             {
-                // Validación principal: ¿Es el host?
                 if (lobbyState.hostUsername != hostUsername)
                 {
                     Console.WriteLine($"ChangeDifficulty Error: User {hostUsername} is not host of {lobbyId}.");
@@ -587,7 +553,6 @@ namespace MindWeaveServer.BusinessLogic
                     return;
                 }
 
-                // Validación simple de ID (1, 2, 3)
                 if (newDifficultyId < 1 || newDifficultyId > 3)
                 {
                     Console.WriteLine($"ChangeDifficulty Error: Invalid difficulty ID {newDifficultyId}.");
@@ -599,20 +564,20 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     lobbyState.currentSettingsDto.difficultyId = newDifficultyId;
                     changed = true;
-                    updatedState = lobbyState; // Guardar referencia para enviar fuera del lock
+                    updatedState = lobbyState; 
                     Console.WriteLine($"Difficulty for lobby {lobbyId} changed to {newDifficultyId} in memory by host {hostUsername}.");
                 }
                 else
                 {
                     Console.WriteLine($"ChangeDifficulty Info: Difficulty for lobby {lobbyId} is already {newDifficultyId}.");
-                    return; // No cambió, no hacer nada más
+                    return; 
                 }
             } // Fin lock
 
             if (changed && updatedState != null)
             {
-                // --- Lógica de Base de Datos (fuera del lock) ---
-                Task.Run(async () => { // Ejecutar en segundo plano
+              
+                Task.Run(async () => { 
                     using (var context = new MindWeaveDBEntities1())
                     {
                         try
@@ -628,14 +593,12 @@ namespace MindWeaveServer.BusinessLogic
                         }
                         catch (Exception ex) { Console.WriteLine($"!!! ChangeDifficulty DB ERROR for lobby {lobbyId}: {ex.ToString()}"); }
                     }
-                }); // Fin Task.Run
-
-                // Notificar a todos los jugadores en el lobby (fuera del lock)
+                }); 
                 sendLobbyUpdateToAll(updatedState);
             }
         }
 
-        public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction) // Hice público para reusar en Service
+        public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction)
         {
             if (userCallbacks.TryGetValue(username, out IMatchmakingCallback callbackChannel))
             {
@@ -645,20 +608,17 @@ namespace MindWeaveServer.BusinessLogic
                     if (commObject != null && commObject.State == CommunicationState.Opened)
                     {
                         callbackAction(callbackChannel);
-                        // Console.WriteLine($"Callback sent successfully to {username}."); // Log (opcional, puede ser ruidoso)
                     }
                     else
                     {
                         Console.WriteLine($"Callback channel for {username} is not open (State: {commObject?.State}). Removing.");
-                        // Llamar a removeCallbackChannel del SERVICIO para que maneje la limpieza completa
-                        // (No tenemos referencia directa al servicio aquí, así que el servicio debe llamarlo)
-                        // Esto se maneja ahora con los eventos Faulted/Closed en el servicio.
+
                     }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"Error sending callback to {username}: {ex.Message}. Channel will be removed on Fault/Close.");
-                    // No removemos el canal aquí directamente, esperamos al evento Faulted/Closed
+
                 }
             }
             else

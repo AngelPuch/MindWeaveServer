@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts // O MindWeaveServer.Contracts.DataContracts.Puzzle
+namespace MindWeaveServer.Contracts.DataContracts 
 {
     [DataContract]
     public class PuzzleInfoDto
@@ -12,6 +12,6 @@ namespace MindWeaveServer.Contracts.DataContracts // O MindWeaveServer.Contracts
         public string name { get; set; }
 
         [DataMember]
-        public string imagePath { get; set; } // Ruta relativa o nombre de archivo para el cliente
+        public string imagePath { get; set; } 
     }
 }

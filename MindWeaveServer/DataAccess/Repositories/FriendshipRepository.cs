@@ -20,8 +20,8 @@ namespace MindWeaveServer.DataAccess.Repositories
         public async Task<List<Friendships>> getAcceptedFriendshipsAsync(int playerId)
         {
             return await context.Friendships
-                .Include(f => f.Player) // Include requester
-                .Include(f => f.Player1) // Include addressee
+                .Include(f => f.Player) 
+                .Include(f => f.Player1) 
                 .Where(f => (f.requester_id == playerId || f.addressee_id == playerId)
                             && f.status_id == FriendshipStatusConstants.ACCEPTED)
                 .AsNoTracking()
@@ -31,7 +31,7 @@ namespace MindWeaveServer.DataAccess.Repositories
         public async Task<List<Friendships>> getPendingFriendRequestsAsync(int addresseeId)
         {
             return await context.Friendships
-                .Include(f => f.Player1) // Include requester info (Player1 is requester based on FK_Friendships_Requester)
+                .Include(f => f.Player1) 
                 .Where(f => f.addressee_id == addresseeId && f.status_id == FriendshipStatusConstants.PENDING)
                 .AsNoTracking()
                 .ToListAsync();
@@ -39,7 +39,7 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public async Task<Friendships> findFriendshipAsync(int player1Id, int player2Id)
         {
-            // Check both directions
+            
             return await context.Friendships
                 .FirstOrDefaultAsync(f =>
                     (f.requester_id == player1Id && f.addressee_id == player2Id) ||

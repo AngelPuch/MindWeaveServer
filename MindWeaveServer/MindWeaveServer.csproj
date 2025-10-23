@@ -190,14 +190,12 @@
     <Compile Include="DataAccess\RequestStatus.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
-    <Compile Include="IService1.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources\Lang.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Lang.resx</DependentUpon>
     </Compile>
-    <Compile Include="Service1.cs" />
     <Compile Include="Services\AuthenticationManagerService.cs" />
     <Compile Include="Services\MatchmakingManagerService.cs" />
     <Compile Include="Services\ProfileManagerService.cs" />

@@ -150,6 +150,9 @@
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Player not found</value>
   </data>
+  <data name="ErrorUserNotOnline" xml:space="preserve">
+    <value>User is not online</value>
+  </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>An unexpected server error occurred.</value>
   </data>

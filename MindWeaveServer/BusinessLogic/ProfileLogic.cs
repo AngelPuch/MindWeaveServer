@@ -12,7 +12,7 @@ namespace MindWeaveServer.BusinessLogic
 {
     public class ProfileLogic
     {
-        // ... (getPlayerProfileViewAsync y getPlayerProfileForEditAsync se quedan como estaban) ...
+       
         public async Task<PlayerProfileViewDto> getPlayerProfileViewAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return null;
@@ -66,16 +66,14 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        /// <summary>
-        /// Recibe los datos modificados del cliente y los GUARDA en la base de datos. (Fase 3 - Guardado)
-        /// </summary>
+       
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfile)
         {
             var result = new OperationResultDto();
 
             if (updatedProfile == null || string.IsNullOrWhiteSpace(updatedProfile.firstName) || string.IsNullOrWhiteSpace(updatedProfile.lastName))
             {
-                result.success = false; // <-- CORREGIDO: Usamos 'success'
+                result.success = false; 
                 result.message = "First name and last name cannot be empty.";
                 return result;
             }
@@ -88,7 +86,7 @@ namespace MindWeaveServer.BusinessLogic
 
                     if (playerToUpdate == null)
                     {
-                        result.success = false; // <-- CORREGIDO: Usamos 'success'
+                        result.success = false; 
                         result.message = "Player not found.";
                         return result;
                     }
@@ -100,24 +98,20 @@ namespace MindWeaveServer.BusinessLogic
 
                     await context.SaveChangesAsync();
 
-                    result.success = true; // <-- CORREGIDO: Usamos 'success'
+                    result.success = true;
                     result.message = "Profile updated successfully.";
                 }
             }
             catch (Exception ex)
             {
-                // TO-DO: Registrar el error real en un sistema de logs (Console.WriteLine(ex.Message);)
-                result.success = false; // <-- CORREGIDO: Usamos 'success'
+                result.success = false; 
                 result.message = "An unexpected error occurred while updating the profile.";
             }
 
             return result;
         }
 
-        // <summary>
-        /// Actualiza únicamente la ruta del avatar de un jugador en la base de datos.
-        /// Se usa para seleccionar avatares precargados.
-        /// </summary>
+       
         public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
         {
             var result = new OperationResultDto { success = false };
@@ -141,7 +135,6 @@ namespace MindWeaveServer.BusinessLogic
                         return result;
                     }
 
-                    // Actualizamos únicamente el campo del avatar
                     playerToUpdate.avatar_path = newAvatarPath;
 
                     await context.SaveChangesAsync();

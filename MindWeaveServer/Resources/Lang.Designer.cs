@@ -160,6 +160,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a El Usuario no esta en línea.
+        /// </summary>
+        public static string ErrorUserNotOnline {
+            get {
+                return ResourceManager.GetString("ErrorUserNotOnline", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Ocurrió un error inesperado en el servidor..
         /// </summary>
         public static string GenericServerError {
