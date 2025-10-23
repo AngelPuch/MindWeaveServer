@@ -197,6 +197,7 @@
       <DependentUpon>Lang.resx</DependentUpon>
     </Compile>
     <Compile Include="Services\AuthenticationManagerService.cs" />
+    <Compile Include="Services\ChatManagerService.cs" />
     <Compile Include="Services\MatchmakingManagerService.cs" />
     <Compile Include="Services\ProfileManagerService.cs" />
     <Compile Include="Services\PuzzleManagerService.cs" />
