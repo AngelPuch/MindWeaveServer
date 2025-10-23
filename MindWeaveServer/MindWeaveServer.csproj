@@ -107,6 +107,7 @@
     <Compile Include="Contracts\DataContracts\Profile\AvatarUpdateResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\GenderDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\UserProfileEditDto.cs" />
+    <Compile Include="Contracts\DataContracts\PuzzleInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />
@@ -122,8 +123,10 @@
     <Compile Include="Contracts\ServiceContracts\IChatManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IMatchmakingManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IProfileManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\IPuzzleManager.cs" />
     <Compile Include="Contracts\ServiceContracts\ISocialManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IStatsManager.cs" />
+    <Compile Include="Contracts\ServiceContracts\UploadResultDto.cs" />
     <Compile Include="DataAccess\Abstractions\IFriendshipRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IGenderRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IPlayerRepository.cs" />
@@ -198,6 +201,7 @@
     <Compile Include="Services\AuthenticationManagerService.cs" />
     <Compile Include="Services\MatchmakingManagerService.cs" />
     <Compile Include="Services\ProfileManagerService.cs" />
+    <Compile Include="Services\PuzzleManagerService.cs" />
     <Compile Include="Services\SocialManagerService.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordPolicyValidator.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordService.cs" />

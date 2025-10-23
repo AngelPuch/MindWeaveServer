@@ -18,9 +18,9 @@ namespace MindWeaveServer.BusinessLogic
     public class MatchmakingLogic
     {
         private readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies;
-    private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
-    private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
-    private const int MAX_PLAYERS_PER_LOBBY = 4;
+        private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
+        private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
+        private const int MAX_PLAYERS_PER_LOBBY = 4;
 
     public MatchmakingLogic(
         ConcurrentDictionary<string, LobbyStateDto> lobbies,
@@ -79,7 +79,7 @@ namespace MindWeaveServer.BusinessLogic
                     creation_time = DateTime.UtcNow,
                     match_status_id = 1, // Asume 1 = 'Waiting'/'Pending'
                     puzzle_id = settings.preloadedPuzzleId ?? 3, // Default a 3 si es null
-                    difficulty_id = settings.difficultyId > 0 ? settings.difficultyId : 1, // Default a 1 si es 0 o menos
+                    difficulty_id = 1, // Default a 1 si es 0 o menos
                     lobby_code = currentLobbyCode,
                     host_player_id = hostPlayer.idPlayer
                 };
@@ -384,6 +384,85 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
+        public async void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
+        {
+            if (!activeLobbies.TryGetValue(lobbyId, out LobbyStateDto lobbyState))
+            {
+                Console.WriteLine($"ChangeDifficulty Error: Lobby {lobbyId} not found.");
+                // Consider notifying host if possible, though unlikely if lobby doesn't exist
+                return;
+            }
+
+            bool changed = false;
+            LobbyStateDto updatedState = null; // Para enviar fuera del lock
+
+            lock (lobbyState)
+            {
+                if (lobbyState.hostUsername != hostUsername)
+                {
+                    Console.WriteLine($"ChangeDifficulty Error: User {hostUsername} is not host of {lobbyId}.");
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("You are not the host.")); // Reusing callback for error
+                    return;
+                }
+
+                // TODO: Validar que newDifficultyId sea un ID válido (e.g., 1, 2, 3) consultando la BD
+                // bool isValidDifficulty = await context.DifficultyLevels.AnyAsync(d => d.idDifficulty == newDifficultyId);
+                // Por ahora, asumimos que 1, 2, 3 son válidos.
+                if (newDifficultyId < 1 || newDifficultyId > 3)
+                { // Simple validation
+                    Console.WriteLine($"ChangeDifficulty Error: Invalid difficulty ID {newDifficultyId}.");
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Invalid difficulty selected."));
+                    return;
+                }
+
+
+                if (lobbyState.currentSettingsDto.difficultyId != newDifficultyId)
+                {
+                    lobbyState.currentSettingsDto.difficultyId = newDifficultyId;
+                    changed = true;
+                    updatedState = lobbyState; // Referencia al estado actualizado
+                    Console.WriteLine($"Difficulty for lobby {lobbyId} changed to {newDifficultyId} by host {hostUsername}.");
+                }
+                else
+                {
+                    Console.WriteLine($"ChangeDifficulty Info: Difficulty for lobby {lobbyId} is already {newDifficultyId}.");
+                    return; // No need to update or notify if it didn't change
+                }
+            } // Fin lock
+
+            if (changed && updatedState != null)
+            {
+                // Actualizar en Base de Datos (en segundo plano)
+                Task.Run(async () => {
+                    try
+                    {
+                        using (var context = new MindWeaveDBEntities1())
+                        {
+                            var match = await context.Matches.FirstOrDefaultAsync(m => m.lobby_code == lobbyId);
+                            if (match != null)
+                            {
+                                match.difficulty_id = newDifficultyId;
+                                await context.SaveChangesAsync();
+                                Console.WriteLine($"Difficulty for match {lobbyId} updated to {newDifficultyId} in DB.");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"ChangeDifficulty DB Error: Match {lobbyId} not found in DB.");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"!!! ChangeDifficulty DB Error: Exception updating match {lobbyId}: {ex.Message}");
+                        // Consider how to handle DB update failure - maybe revert state in memory? Or just log.
+                    }
+                });
+
+                // Notificar a todos los jugadores en el lobby (fuera del lock)
+                sendLobbyUpdateToAll(updatedState);
+            }
+        }
+
         public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction) // Hice público para reusar en Service
         {
             if (userCallbacks.TryGetValue(username, out IMatchmakingCallback callbackChannel))
@@ -415,5 +494,7 @@ namespace MindWeaveServer.BusinessLogic
                 Console.WriteLine($"Callback channel not found for user: {username}.");
             }
         }
+
+
     }
 }

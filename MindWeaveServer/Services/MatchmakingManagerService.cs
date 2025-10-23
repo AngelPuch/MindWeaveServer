@@ -240,5 +240,18 @@ namespace MindWeaveServer.Services
             try { matchmakingLogic.inviteToLobby(inviterUsername, invitedUsername, lobbyCode); } catch (Exception ex) { /* Log y notificación al invitador */ }
         }
 
+
+        public void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
+        {
+            Console.WriteLine($"{DateTime.UtcNow:O} ==> Service: changeDifficulty ENTRY by {hostUsername}, lobby: {lobbyId}, newDiff: {newDifficultyId}");
+            if (string.IsNullOrWhiteSpace(hostUsername) || string.IsNullOrWhiteSpace(lobbyId) || newDifficultyId <= 0) return; // Validación básica
+            try
+            {
+                // Llama a la lógica de negocio (que crearemos a continuación)
+                matchmakingLogic.changeDifficulty(hostUsername, lobbyId, newDifficultyId);
+            }
+            catch (Exception ex) { Console.WriteLine($"!!! EXCEPTION in Service.changeDifficulty: {ex.Message}"); /* Consider notifying host */ }
+        }
+
     } // Fin clase MatchmakingManagerService
 }

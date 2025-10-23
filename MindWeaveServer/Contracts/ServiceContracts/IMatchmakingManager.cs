@@ -26,6 +26,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract(IsOneWay = true)]
         void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId);
+
+        [OperationContract(IsOneWay = true)] // IsOneWay es adecuado aquí
+        void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId);
+
     }
 
     [ServiceContract]
@@ -45,5 +49,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract(IsOneWay = true)]
         void kickedFromLobby(string reason);
+
+       
     }
 }
