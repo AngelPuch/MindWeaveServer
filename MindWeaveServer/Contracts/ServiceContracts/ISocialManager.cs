@@ -1,40 +1,45 @@
-﻿using MindWeaveServer.BusinessLogic; // For PlayerSearchResultDto
+﻿// MindWeaveServer/Contracts/ServiceContracts/ISocialManager.cs
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Social;
 using System.Collections.Generic;
 using System.ServiceModel;
-using System.Threading.Tasks; // Added for Task
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
-    [ServiceContract(CallbackContract = typeof(ISocialCallback))]
+    // El CallbackContract no cambia
+    [ServiceContract(CallbackContract = typeof(ISocialCallback), SessionMode = SessionMode.Required)] // *** AÑADIR SessionMode.Required ***
     public interface ISocialManager
     {
-        // Search (New) - Returns results directly
+        // *** NUEVO: Métodos para manejar la conexión/desconexión ***
+        [OperationContract(IsOneWay = true)] // Es OneWay porque el cliente no necesita esperar respuesta inmediata
+        Task connect(string username);
+
+        [OperationContract(IsOneWay = true)] // Es OneWay para desconexión rápida
+        Task disconnect(string username);
+
+        // --- Métodos existentes (sin cambios en la firma) ---
         [OperationContract]
         Task<List<PlayerSearchResultDto>> searchPlayers(string requesterUsername, string query);
 
-        // Send Request - Returns success/failure message
         [OperationContract]
         Task<OperationResultDto> sendFriendRequest(string requesterUsername, string targetUsername);
 
-        // Respond Request - Returns success/failure message
         [OperationContract]
         Task<OperationResultDto> respondToFriendRequest(string responderUsername, string requesterUsername, bool accepted);
 
-        // Remove Friend - Returns success/failure message
         [OperationContract]
         Task<OperationResultDto> removeFriend(string username, string friendToRemoveUsername);
 
-        // Get Lists - Return lists directly
         [OperationContract]
         Task<List<FriendDto>> getFriendsList(string username);
 
         [OperationContract]
-        Task<List<FriendRequestInfoDto>> getFriendRequests(string username); // Renamed for consistency
-
+        Task<List<FriendRequestInfoDto>> getFriendRequests(string username);
     }
 
+    // ISocialCallback no necesita cambios
     [ServiceContract]
     public interface ISocialCallback
     {
@@ -42,17 +47,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void notifyFriendRequest(string fromUsername);
 
         [OperationContract(IsOneWay = true)]
-        void notifyFriendResponse(string fromUsername, bool accepted); // Response received
+        void notifyFriendResponse(string fromUsername, bool accepted);
 
         [OperationContract(IsOneWay = true)]
         void notifyFriendStatusChanged(string friendUsername, bool isOnline);
-
-        // Optional: Notify when removed by a friend
-        // [OperationContract(IsOneWay = true)]
-        // void notifyFriendRemoved(string byUsername);
-
-        // Optional: Notify when friend list updated (new friend accepted)
-        // [OperationContract(IsOneWay = true)]
-        // void notifyFriendListUpdated(); // Or pass updated list/friend details
     }
 }

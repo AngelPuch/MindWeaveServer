@@ -213,42 +213,65 @@ namespace MindWeaveServer.BusinessLogic
         /// <summary>
         /// Gets the list of accepted friends for a user.
         /// </summary>
-        public async Task<List<FriendDto>> getFriendsListAsync(string username)
+        public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string> connectedUsernames)
         {
             var player = await playerRepository.getPlayerByUsernameAsync(username);
             if (player == null)
             {
-                return new List<FriendDto>(); // Or throw exception/return error DTO
+                Console.WriteLine($"[getFriendsListAsync] Error: Player '{username}' not found.");
+                return new List<FriendDto>();
             }
 
-            // Fetch friendships where the player is either requester or addressee and status is accepted
+            // friendshipRepository.getAcceptedFriendshipsAsync ya incluye Player y Player1
             var friendships = await friendshipRepository.getAcceptedFriendshipsAsync(player.idPlayer);
+            Console.WriteLine($"[getFriendsListAsync] Found {friendships.Count} accepted friendships for {username} (PlayerID: {player.idPlayer}).");
 
-            // TODO: Need a way to check online status (likely involves another service/cache)
-            // For now, assume everyone is offline.
-            bool isOnlinePlaceholder = false; // Replace with actual logic when available
+
+            var onlineUsersSet = connectedUsernames != null
+                                    ? new HashSet<string>(connectedUsernames, StringComparer.OrdinalIgnoreCase)
+                                    : new HashSet<string>();
 
             var friendDtos = new List<FriendDto>();
             foreach (var f in friendships)
             {
-                // *** CORRECCIÓN PREVIA (IDENTIFICAR AMIGO) ***
-                var friendEntity = f.requester_id == player.idPlayer ? f.Player : f.Player1;
+                // *** LÓGICA CORREGIDA PARA IDENTIFICAR AL AMIGO ***
 
+                // 1. Determina el ID del AMIGO (el que NO es el 'player' actual)
+                int friendId = (f.requester_id == player.idPlayer) ? f.addressee_id : f.requester_id;
+
+                // 2. Busca la entidad Player cargada que corresponde al friendId
+                Player friendEntity = null;
+                // Verifica si la propiedad Player (generalmente requester) es el amigo
+                if (f.Player != null && f.Player.idPlayer == friendId)
+                {
+                    friendEntity = f.Player;
+                }
+                // Si no, verifica si la propiedad Player1 (generalmente addressee) es el amigo
+                else if (f.Player1 != null && f.Player1.idPlayer == friendId)
+                {
+                    friendEntity = f.Player1;
+                }
+
+                // 3. Procede si se encontró la entidad del amigo
                 if (friendEntity != null)
                 {
+                    bool isOnline = onlineUsersSet.Contains(friendEntity.username);
                     friendDtos.Add(new FriendDto
                     {
                         username = friendEntity.username,
-                        isOnline = isOnlinePlaceholder,
+                        isOnline = isOnline,
                         avatarPath = friendEntity.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
                     });
+                    // Console.WriteLine($"[getFriendsListAsync] Added friend: {friendEntity.username} (Online: {isOnline})"); // Log de depuración
                 }
                 else
                 {
-                    Console.WriteLine($"Warning: Friend entity is null for friendship ID {f.friendships_id} involving player ID {player.idPlayer}");
+                    // Log de error si no se pudo determinar la entidad del amigo (inesperado si los Includes funcionaron)
+                    Console.WriteLine($"[getFriendsListAsync] Warning: Could not find friend entity for friendship ID {f.friendships_id}. Friend ID sought: {friendId}. f.Player?.idPlayer={f.Player?.idPlayer}, f.Player1?.idPlayer={f.Player1?.idPlayer}");
                 }
             }
 
+            Console.WriteLine($"[getFriendsListAsync] Returning {friendDtos.Count} friends for {username}.");
             return friendDtos;
         }
 
