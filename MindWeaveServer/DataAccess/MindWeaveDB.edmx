@@ -58,8 +58,7 @@
           <Property Name="match_status_id" Type="int" Nullable="false" />
           <Property Name="puzzle_id" Type="int" Nullable="false" />
           <Property Name="difficulty_id" Type="int" />
-          <Property Name="lobby_code" Type="varchar" MaxLength="6" />
-          <Property Name="host_player_id" Type="int" Nullable="false" />
+          <Property Name="lobby_code" Type="varchar" MaxLength="6" Nullable="false" />
         </EntityType>
         <EntityType Name="MatchExpulsions">
           <Key>
@@ -113,7 +112,7 @@
           <Property Name="last_name" Type="varchar" MaxLength="45" />
           <Property Name="date_of_birth" Type="date" />
           <Property Name="gender_id" Type="int" />
-          <Property Name="avatar_path" Type="varchar" MaxLength="64" />
+          <Property Name="avatar_path" Type="varchar" MaxLength="255" />
           <Property Name="is_verified" Type="bit" Nullable="false" />
           <Property Name="verification_code" Type="varchar" MaxLength="6" />
           <Property Name="code_expiry_date" Type="datetime" />
@@ -573,8 +572,7 @@
           <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_Matches" FromRole="Matches" ToRole="MatchExpulsions" />
           <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Matches" FromRole="Matches" ToRole="MatchParticipants" />
           <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Matches" FromRole="Matches" ToRole="MatchReports" />
-          <Property Name="lobby_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
-          <Property Name="host_player_id" Type="Int32" Nullable="false" />
+          <Property Name="lobby_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
         </EntityType>
         <EntityType Name="MatchExpulsions">
           <Key>
@@ -638,7 +636,7 @@
           <Property Name="last_name" Type="String" MaxLength="45" FixedLength="false" Unicode="false" />
           <Property Name="date_of_birth" Type="DateTime" Precision="0" />
           <Property Name="gender_id" Type="Int32" />
-          <Property Name="avatar_path" Type="String" MaxLength="64" FixedLength="false" Unicode="false" />
+          <Property Name="avatar_path" Type="String" MaxLength="255" FixedLength="false" Unicode="false" />
           <Property Name="is_verified" Type="Boolean" Nullable="false" />
           <Property Name="verification_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" />
           <Property Name="code_expiry_date" Type="DateTime" Precision="3" />
@@ -1062,7 +1060,6 @@
           <EntitySetMapping Name="Matches">
             <EntityTypeMapping TypeName="MindWeaveDBModel.Matches">
               <MappingFragment StoreEntitySet="Matches">
-                <ScalarProperty Name="host_player_id" ColumnName="host_player_id" />
                 <ScalarProperty Name="lobby_code" ColumnName="lobby_code" />
                 <ScalarProperty Name="matches_id" ColumnName="matches_id" />
                 <ScalarProperty Name="creation_time" ColumnName="creation_time" />
