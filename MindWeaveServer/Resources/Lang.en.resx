@@ -156,11 +156,47 @@
   <data name="ErrorAvatarUpdateFailed" xml:space="preserve">
     <value>An unexpected error occurred while updating the avatar path.</value>
   </data>
+  <data name="ErrorCannotRemoveSelf" xml:space="preserve">
+    <value>Cannot remove yourself from the friends list.</value>
+  </data>
+  <data name="ErrorCannotSelfFriend" xml:space="preserve">
+    <value>Cannot send a friend request to yourself.</value>
+  </data>
+  <data name="ErrorFriendshipNotFound" xml:space="preserve">
+    <value>You are not friends with this player.</value>
+  </data>
+  <data name="ErrorNoPendingRequestFound" xml:space="preserve">
+    <value>No pending friend request found from this user to respond to.</value>
+  </data>
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Player not found</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>User is not online</value>
+  </data>
+  <data name="FriendRemovedSuccessfully" xml:space="preserve">
+    <value>Friend removed successfully.</value>
+  </data>
+  <data name="FriendRequestAccepted" xml:space="preserve">
+    <value>Friend request accepted.</value>
+  </data>
+  <data name="FriendRequestAlreadySent" xml:space="preserve">
+    <value>Friend request already sent and pending.</value>
+  </data>
+  <data name="FriendRequestReceivedFromUser" xml:space="preserve">
+    <value>This player has already sent you a friend request. Respond to it instead.</value>
+  </data>
+  <data name="FriendRequestRejected" xml:space="preserve">
+    <value>Friend request rejected.</value>
+  </data>
+  <data name="FriendRequestSent" xml:space="preserve">
+    <value>Friend request sent.</value>
+  </data>
+  <data name="FriendshipAlreadyExists" xml:space="preserve">
+    <value>You are already friends with this player.</value>
+  </data>
+  <data name="FriendshipStatusPreventsRequest" xml:space="preserve">
+    <value>Cannot send friend request due to an existing relationship status.</value>
   </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>An unexpected server error occurred.</value>

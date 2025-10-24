@@ -178,6 +178,42 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a No puedes eliminarte a ti mismo de la lista de amigos..
+        /// </summary>
+        public static string ErrorCannotRemoveSelf {
+            get {
+                return ResourceManager.GetString("ErrorCannotRemoveSelf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No puedes enviarte una solicitud de amistad a ti mismo..
+        /// </summary>
+        public static string ErrorCannotSelfFriend {
+            get {
+                return ResourceManager.GetString("ErrorCannotSelfFriend", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No eres amigo de este jugador..
+        /// </summary>
+        public static string ErrorFriendshipNotFound {
+            get {
+                return ResourceManager.GetString("ErrorFriendshipNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No se encontró una solicitud de amistad pendiente de este usuario..
+        /// </summary>
+        public static string ErrorNoPendingRequestFound {
+            get {
+                return ResourceManager.GetString("ErrorNoPendingRequestFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Jugador no encontrado..
         /// </summary>
         public static string ErrorPlayerNotFound {
@@ -192,6 +228,78 @@ namespace MindWeaveServer.Resources {
         public static string ErrorUserNotOnline {
             get {
                 return ResourceManager.GetString("ErrorUserNotOnline", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Amigo eliminado correctamente..
+        /// </summary>
+        public static string FriendRemovedSuccessfully {
+            get {
+                return ResourceManager.GetString("FriendRemovedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Solicitud de amistad aceptada..
+        /// </summary>
+        public static string FriendRequestAccepted {
+            get {
+                return ResourceManager.GetString("FriendRequestAccepted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Solicitud de amistad ya enviada y pendiente..
+        /// </summary>
+        public static string FriendRequestAlreadySent {
+            get {
+                return ResourceManager.GetString("FriendRequestAlreadySent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Este jugador ya te ha enviado una solicitud. Respóndela..
+        /// </summary>
+        public static string FriendRequestReceivedFromUser {
+            get {
+                return ResourceManager.GetString("FriendRequestReceivedFromUser", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Solicitud de amistad rechazada..
+        /// </summary>
+        public static string FriendRequestRejected {
+            get {
+                return ResourceManager.GetString("FriendRequestRejected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Solicitud de amistad enviada..
+        /// </summary>
+        public static string FriendRequestSent {
+            get {
+                return ResourceManager.GetString("FriendRequestSent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Ya eres amigo de este jugador..
+        /// </summary>
+        public static string FriendshipAlreadyExists {
+            get {
+                return ResourceManager.GetString("FriendshipAlreadyExists", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No se puede enviar la solicitud debido a una relación existente..
+        /// </summary>
+        public static string FriendshipStatusPreventsRequest {
+            get {
+                return ResourceManager.GetString("FriendshipStatusPreventsRequest", resourceCulture);
             }
         }
         

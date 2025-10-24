@@ -1,5 +1,4 @@
-﻿using MindWeaveServer.BusinessLogic;
-using MindWeaveServer.Contracts.DataContracts;
+﻿using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Social;
 using System.Collections.Generic;
 using System.ServiceModel;
@@ -7,7 +6,6 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
-    // El CallbackContract no cambia
     [ServiceContract(CallbackContract = typeof(ISocialCallback), SessionMode = SessionMode.Required)] 
     public interface ISocialManager
     {

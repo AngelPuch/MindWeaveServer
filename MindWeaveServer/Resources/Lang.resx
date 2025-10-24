@@ -156,11 +156,47 @@
   <data name="ErrorAvatarUpdateFailed" xml:space="preserve">
     <value>Ocurrió un error inesperado al actualizar la ruta del avatar.</value>
   </data>
+  <data name="ErrorCannotRemoveSelf" xml:space="preserve">
+    <value>No puedes eliminarte a ti mismo de la lista de amigos.</value>
+  </data>
+  <data name="ErrorCannotSelfFriend" xml:space="preserve">
+    <value>No puedes enviarte una solicitud de amistad a ti mismo.</value>
+  </data>
+  <data name="ErrorFriendshipNotFound" xml:space="preserve">
+    <value>No eres amigo de este jugador.</value>
+  </data>
+  <data name="ErrorNoPendingRequestFound" xml:space="preserve">
+    <value>No se encontró una solicitud de amistad pendiente de este usuario.</value>
+  </data>
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Jugador no encontrado.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>El Usuario no esta en línea</value>
+  </data>
+  <data name="FriendRemovedSuccessfully" xml:space="preserve">
+    <value>Amigo eliminado correctamente.</value>
+  </data>
+  <data name="FriendRequestAccepted" xml:space="preserve">
+    <value>Solicitud de amistad aceptada.</value>
+  </data>
+  <data name="FriendRequestAlreadySent" xml:space="preserve">
+    <value>Solicitud de amistad ya enviada y pendiente.</value>
+  </data>
+  <data name="FriendRequestReceivedFromUser" xml:space="preserve">
+    <value>Este jugador ya te ha enviado una solicitud. Respóndela.</value>
+  </data>
+  <data name="FriendRequestRejected" xml:space="preserve">
+    <value>Solicitud de amistad rechazada.</value>
+  </data>
+  <data name="FriendRequestSent" xml:space="preserve">
+    <value>Solicitud de amistad enviada.</value>
+  </data>
+  <data name="FriendshipAlreadyExists" xml:space="preserve">
+    <value>Ya eres amigo de este jugador.</value>
+  </data>
+  <data name="FriendshipStatusPreventsRequest" xml:space="preserve">
+    <value>No se puede enviar la solicitud debido a una relación existente.</value>
   </data>
   <data name="GenericServerError" xml:space="preserve">
     <value>Ocurrió un error inesperado en el servidor.</value>

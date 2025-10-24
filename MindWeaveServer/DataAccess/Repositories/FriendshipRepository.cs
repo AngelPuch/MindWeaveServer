@@ -14,7 +14,7 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public FriendshipRepository(MindWeaveDBEntities1 context)
         {
-            this.context = context;
+            this.context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         public async Task<List<Friendships>> getAcceptedFriendshipsAsync(int playerId)
@@ -48,20 +48,42 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public void addFriendship(Friendships friendship)
         {
+            if (friendship == null)
+            {
+                throw new ArgumentNullException(nameof(friendship));
+            }
             context.Friendships.Add(friendship);
         }
 
         public void updateFriendship(Friendships friendship)
         {
-            if (context.Entry(friendship).State == EntityState.Detached)
+            if (friendship == null)
             {
+                throw new ArgumentNullException(nameof(friendship));
+            }
+            var entry = context.Entry(friendship);
+            if (entry.State == EntityState.Detached)
+            {
+                var existing = context.Friendships.Local.FirstOrDefault(f => f.friendships_id == friendship.friendships_id);
+                if (existing != null)
+                {
+                    context.Entry(existing).State = EntityState.Detached;
+                }
                 context.Friendships.Attach(friendship);
                 context.Entry(friendship).State = EntityState.Modified;
+            }
+            else
+            {
+                entry.State = EntityState.Modified;
             }
         }
 
         public void removeFriendship(Friendships friendship)
         {
+            if (friendship == null)
+            {
+                throw new ArgumentNullException(nameof(friendship));
+            }
             context.Friendships.Remove(friendship);
         }
 

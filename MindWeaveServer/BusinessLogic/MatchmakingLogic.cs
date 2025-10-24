@@ -511,7 +511,7 @@ namespace MindWeaveServer.BusinessLogic
 
             // *** CAMBIO: Enviar invitación usando el helper estático de SocialManagerService ***
             Console.WriteLine($"[{DateTime.UtcNow:O}] Sending lobby invite notification via Social Service to {invitedUsername} for lobby {lobbyCode} from {inviterUsername}.");
-            SocialManagerService.SendNotificationToUser(invitedUsername, cb => cb.notifyLobbyInvite(inviterUsername, lobbyCode));
+            SocialManagerService.sendNotificationToUser(invitedUsername, cb => cb.notifyLobbyInvite(inviterUsername, lobbyCode));
 
             // Opcional: Notificar al invitador que se envió (podrías usar lobbyCreationFailed con un mensaje de éxito)
             // sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Invitation sent to {invitedUsername}.")); // Un poco hacky
