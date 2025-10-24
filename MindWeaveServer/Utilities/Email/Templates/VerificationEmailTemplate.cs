@@ -1,29 +1,30 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using MindWeaveServer.Resources;
 
 namespace MindWeaveServer.Utilities.Email.Templates
 {
     public class VerificationEmailTemplate : IEmailTemplate
     {
-        public string subject => "Your Mind Weave Verification Code";
+        public string subject => Lang.EmailSubjectVerification;
         public string htmlBody { get; }
 
         public VerificationEmailTemplate(string username, string verificationCode)
         {
+            string greeting = string.Format(Lang.EmailWelcome, username);
+            string instruction = Lang.EmailInstructionVerify; 
+            string expiryInfo = string.Format(Lang.EmailExpiryInfo, 5);
+            string ignoreInfo = Lang.EmailIgnoreInfo;
+
             htmlBody = $@"
                 <div style='font-family: Arial, sans-serif; text-align: center; color: #333;'>
                     <div style='max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px;'>
-                        <h2>Welcome to Mind Weave, {username}!</h2>
-                        <p>Thank you for registering. Please use the following code to activate your account:</p>
+                        <h2>{greeting}</h2>
+                        <p>{instruction}</p>
                         <div style='background-color: #f2f2f2; border-radius: 8px; padding: 10px 20px; margin: 20px auto; display: inline-block;'>
                             <h1 style='font-size: 32px; letter-spacing: 4px; margin: 0;'>{verificationCode}</h1>
                         </div>
-                        <p>This code will expire in 5 minutes.</p>
+                        <p>{expiryInfo}</p>
                         <hr style='border: none; border-top: 1px solid #eee;' />
-                        <p style='font-size: 12px; color: #888;'>If you did not create this account, you can safely ignore this email.</p>
+                        <p style='font-size: 12px; color: #888;'>{ignoreInfo}</p>
                     </div>
                 </div>";
         }

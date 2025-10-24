@@ -1,22 +1,19 @@
-﻿// MindWeaveServer/Utilities/Email/Templates/PasswordRecoveryEmailTemplate.cs
-using MindWeaveServer.Resources; // Para acceder a Lang
+﻿using MindWeaveServer.Resources;
 
 namespace MindWeaveServer.Utilities.Email.Templates
 {
     public class PasswordRecoveryEmailTemplate : IEmailTemplate
     {
-        // Usaremos claves de Lang para el asunto y partes del cuerpo
-        public string subject => Lang.EmailSubjectPasswordRecovery; // Clave nueva en Lang.resx
+        public string subject => Lang.EmailSubjectPasswordRecovery; 
         public string htmlBody { get; }
 
         public PasswordRecoveryEmailTemplate(string username, string recoveryCode)
         {
-            // Usaremos claves de Lang para partes del cuerpo
-            string greeting = string.Format(Lang.EmailGreeting, username); // "Hello {0},"
-            string instruction = Lang.EmailInstructionPasswordRecovery; // "You requested a password reset..."
-            string codeInfo = Lang.EmailCodeInfoPasswordRecovery; // "Your recovery code is:"
-            string expiryInfo = string.Format(Lang.EmailExpiryInfo, 5); // "This code will expire in {0} minutes." (Asumiendo 5 minutos)
-            string ignoreInfo = Lang.EmailIgnoreInfo; // "If you didn't request this..."
+            string greeting = string.Format(Lang.EmailGreeting, username);
+            string instruction = Lang.EmailInstructionPasswordRecovery;
+            string codeInfo = Lang.EmailCodeInfoPasswordRecovery;
+            string expiryInfo = string.Format(Lang.EmailExpiryInfo, 5);
+            string ignoreInfo = Lang.EmailIgnoreInfo;
 
             htmlBody = $@"
                 <div style='font-family: Arial, sans-serif; text-align: center; color: #333;'>

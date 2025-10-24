@@ -5,7 +5,6 @@ namespace MindWeaveServer.DataAccess.Abstractions
 {
     public interface IPlayerRepository
     {
-        Task<Player> getPlayerByUsernameOrEmailAsync(string username, string email);
         Task<Player> getPlayerByEmailAsync(string email);
         void addPlayer(Player player);
         Task<Player> getPlayerByUsernameAsync(string username);

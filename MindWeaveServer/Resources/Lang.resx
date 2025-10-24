@@ -132,8 +132,17 @@
   <data name="EmailInstructionPasswordRecovery" xml:space="preserve">
     <value>Solicitaste restablecer tu contraseña para Mind Weave.</value>
   </data>
+  <data name="EmailInstructionVerify" xml:space="preserve">
+    <value>Gracias por registrarte. Usa el siguiente código para activar tu cuenta:</value>
+  </data>
   <data name="EmailSubjectPasswordRecovery" xml:space="preserve">
     <value>Recuperación de Contraseña - Mind Weave</value>
+  </data>
+  <data name="EmailSubjectVerification" xml:space="preserve">
+    <value>Código de Verificación - Mind Weave</value>
+  </data>
+  <data name="EmailWelcome" xml:space="preserve">
+    <value>¡Bienvenido a Mind Weave, {0}!</value>
   </data>
   <data name="ErrorAccountNotFound" xml:space="preserve">
     <value>No se encontró una cuenta asociada a esos datos.</value>

@@ -17,27 +17,26 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public async Task<Player> getPlayerByEmailAsync(string email)
         {
+            if (string.IsNullOrWhiteSpace(email)) return null;
             return await context.Player.FirstOrDefaultAsync(p => p.email == email);
-        }
-
-        public async Task<Player> getPlayerByUsernameOrEmailAsync(string username, string email)
-        {
-            return await context.Player.FirstOrDefaultAsync(p => p.username == username || p.email == email);
         }
 
         public void addPlayer(Player player)
         {
+            if (player == null) throw new ArgumentNullException(nameof(player));
             context.Player.Add(player);
         }
 
         public async Task<Player> getPlayerByUsernameAsync(string username)
         {
+            if (string.IsNullOrWhiteSpace(username)) return null;
             return await context.Player
                 .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
         public async Task<Player> getPlayerWithProfileViewDataAsync(string username)
         {
+            if (string.IsNullOrWhiteSpace(username)) return null;
             return await context.Player
                 .Include(p => p.PlayerStats)
                 .Include(p => p.Achievements)

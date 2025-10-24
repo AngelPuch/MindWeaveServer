@@ -106,11 +106,38 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Gracias por registrarte. Usa el siguiente código para activar tu cuenta:.
+        /// </summary>
+        public static string EmailInstructionVerify {
+            get {
+                return ResourceManager.GetString("EmailInstructionVerify", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Recuperación de Contraseña - Mind Weave.
         /// </summary>
         public static string EmailSubjectPasswordRecovery {
             get {
                 return ResourceManager.GetString("EmailSubjectPasswordRecovery", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Código de Verificación - Mind Weave.
+        /// </summary>
+        public static string EmailSubjectVerification {
+            get {
+                return ResourceManager.GetString("EmailSubjectVerification", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a ¡Bienvenido a Mind Weave, {0}!.
+        /// </summary>
+        public static string EmailWelcome {
+            get {
+                return ResourceManager.GetString("EmailWelcome", resourceCulture);
             }
         }
         

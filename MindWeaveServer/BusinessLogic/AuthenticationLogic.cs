@@ -44,6 +44,11 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<OperationResultDto> registerPlayerAsync(UserProfileDto userProfile, string password)
         {
+            if (userProfile == null)
+            {
+                return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired }; // Use appropriate Lang key
+            }
+
             var profileValidationResult = await this.profileValidator.ValidateAsync(userProfile);
             if (!profileValidationResult.IsValid)
             {
@@ -56,7 +61,8 @@ namespace MindWeaveServer.BusinessLogic
                 return passwordValidationResult;
             }
 
-            var existingPlayer = await this.playerRepository.getPlayerByUsernameOrEmailAsync(userProfile.username, userProfile.email);
+            var existingPlayer = await this.playerRepository.getPlayerByUsernameAsync(userProfile.username)
+                                 ?? await this.playerRepository.getPlayerByEmailAsync(userProfile.email);
 
             if (existingPlayer != null)
             {
@@ -107,11 +113,14 @@ namespace MindWeaveServer.BusinessLogic
                 gender_id = userProfile.genderId,
                 is_verified = false,
                 verification_code = verificationCode,
-                code_expiry_date = this.verificationCodeService.getVerificationExpiryTime()
+                code_expiry_date = this.verificationCodeService.getVerificationExpiryTime(),
+                avatar_path = "/Resources/Images/Avatar/default_avatar.png"
             };
 
             this.playerRepository.addPlayer(newPlayer);
             await this.playerRepository.saveChangesAsync();
+
+            //TODO: Initialize player stats
 
             await sendVerificationEmailAsync(newPlayer.email, newPlayer.username, verificationCode);
 
@@ -160,6 +169,13 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<LoginResultDto> loginAsync(LoginDto loginData)
         {
+            if (loginData == null)
+            {
+                return new LoginResultDto
+                {
+                    operationResult = new OperationResultDto { success = false, message = Lang.ErrorAllFieldsRequired }
+                };
+            }
             var validationResult = await this.loginValidator.ValidateAsync(loginData);
             if (!validationResult.IsValid)
             {
@@ -220,9 +236,8 @@ namespace MindWeaveServer.BusinessLogic
             playerToVerify.code_expiry_date = this.verificationCodeService.getVerificationExpiryTime();
 
             await playerRepository.saveChangesAsync();
+            await sendVerificationEmailAsync(playerToVerify.email, playerToVerify.username, newVerificationCode);
 
-            var emailTemplate = new VerificationEmailTemplate(playerToVerify.username, newVerificationCode);
-            await emailService.sendEmailAsync(playerToVerify.email, playerToVerify.username, emailTemplate);
 
             return new OperationResultDto { success = true, message = Lang.RegistrationSuccessful };
 
@@ -257,7 +272,6 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error sending recovery code for {email}: {ex.Message}");
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
@@ -307,7 +321,6 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error resetting password for {email}: {ex.Message}"); // Log simple
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }

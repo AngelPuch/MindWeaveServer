@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using MindWeaveServer.Resources;
 
 namespace MindWeaveServer.Utilities
 {
@@ -10,12 +7,27 @@ namespace MindWeaveServer.Utilities
     {
         public static string hashPassword(string password)
         {
+            if (string.IsNullOrEmpty(password))
+            {
+                throw new ArgumentNullException(nameof(password), Lang.ValidationPasswordRequired);
+            }
             return BCrypt.Net.BCrypt.HashPassword(password);
         }
 
         public static bool verifyPassword(string password, string storedHash)
         {
-            return BCrypt.Net.BCrypt.Verify(password, storedHash);
+            if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(storedHash))
+            {
+                return false;
+            }
+            try
+            {
+                return BCrypt.Net.BCrypt.Verify(password, storedHash);
+            }
+            catch (BCrypt.Net.SaltParseException)
+            {
+                return false;
+            }
         }
     }
 }
