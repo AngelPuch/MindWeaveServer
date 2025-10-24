@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MindWeaveServer", "MindWeaveServer\MindWeaveServer.csproj", "{9003C168-A646-40F1-91F5-FB19498083BC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MindWeaveServer.Tests", "MindWeaveServer.Tests\MindWeaveServer.Tests.csproj", "{ACCFC92C-280E-4202-B9DA-C87AB611DD09}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{9003C168-A646-40F1-91F5-FB19498083BC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9003C168-A646-40F1-91F5-FB19498083BC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9003C168-A646-40F1-91F5-FB19498083BC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ACCFC92C-280E-4202-B9DA-C87AB611DD09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ACCFC92C-280E-4202-B9DA-C87AB611DD09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ACCFC92C-280E-4202-B9DA-C87AB611DD09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ACCFC92C-280E-4202-B9DA-C87AB611DD09}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

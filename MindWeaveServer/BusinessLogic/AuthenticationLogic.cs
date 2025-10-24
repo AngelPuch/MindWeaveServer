@@ -46,7 +46,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (userProfile == null)
             {
-                return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired }; // Use appropriate Lang key
+                return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired };
             }
 
             var profileValidationResult = await this.profileValidator.ValidateAsync(userProfile);
@@ -90,6 +90,7 @@ namespace MindWeaveServer.BusinessLogic
             existingPlayer.gender_id = userProfile.genderId;
             existingPlayer.verification_code = newVerificationCode;
             existingPlayer.code_expiry_date = this.verificationCodeService.getVerificationExpiryTime();
+            existingPlayer.email = userProfile.email.Trim();
 
             await this.playerRepository.saveChangesAsync();
 
