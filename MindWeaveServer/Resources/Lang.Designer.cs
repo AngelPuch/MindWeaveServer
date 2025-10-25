@@ -358,6 +358,42 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a No se pudo guardar la nueva contraseña..
+        /// </summary>
+        public static string PasswordChangedFailed {
+            get {
+                return ResourceManager.GetString("PasswordChangedFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Tu contraseña ha sido restablecida correctamente..
+        /// </summary>
+        public static string PasswordChangedSuccessfully {
+            get {
+                return ResourceManager.GetString("PasswordChangedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Perfil actualizado correctamente.
+        /// </summary>
+        public static string ProfileUpdatedSuccessfully {
+            get {
+                return ResourceManager.GetString("ProfileUpdatedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Error al actualizar el perfil.
+        /// </summary>
+        public static string ProfileUpdateFailed {
+            get {
+                return ResourceManager.GetString("ProfileUpdateFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Registro exitoso. Se ha enviado un código de verificación a tu correo electrónico..
         /// </summary>
         public static string RegistrationSuccessful {

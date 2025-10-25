@@ -10,7 +10,8 @@ namespace MindWeaveServer.DataAccess.Abstractions
         void addPlayer(Player player);
         Task<Player> getPlayerByUsernameAsync(string username);
         Task<Player> getPlayerWithProfileViewDataAsync(string username);
-        Task<List<PlayerSearchResultDto>> SearchPlayersAsync(int requesterId, string query, int maxResults = 10);
+        Task<List<PlayerSearchResultDto>> searchPlayersAsync(int requesterId, string query, int maxResults = 10);
+        Task<Player> getPlayerByUsernameWithTrackingAsync(string username);
         Task<int> saveChangesAsync();
     }
 }

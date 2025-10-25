@@ -41,7 +41,7 @@ namespace MindWeaveServer.BusinessLogic
 
             try
             {
-                return await playerRepository.SearchPlayersAsync(requester.idPlayer, query, SEARCH_RESULT_LIMIT);
+                return await playerRepository.searchPlayersAsync(requester.idPlayer, query, SEARCH_RESULT_LIMIT);
             }
             catch (Exception ex)
             {

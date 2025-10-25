@@ -216,6 +216,18 @@
   <data name="LoginSuccessful" xml:space="preserve">
     <value>Login successful.</value>
   </data>
+  <data name="PasswordChangedFailed" xml:space="preserve">
+    <value>Failed to save new password</value>
+  </data>
+  <data name="PasswordChangedSuccessfully" xml:space="preserve">
+    <value>Your password has been reset successfully.</value>
+  </data>
+  <data name="ProfileUpdatedSuccessfully" xml:space="preserve">
+    <value>Profile updated successfully</value>
+  </data>
+  <data name="ProfileUpdateFailed" xml:space="preserve">
+    <value>Profile update failed</value>
+  </data>
   <data name="RegistrationSuccessful" xml:space="preserve">
     <value>Registration successful. A verification code has been sent to your email.</value>
   </data>

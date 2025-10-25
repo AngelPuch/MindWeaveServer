@@ -15,18 +15,15 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         Task<PlayerProfileViewDto> getPlayerProfileView(string username);
 
         [OperationContract]
-        UserProfileDto getProfile(string username);
-
-        [OperationContract]
         Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData);
-
-        [OperationContract]
-        OperationResultDto changePassword(string username, string currentPassword, string newPassword);
 
         [OperationContract]
         Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username);
 
         [OperationContract]
         Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath);
+
+        [OperationContract]
+        Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword);
     }
 }

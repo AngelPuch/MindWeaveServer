@@ -48,7 +48,7 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
-        public async Task<List<PlayerSearchResultDto>> SearchPlayersAsync(int requesterId, string query, int maxResults = 10)
+        public async Task<List<PlayerSearchResultDto>> searchPlayersAsync(int requesterId, string query, int maxResults = 10)
         {
             const int INITIAL_FETCH_LIMIT = 20;
 
@@ -90,6 +90,16 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .ToListAsync();
 
             return finalResults;
+        }
+
+        public async Task<Player> getPlayerByUsernameWithTrackingAsync(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return null;
+            }
+            return await context.Player.FirstOrDefaultAsync
+                (p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
         public async Task<int> saveChangesAsync()

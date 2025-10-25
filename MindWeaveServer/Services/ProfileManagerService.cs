@@ -1,18 +1,40 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Profile;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.DataAccess;
+using MindWeaveServer.DataAccess.Repositories;
+using MindWeaveServer.Resources;
+using MindWeaveServer.Utilities;
+using MindWeaveServer.Utilities.Validators;
 using System;
+using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Authentication;
-using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Services
 {
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerCall, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ProfileManagerService : IProfileManager
     {
-        private readonly ProfileLogic profileLogic = new ProfileLogic();
+        private readonly ProfileLogic profileLogic;
+
+        public ProfileManagerService()
+        {
+            var dbContext = new MindWeaveDBEntities1();
+            var playerRepository = new PlayerRepository(dbContext);
+            var genderRepository = new GenderRepository(dbContext);
+            var passwordService = new PasswordService();
+            var passwordPolicyValidator = new PasswordPolicyValidator();
+            this.profileLogic = new ProfileLogic(
+                playerRepository, 
+                genderRepository, 
+                passwordService, 
+                passwordPolicyValidator);
+        }
+
 
         public async Task<PlayerProfileViewDto> getPlayerProfileView(string username)
         {
@@ -22,46 +44,56 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString()); // TO-DO: Implement a real logging system
-                // Consider returning a DTO with an error state instead of null
                 return null;
             }
         }
 
-        public UserProfileDto getProfile(string username)
-        {
-            throw new NotImplementedException();
-        }
-
-
-
-        public OperationResultDto changePassword(string username, string currentPassword, string newPassword)
-        {
-            throw new NotImplementedException();
-        }
-
         public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
         {
-            return await profileLogic.getPlayerProfileForEditAsync(username);
+            try
+            {
+                return await profileLogic.getPlayerProfileForEditAsync(username);
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
         }
 
-        // REEMPLAZA ESTE MÉTODO VACÍO:
-        // public OperationResultDto updateProfile(string username, UserProfileDto newProfileDtoData)
-        // {
-        //     throw new NotImplementedException();
-        // }
-
-        // POR ESTE MÉTODO CORREGIDO Y ASÍNCRONO:
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
         {
-            // Creamos una instancia de la lógica y la llamamos
-            var profileLogic = new ProfileLogic();
-            return await profileLogic.updateProfileAsync(username, updatedProfileData);
+            try
+            {
+                return await profileLogic.updateProfileAsync(username, updatedProfileData);
+            }
+            catch (Exception ex)
+            {
+                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+            }
         }
+
         public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
         {
-            var profileLogic = new ProfileLogic();
-            return await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
+            try
+            {
+                return await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
+            }
+            catch (Exception ex)
+            {
+                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+            }
+        }
+
+        public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
+        {
+            try
+            {
+                return await profileLogic.changePasswordAsync(username, currentPassword, newPassword);
+            }
+            catch (Exception ex)
+            {
+                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+            }
         }
     }
 }

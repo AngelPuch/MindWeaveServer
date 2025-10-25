@@ -49,7 +49,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
                 new PlayerSearchResultDto { username = player3.username, avatarPath = player3.avatar_path }
             };
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync(player1);
-            mockPlayerRepository.Setup(r => r.SearchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
+            mockPlayerRepository.Setup(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
                                  .ReturnsAsync(searchResultsFromRepo);
 
             var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
@@ -58,7 +58,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             Assert.Equal(2, results.Count);
             Assert.Contains(results, r => r.username == player2.username && r.avatarPath == defaultAvatar);
             Assert.Contains(results, r => r.username == player3.username && r.avatarPath == player3.avatar_path);
-            mockPlayerRepository.Verify(r => r.SearchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()), Times.Once);
+            mockPlayerRepository.Verify(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()), Times.Once);
         }
 
         [Fact]
@@ -72,7 +72,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             Assert.NotNull(results);
             Assert.Empty(results);
-            mockPlayerRepository.Verify(r => r.SearchPlayersAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never); // No busca si el requester no existe
+            mockPlayerRepository.Verify(r => r.searchPlayersAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never); // No busca si el requester no existe
         }
 
         [Fact]
@@ -81,7 +81,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string requesterUsername = player1.username;
             string query = "User";
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync(player1);
-            mockPlayerRepository.Setup(r => r.SearchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
+            mockPlayerRepository.Setup(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
                                  .ThrowsAsync(new Exception("Database connection failed"));
 
             var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
