@@ -1,5 +1,4 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Social;
-using MindWeaveServer.DataAccess;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 

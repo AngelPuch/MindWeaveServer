@@ -12,6 +12,9 @@
 **/[Dd]ebugPublic/
 **/[Rr]eleasePublic/
 
+# SonarQube
+.sonarqube/
+
 # ## Archivos generados por Visual Studio ##
 *.vs/
 .vs/

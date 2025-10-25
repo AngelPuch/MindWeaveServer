@@ -1,11 +1,12 @@
-﻿using System.Runtime.Serialization;
+﻿using MindWeaveServer.Contracts.DataContracts.Shared;
+using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts 
+namespace MindWeaveServer.Contracts.DataContracts
 {
     [DataContract]
-    public class UploadResultDto : OperationResultDto 
+    public class UploadResultDto : OperationResultDto
     {
         [DataMember]
-        public int newPuzzleId { get; set; } 
+        public int newPuzzleId { get; set; }
     }
 }

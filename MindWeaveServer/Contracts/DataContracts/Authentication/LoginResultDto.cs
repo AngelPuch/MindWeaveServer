@@ -1,4 +1,5 @@
 ﻿using System.Runtime.Serialization;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Contracts.DataContracts.Authentication
 {

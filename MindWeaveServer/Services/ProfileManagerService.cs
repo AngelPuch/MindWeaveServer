@@ -5,6 +5,8 @@ using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Services
 {

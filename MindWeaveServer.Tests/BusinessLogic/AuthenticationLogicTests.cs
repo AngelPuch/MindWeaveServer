@@ -3,6 +3,7 @@ using FluentValidation.Results;
 using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.DataAccess; 
 using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.Resources;

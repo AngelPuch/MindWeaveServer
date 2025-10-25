@@ -9,6 +9,7 @@ using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Validators;
 using System;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Services
 {

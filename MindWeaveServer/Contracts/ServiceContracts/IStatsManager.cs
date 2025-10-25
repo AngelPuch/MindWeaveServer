@@ -1,6 +1,6 @@
-﻿using MindWeaveServer.Contracts.DataContracts;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ServiceModel;
+using MindWeaveServer.Contracts.DataContracts.Stats;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {

@@ -1,9 +1,10 @@
-﻿using MindWeaveServer.Contracts.DataContracts;
-using MindWeaveServer.Contracts.DataContracts.Profile;
+﻿using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {

@@ -2,6 +2,7 @@
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using System.Linq;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Utilities.Validators
 {

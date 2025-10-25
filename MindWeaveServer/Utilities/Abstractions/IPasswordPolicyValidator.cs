@@ -1,4 +1,5 @@
 ﻿using MindWeaveServer.Contracts.DataContracts;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Utilities.Abstractions
 {

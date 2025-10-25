@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts
+namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
 {
     [DataContract]
     public class LobbyStateDto

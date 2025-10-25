@@ -3,6 +3,7 @@ using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Resources;
 using System;
 using System.Linq;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
 
 namespace MindWeaveServer.Utilities.Validators
 {

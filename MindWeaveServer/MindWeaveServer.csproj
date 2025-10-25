@@ -1,5 +1,4 @@
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\xunit.core.2.9.3\build\xunit.core.props" Condition="Exists('..\packages\xunit.core.2.9.3\build\xunit.core.props')" />
   <Import Project="..\packages\EntityFramework.6.5.1\build\EntityFramework.props" Condition="Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -110,22 +109,9 @@
     </Reference>
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="xunit.abstractions, Version=2.0.0.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\packages\xunit.abstractions.2.0.3\lib\net35\xunit.abstractions.dll</HintPath>
-    </Reference>
-    <Reference Include="xunit.assert, Version=2.9.3.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\packages\xunit.assert.2.9.3\lib\netstandard1.1\xunit.assert.dll</HintPath>
-    </Reference>
-    <Reference Include="xunit.core, Version=2.9.3.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\packages\xunit.extensibility.core.2.9.3\lib\net452\xunit.core.dll</HintPath>
-    </Reference>
-    <Reference Include="xunit.execution.desktop, Version=2.9.3.0, Culture=neutral, PublicKeyToken=8d05b1bb7a6fdb6c, processorArchitecture=MSIL">
-      <HintPath>..\packages\xunit.extensibility.execution.2.9.3\lib\net452\xunit.execution.desktop.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
-    <Compile Include="BusinessLogic\Mappers\ProfileMapper.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
     <Compile Include="BusinessLogic\SocialLogic.cs" />
@@ -283,10 +269,7 @@
       <LastGenOutput>MindWeaveDB.cs</LastGenOutput>
     </Content>
   </ItemGroup>
-  <ItemGroup>
-    <Analyzer Include="..\packages\xunit.analyzers.1.18.0\analyzers\dotnet\cs\xunit.analyzers.dll" />
-    <Analyzer Include="..\packages\xunit.analyzers.1.18.0\analyzers\dotnet\cs\xunit.analyzers.fixes.dll" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <VSToolsPath Condition="'$(VSToolsPath)' == '' and '$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' != '11.0'">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
@@ -309,11 +292,8 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.5.1\build\EntityFramework.props'))" />
     <Error Condition="!Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\EntityFramework.6.5.1\build\EntityFramework.targets'))" />
-    <Error Condition="!Exists('..\packages\xunit.core.2.9.3\build\xunit.core.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\xunit.core.2.9.3\build\xunit.core.props'))" />
-    <Error Condition="!Exists('..\packages\xunit.core.2.9.3\build\xunit.core.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\xunit.core.2.9.3\build\xunit.core.targets'))" />
   </Target>
   <Import Project="..\packages\EntityFramework.6.5.1\build\EntityFramework.targets" Condition="Exists('..\packages\EntityFramework.6.5.1\build\EntityFramework.targets')" />
-  <Import Project="..\packages\xunit.core.2.9.3\build\xunit.core.targets" Condition="Exists('..\packages\xunit.core.2.9.3\build\xunit.core.targets')" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

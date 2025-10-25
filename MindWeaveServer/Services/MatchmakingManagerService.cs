@@ -1,10 +1,8 @@
 ﻿using MindWeaveServer.BusinessLogic;
-using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -14,21 +12,16 @@ namespace MindWeaveServer.Services
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class MatchmakingManagerService : IMatchmakingManager
     {
-        // La lógica AHORA se crea por instancia (sesión)
         private readonly MatchmakingLogic matchmakingLogic;
-
-        // ESTOS DEBEN SER ESTÁTICOS para ser compartidos entre TODAS las instancias/sesiones
         private static readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies = new ConcurrentDictionary<string, LobbyStateDto>(StringComparer.OrdinalIgnoreCase);
         private static readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks = new ConcurrentDictionary<string, IMatchmakingCallback>(StringComparer.OrdinalIgnoreCase);
 
-        private string currentUsername = null; // Username para ESTA sesión
-        private IMatchmakingCallback currentUserCallback = null; // Callback para ESTA sesión
+        private string currentUsername = null;
+        private IMatchmakingCallback currentUserCallback = null;
 
-        // Constructor de la instancia de servicio (se llama una vez por sesión de cliente)
         public MatchmakingManagerService()
         {
             Console.WriteLine("==> MatchmakingManagerService INSTANCE CONSTRUCTOR called.");
-            // Pasa las colecciones ESTÁTICAS compartidas a la lógica (que ahora es por instancia)
             this.matchmakingLogic = new MatchmakingLogic(activeLobbies, userCallbacks);
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
@@ -45,7 +38,6 @@ namespace MindWeaveServer.Services
         public async Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto)
         {
             Console.WriteLine($"{DateTime.UtcNow:O} ==> Service: createLobby ENTRY for user: {hostUsername}");
-            // Asegura que el callback de matchmaking esté registrado para esta sesión
             currentUserCallback = getCurrentCallbackChannel(hostUsername);
             if (currentUserCallback == null) { /* Error crítico */ return new LobbyCreationResultDto { /*...*/ }; }
 
@@ -55,23 +47,20 @@ namespace MindWeaveServer.Services
             catch (Exception ex) { /* Log Fatal */ return new LobbyCreationResultDto { /*...*/ }; }
         }
 
-        // --- getCurrentCallbackChannel ---
-        // (Sin cambios lógicos, pero ahora opera en el contexto de una sesión)
         private IMatchmakingCallback getCurrentCallbackChannel(string username)
         {
-            // (Lógica igual a SocialManagerService, pero usando userCallbacks)
             if (OperationContext.Current == null) { /* Log */ return null; }
             var currentCallback = OperationContext.Current.GetCallbackChannel<IMatchmakingCallback>();
             if (currentCallback != null && !string.IsNullOrEmpty(username))
             {
-                currentUsername = username; // Guardar para esta sesión
+                currentUsername = username;
                 userCallbacks.AddOrUpdate(username, currentCallback, (key, existingVal) =>
                 {
                     var existingComm = existingVal as ICommunicationObject;
                     if (existingComm == null || existingComm.State != CommunicationState.Opened)
                     {
                         Console.WriteLine($"[{DateTime.UtcNow:O}] Updating stale matchmaking callback for {username}.");
-                        if (existingComm != null) CleanupCallbackEvents(existingComm);
+                        if (existingComm != null) cleanupCallbackEvents(existingComm);
                         return currentCallback;
                     }
                     return existingVal;
@@ -79,30 +68,26 @@ namespace MindWeaveServer.Services
 
                 if (userCallbacks.TryGetValue(username, out currentCallback))
                 {
-                    SetupCallbackEvents(currentCallback as ICommunicationObject);
+                    setupCallbackEvents(currentCallback as ICommunicationObject);
                 }
                 else { Console.WriteLine($"!!! CRITICAL: Failed to retrieve matchmaking callback for {username} after AddOrUpdate."); }
             }
             return currentCallback;
         }
 
-        // --- CommObject_FaultedOrClosed ---
-        // (Sin cambios) - Se dispara cuando un canal de callback falla o se cierra
         private void CommObject_FaultedOrClosed(object sender, EventArgs e)
         {
             IMatchmakingCallback callbackChannel = sender as IMatchmakingCallback;
             if (callbackChannel != null)
             {
-                // Buscar el usuario asociado a este canal específico
                 var userEntry = userCallbacks.FirstOrDefault(pair => pair.Value == callbackChannel);
                 if (!string.IsNullOrEmpty(userEntry.Key))
                 {
                     Console.WriteLine($"Callback channel for {userEntry.Key} has Faulted or Closed.");
-                    removeCallbackChannel(userEntry.Key); // Llama a la limpieza
+                    removeCallbackChannel(userEntry.Key);
                 }
                 else { /* Log Warning */ }
 
-                // Desuscribirse para evitar fugas
                 ICommunicationObject commObject = sender as ICommunicationObject;
                 if (commObject != null)
                 {
@@ -112,8 +97,6 @@ namespace MindWeaveServer.Services
             }
         }
 
-        // --- removeCallbackChannel ---
-        // (Sin cambios lógicos) - Limpia el canal de un usuario específico
         private void removeCallbackChannel(string username)
         {
             if (!string.IsNullOrEmpty(username))
@@ -121,28 +104,21 @@ namespace MindWeaveServer.Services
                 if (userCallbacks.TryRemove(username, out IMatchmakingCallback removedChannel))
                 {
                     Console.WriteLine($"Callback channel explicitly removed for user: {username}");
-                    // Limpiar también al usuario de los lobbies activos (llamando a la lógica)
-                    matchmakingLogic.handleUserDisconnect(username); // Asegúrate que matchmakingLogic esté inicializado si se llama desde aquí
+                    matchmakingLogic.handleUserDisconnect(username);
 
-                    // Intentar cerrar/abortar el canal removido
                     ICommunicationObject commObject = removedChannel as ICommunicationObject;
                     if (commObject != null)
                     {
-                        // Ya nos desuscribimos en Faulted/Closed, pero por si acaso se llama directamente
                         commObject.Faulted -= CommObject_FaultedOrClosed;
                         commObject.Closed -= CommObject_FaultedOrClosed;
-                        try { /* Intenta cerrar/abortar limpiamente */ } catch { /* Abortar si falla */ }
                     }
                 }
             }
         }
 
-        // --- Implementaciones del resto de métodos de la interfaz (joinLobby, leaveLobby, etc.) ---
-        // (Sin cambios, ya que delegan en la lógica de negocio)
         public void joinLobby(string username, string lobbyId)
         {
             Console.WriteLine($"{DateTime.UtcNow:O} ==> Service: joinLobby ENTRY for user: {username}, lobby: {lobbyId}");
-            // Asegura que el callback de matchmaking esté registrado para esta sesión
             currentUserCallback = getCurrentCallbackChannel(username);
             if (currentUserCallback == null) { /* Error crítico */ return; }
 
@@ -157,13 +133,11 @@ namespace MindWeaveServer.Services
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(lobbyId)) { /* Log */ return; }
             try { matchmakingLogic.leaveLobby(username, lobbyId); }
             catch (Exception ex) { /* Log */ }
-            // La limpieza del callback se maneja en Faulted/Closed o al desconectar explícitamente
         }
 
         public void startGame(string hostUsername, string lobbyId)
         {
             Console.WriteLine($"{DateTime.UtcNow:O} ==> Service: startGame ENTRY by: {hostUsername}, lobby: {lobbyId}");
-            // No necesita registrar callback aquí
             if (string.IsNullOrWhiteSpace(hostUsername) || string.IsNullOrWhiteSpace(lobbyId)) { /* Log */ return; }
             try { matchmakingLogic.startGame(hostUsername, lobbyId); }
             catch (Exception ex) { /* Log */ }
@@ -172,7 +146,6 @@ namespace MindWeaveServer.Services
         public void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId)
         {
             Console.WriteLine($"{DateTime.UtcNow:O} ==> Service: kickPlayer ENTRY by: {hostUsername}, kicking: {playerToKickUsername}, lobby: {lobbyId}");
-            // No necesita registrar callback aquí
             if (string.IsNullOrWhiteSpace(hostUsername) || string.IsNullOrWhiteSpace(playerToKickUsername) || string.IsNullOrWhiteSpace(lobbyId)) { /* Log */ return; }
             try { matchmakingLogic.kickPlayer(hostUsername, playerToKickUsername, lobbyId); }
             catch (Exception ex) { /* Log */ }
@@ -180,7 +153,6 @@ namespace MindWeaveServer.Services
         public void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId)
         {
             Console.WriteLine($"{DateTime.UtcNow:O} ==> Service: inviteToLobby ENTRY from: {inviterUsername}, to: {invitedUsername}, lobby: {lobbyId}");
-            // No necesita registrar callback aquí, solo llama a la lógica
             if (string.IsNullOrWhiteSpace(inviterUsername) || string.IsNullOrWhiteSpace(invitedUsername) || string.IsNullOrWhiteSpace(lobbyId)) { /* Log */ return; }
             try { matchmakingLogic.inviteToLobby(inviterUsername, invitedUsername, lobbyId); }
             catch (Exception ex) { /* Log */ }
@@ -196,38 +168,31 @@ namespace MindWeaveServer.Services
             catch (Exception ex) { /* Log */ }
         }
 
-
-
-
-
         private void Channel_FaultedOrClosed(object sender, EventArgs e)
         {
             Console.WriteLine($"[{DateTime.UtcNow:O}] Matchmaking Channel Faulted/Closed for: {currentUsername ?? "UNKNOWN"}");
             if (!string.IsNullOrEmpty(currentUsername))
             {
-                cleanupAndNotifyDisconnect(currentUsername); // Llama a la limpieza lógica
+                cleanupAndNotifyDisconnect(currentUsername);
             }
-            CleanupCallbackEvents(sender as ICommunicationObject); // Limpia eventos locales
+            cleanupCallbackEvents(sender as ICommunicationObject);
         }
 
         private void cleanupAndNotifyDisconnect(string username)
         {
             if (string.IsNullOrEmpty(username)) return;
 
-            // Limpiar de la lista ESTÁTICA de callbacks
             if (userCallbacks.TryRemove(username, out IMatchmakingCallback removedChannel))
             {
                 Console.WriteLine($"[{DateTime.UtcNow:O}] Matchmaking callback removed for {username}.");
-                CleanupCallbackEvents(removedChannel as ICommunicationObject); // Limpia eventos del canal removido
+                cleanupCallbackEvents(removedChannel as ICommunicationObject); 
 
-                // Notificar a la lógica para que lo saque de los lobbies
                 matchmakingLogic.handleUserDisconnect(username);
             }
             else { Console.WriteLine($"[{DateTime.UtcNow:O}] Attempted matchmaking cleanup for {username}, but not found."); }
         }
 
-        // --- Helpers para suscribir/desuscribir eventos (igual que SocialManagerService) ---
-        private void CleanupCallbackEvents(ICommunicationObject commObject)
+        private void cleanupCallbackEvents(ICommunicationObject commObject)
         {
             if (commObject != null)
             {
@@ -235,11 +200,11 @@ namespace MindWeaveServer.Services
                 commObject.Closed -= Channel_FaultedOrClosed;
             }
         }
-        private void SetupCallbackEvents(ICommunicationObject commObject)
+        private void setupCallbackEvents(ICommunicationObject commObject)
         {
             if (commObject != null)
             {
-                commObject.Faulted -= Channel_FaultedOrClosed; // Prevenir duplicados
+                commObject.Faulted -= Channel_FaultedOrClosed;
                 commObject.Closed -= Channel_FaultedOrClosed;
                 commObject.Faulted += Channel_FaultedOrClosed;
                 commObject.Closed += Channel_FaultedOrClosed;
@@ -249,5 +214,5 @@ namespace MindWeaveServer.Services
 
 
 
-    } // Fin clase MatchmakingManagerService
+    } 
 }

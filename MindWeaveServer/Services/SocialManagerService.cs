@@ -10,6 +10,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Services
 {

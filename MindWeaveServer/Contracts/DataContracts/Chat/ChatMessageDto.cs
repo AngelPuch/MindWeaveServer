@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts
+namespace MindWeaveServer.Contracts.DataContracts.Chat
 {
     [DataContract]
     public class ChatMessageDto

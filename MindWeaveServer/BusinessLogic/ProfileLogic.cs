@@ -1,4 +1,4 @@
-﻿using MindWeaveServer.Contracts.DataContracts; // <-- CORREGIDO: Usamos el namespace correcto
+﻿using MindWeaveServer.Contracts.DataContracts; 
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.DataAccess;
@@ -7,6 +7,7 @@ using System;
 using System.Data.Entity;
 using System.Linq;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.BusinessLogic
 {
