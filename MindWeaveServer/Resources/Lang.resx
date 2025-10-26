@@ -117,6 +117,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="DatabaseErrorStartingMatch" xml:space="preserve">
+    <value>Error en la base de datos al iniciar la partida.</value>
+  </data>
   <data name="EmailCodeInfoPasswordRecovery" xml:space="preserve">
     <value>Tu código de recuperación es:</value>
   </data>
@@ -165,11 +168,17 @@
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>No eres amigo de este jugador.</value>
   </data>
+  <data name="ErrorJoiningLobbyData" xml:space="preserve">
+    <value>Error al unirse a los datos del lobby.</value>
+  </data>
   <data name="ErrorNoPendingRequestFound" xml:space="preserve">
     <value>No se encontró una solicitud de amistad pendiente de este usuario.</value>
   </data>
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Jugador no encontrado.</value>
+  </data>
+  <data name="ErrorSavingDifficultyChange" xml:space="preserve">
+    <value>Error al guardar el cambio de dificultad.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>El Usuario no esta en línea</value>
@@ -201,11 +210,41 @@
   <data name="GenericServerError" xml:space="preserve">
     <value>Ocurrió un error inesperado en el servidor.</value>
   </data>
+  <data name="HostLeftLobby" xml:space="preserve">
+    <value>El anfitrión salió del lobby.</value>
+  </data>
   <data name="InfoPasswordResetSuccess" xml:space="preserve">
     <value>Tu contraseña ha sido restablecida correctamente. Ya puedes iniciar sesión.</value>
   </data>
   <data name="InfoRecoveryCodeSent" xml:space="preserve">
     <value>Se ha enviado un código de recuperación a tu correo electrónico.</value>
+  </data>
+  <data name="KickedByHost" xml:space="preserve">
+    <value>Expulsado por el anfitrión.</value>
+  </data>
+  <data name="lobbyCodeGenerationFailed" xml:space="preserve">
+    <value>Error al generar un código único para el lobby.</value>
+  </data>
+  <data name="lobbyCreatedSuccessfully" xml:space="preserve">
+    <value>Lobby creado exitosamente.</value>
+  </data>
+  <data name="LobbyDataNotFound" xml:space="preserve">
+    <value>Datos del lobby no encontrados.</value>
+  </data>
+  <data name="LobbyIsFull" xml:space="preserve">
+    <value>El lobby {0} está lleno.</value>
+  </data>
+  <data name="LobbyNoLongerAvailable" xml:space="preserve">
+    <value>El lobby {0} ya no está disponible.</value>
+  </data>
+  <data name="lobbyNotFoundOrInactive" xml:space="preserve">
+    <value>El lobby {0} no existe o está inactivo.</value>
+  </data>
+  <data name="LobbyNotInWaitingState" xml:space="preserve">
+    <value>El lobby no está en estado de espera.</value>
+  </data>
+  <data name="lobbyRegistrationFailed" xml:space="preserve">
+    <value>Error al registrar el lobby en memoria después de guardar en la base de datos.</value>
   </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
     <value>Tu cuenta no ha sido verificada. Revisa tu correo</value>
@@ -216,11 +255,23 @@
   <data name="LoginSuccessful" xml:space="preserve">
     <value>Sesión iniciada.</value>
   </data>
+  <data name="NotEnoughPlayersToStart" xml:space="preserve">
+    <value>No hay suficientes jugadores para iniciar.</value>
+  </data>
+  <data name="notHost" xml:space="preserve">
+    <value>No eres el anfitrión.</value>
+  </data>
   <data name="PasswordChangedFailed" xml:space="preserve">
     <value>No se pudo guardar la nueva contraseña.</value>
   </data>
   <data name="PasswordChangedSuccessfully" xml:space="preserve">
     <value>Tu contraseña ha sido restablecida correctamente.</value>
+  </data>
+  <data name="PlayerAlreadyInLobby" xml:space="preserve">
+    <value>{0} ya está en el lobby.</value>
+  </data>
+  <data name="PlayerOrMatchNotFoundInDb" xml:space="preserve">
+    <value>El jugador '{0}' o la partida del lobby '{1}' no se encontraron en la base de datos.</value>
   </data>
   <data name="ProfileUpdatedSuccessfully" xml:space="preserve">
     <value>Perfil actualizado correctamente</value>

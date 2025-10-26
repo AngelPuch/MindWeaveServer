@@ -7,343 +7,131 @@ using MindWeaveServer.Utilities;
 using System;
 using System.Collections.Concurrent; 
 using System.Collections.Generic;
-using System.Data.Entity;
 using System.Data.Entity.Infrastructure; 
 using System.Linq;
 using System.ServiceModel; 
 using System.Threading.Tasks;
+using MindWeaveServer.DataAccess.Abstractions;
 
 namespace MindWeaveServer.BusinessLogic
 {
     public class MatchmakingLogic
     {
+        private readonly IMatchmakingRepository matchmakingRepository;
+        private readonly IPlayerRepository playerRepository;
         private readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies;
         private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
         private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
         private const int MAX_PLAYERS_PER_LOBBY = 4;
+        private const int MATCH_STATUS_WAITING = 1;
+        private const int MATCH_STATUS_IN_PROGRESS = 3;
+        private const int MATCH_STATUS_CANCELED = 4;
+        private const int DEFAULT_DIFFICULTY_ID = 1;
+        private const int DEFAULT_PUZZLE_ID = 4;
 
-    public MatchmakingLogic(
-        ConcurrentDictionary<string, LobbyStateDto> lobbies,
-        ConcurrentDictionary<string, IMatchmakingCallback> callbacks)
-    {
-        this.activeLobbies = lobbies;
-        this.userCallbacks = callbacks;
-    }
-
-    public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
-    {
-        string currentLobbyCode = null;
-        Matches newMatch = null;    
-        LobbyStateDto initialState = null;
-        bool addedToMemory = false;
-        int attempts = 0;
-
-        using (var context = new MindWeaveDBEntities1())
+        public MatchmakingLogic(
+            IMatchmakingRepository matchmakingRepository,
+            IPlayerRepository playerRepository,
+            ConcurrentDictionary<string, LobbyStateDto> lobbies,
+            ConcurrentDictionary<string, IMatchmakingCallback> callbacks)
         {
-            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Getting host player {hostUsername}...");
-            var hostPlayer = await context.Player.AsNoTracking().FirstOrDefaultAsync(p => p.username == hostUsername);
+            this.matchmakingRepository = matchmakingRepository ?? throw new ArgumentNullException(nameof(matchmakingRepository));
+            this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
+                this.activeLobbies = lobbies ?? throw new ArgumentNullException(nameof(lobbies));
+            this.userCallbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
+        }
+
+
+        public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
+        {
+            if (string.IsNullOrWhiteSpace(hostUsername) || settings == null)
+            {
+                return new LobbyCreationResultDto { success = false, message = Lang.ErrorAllFieldsRequired };
+            }
+
+            var hostPlayer = await playerRepository.getPlayerByUsernameAsync(hostUsername);
             if (hostPlayer == null)
             {
-                Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Host player {hostUsername} not found.");
-                return new LobbyCreationResultDto { success = false, message = "Host player not found." }; // TODO: Lang
+                return new LobbyCreationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
             }
-            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Host player found (ID: {hostPlayer.idPlayer}). Generating lobby code...");
 
-            while (newMatch == null && attempts < MAX_LOBBY_CODE_GENERATION_ATTEMPTS)
-            {
-                attempts++;
-                currentLobbyCode = LobbyCodeGenerator.generateUniqueCode();
-                Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Attempt {attempts}, generated code: {currentLobbyCode}");
+            Matches newMatch = await tryCreateUniqueLobbyAsync(settings, hostPlayer);
 
-                if (activeLobbies.ContainsKey(currentLobbyCode))
-                {
-                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Code {currentLobbyCode} exists in memory. Retrying...");
-                    continue;
-                }
-
-                bool codeExistsInDb = await context.Matches.AnyAsync(m => m.lobby_code == currentLobbyCode);
-                if (codeExistsInDb)
-                {
-                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Code {currentLobbyCode} exists in DB. Retrying...");
-                    continue; 
-                }
-
-                newMatch = new Matches
-                {
-                    creation_time = DateTime.UtcNow,
-                    match_status_id = 1,
-                    puzzle_id = settings.preloadedPuzzleId ?? 3, 
-                    difficulty_id = 1,
-                    lobby_code = currentLobbyCode
-                };
-
-                Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Match entity prepared for DB. Code={newMatch.lobby_code}, StatusID={newMatch.match_status_id}, PuzzleID={newMatch.puzzle_id}, DifficultyID={newMatch.difficulty_id}");
-                context.Matches.Add(newMatch);
-
-                try
-                {
-                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: BEFORE SaveChangesAsync for {currentLobbyCode}");
-                    await context.SaveChangesAsync();
-                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: AFTER SaveChangesAsync for {currentLobbyCode}. Match ID: {newMatch.matches_id}");
-                    var hostParticipant = new MatchParticipants
-                    {
-                        match_id = newMatch.matches_id,
-                        player_id = hostPlayer.idPlayer,
-                        is_host = true 
-                    };
-                    context.MatchParticipants.Add(hostParticipant);
-                    await context.SaveChangesAsync(); 
-                    Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Host participant saved for Match ID: {newMatch.matches_id}, Player ID: {hostPlayer.idPlayer}");
-                    }
-                    catch (DbUpdateException dbEx) 
-                    {
-                    string errorDetails = dbEx.InnerException?.InnerException?.Message ?? dbEx.InnerException?.Message ?? dbEx.Message;
-                    Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: DbUpdateException saving match {currentLobbyCode}: {errorDetails}");
-                    Console.WriteLine($"--- Full DbUpdateException Trace: {dbEx.ToString()}"); 
-                    if (errorDetails.Contains("UNIQUE KEY constraint") && (errorDetails.Contains("lobby_code") || errorDetails.Contains("UQ__Matches")))
-                    {
-                        Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Lobby code collision in DB. Detaching entity and retrying...");
-                        if (context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; }
-                        newMatch = null;
-                    }
-                    else 
-                    {
-                        if (newMatch != null && context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; } 
-                        return new LobbyCreationResultDto { success = false, message = $"Database error: {errorDetails}", lobbyCode = null, initialLobbyState = null }; // Mensaje específico
-                    }
-                }
-                catch (Exception ex) 
-                {
-                    Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Generic Exception saving match {currentLobbyCode}: {ex.ToString()}");
-                    if (newMatch != null && context.Entry(newMatch).State != EntityState.Detached) { context.Entry(newMatch).State = EntityState.Detached; }
-                        return new LobbyCreationResultDto { success = false, message = $"Failed to save lobby data: {ex.Message}", lobbyCode = null, initialLobbyState = null }; // Mensaje simple
-                }
-            } 
             if (newMatch == null)
             {
-                Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Failed to generate and save a unique lobby code after {attempts} attempts.");
-                return new LobbyCreationResultDto { success = false, message = "Failed to generate a unique lobby code.", lobbyCode = null, initialLobbyState = null }; // TODO: Lang
+                return new LobbyCreationResultDto
+                    { success = false, message = Lang.lobbyCodeGenerationFailed };
             }
-            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Creating initial LobbyStateDto for {currentLobbyCode}...");
-            initialState = new LobbyStateDto
-            {
-                lobbyId = newMatch.lobby_code,
-                hostUsername = hostUsername,
-                players = new List<string> { hostUsername },
-                currentSettingsDto = settings 
-            };
 
-            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Adding lobby {currentLobbyCode} to activeLobbies dictionary...");
+            var initialState = buildInitialLobbyState(newMatch, hostUsername, settings);
+
             if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
             {
-                addedToMemory = true;
-                Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Lobby {currentLobbyCode} successfully added to memory.");
+                return new LobbyCreationResultDto
+                {
+                    success = true, message = Lang.lobbyCreatedSuccessfully,
+                    lobbyCode = newMatch.lobby_code, initialLobbyState = initialState
+                };
             }
-            else
-            {
-                Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Failed to add lobby {currentLobbyCode} to memory dictionary (race condition?).");
-                
-                return new LobbyCreationResultDto { success = false, message = "Failed to register lobby in memory after DB save.", lobbyCode = null, initialLobbyState = null };
-            }
-
+            return new LobbyCreationResultDto { success = false, message = Lang.lobbyRegistrationFailed };
         }
-        if (addedToMemory && initialState != null) 
-        {
-            Console.WriteLine($"{DateTime.UtcNow:O} --- Logic: Returning SUCCESS result for lobby {currentLobbyCode}.");
-            return new LobbyCreationResultDto
-            {
-                success = true,
-                message = "Lobby created successfully.",
-                lobbyCode = currentLobbyCode,
-                initialLobbyState = initialState
-            };
-        }
-        else
-        {
-            Console.WriteLine($"{DateTime.UtcNow:O} !!! Logic: Returning FAILURE (unexpected state) after DB save for {currentLobbyCode}.");
-            return new LobbyCreationResultDto { success = false, message = "Unexpected error after saving lobby.", lobbyCode = null, initialLobbyState = null };
-        }
-    } 
 
-
-    public async void joinLobby(string username, string lobbyCode)
+        public async Task joinLobbyAsync(string username, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
-                Console.WriteLine($"JoinLobby Error: Lobby {lobbyCode} not found for user {username}.");
-                sendCallbackToUser(username, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} not found or is inactive.")); // TODO: Lang Key
+                sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode)));
                 return;
             }
 
-            bool addedToMemory = false;
-            int matchId = -1;
-            int playerId = -1; 
+            var (needsDbUpdate, proceed) = tryAddPlayerToMemory(lobbyState, username, lobbyCode);
+
+            if (!proceed)
             {
-                if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
-                {
-                    Console.WriteLine($"JoinLobby Error: Lobby {lobbyCode} is full (Max: {MAX_PLAYERS_PER_LOBBY}). User: {username}");
-                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} is full.")); // TODO: Lang Key
-                    return;
-                }
+                return; 
+            }
 
-                if (lobbyState.players.Contains(username))
-                {
-                    Console.WriteLine($"JoinLobby Info: User {username} already in lobby {lobbyCode}. Resending state.");
-                }
-                else
-                {
-                    lobbyState.players.Add(username);
-                    addedToMemory = true;
-                    Console.WriteLine($"User {username} joined lobby {lobbyCode}. Players: {string.Join(", ", lobbyState.players)}");
-                }
-            } 
-            if (addedToMemory) 
+            bool dbSyncSuccess = true;
+
+            if (needsDbUpdate)
             {
-                using (var context = new MindWeaveDBEntities1())
-                {
-                    try
-                    {
-                        var match = await context.Matches
-                                                .AsNoTracking() 
-                                                .FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
+                dbSyncSuccess = await tryAddParticipantToDatabaseAsync(username, lobbyCode, lobbyState);
+            }
 
-                        // Buscar el ID del jugador
-                        var player = await context.Player
-                                                .AsNoTracking()
-                                                .FirstOrDefaultAsync(p => p.username == username);
-
-                        if (match != null && player != null)
-                        {
-                            matchId = match.matches_id;
-                            playerId = player.idPlayer;
-
-                            bool alreadyExists = await context.MatchParticipants
-                                                            .AnyAsync(mp => mp.match_id == matchId && mp.player_id == playerId);
-
-                            if (!alreadyExists)
-                            {
-                                var newParticipant = new MatchParticipants
-                                {
-                                    match_id = matchId,
-                                    player_id = playerId,
-                                    is_host = false 
-                                };
-                                context.MatchParticipants.Add(newParticipant);
-                                await context.SaveChangesAsync();
-                                Console.WriteLine($"JoinLobby DB: Added participant PlayerID={playerId} to MatchID={matchId}");
-                            }
-                            else { /* Log: Ya existía */ }
-                        }
-                        else { /* Log: No se encontró partida o jugador */ }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"!!! JoinLobby DB ERROR for PlayerID={playerId}, MatchID={matchId}: {ex.ToString()}");
-                    }
-                }
-            } 
-            sendLobbyUpdateToAll(lobbyState);
+            if (dbSyncSuccess)
+            {
+                sendLobbyUpdateToAll(lobbyState);
+            }
         }
-        public async void leaveLobby(string username, string lobbyCode)
+
+        public async Task leaveLobbyAsync(string username, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
-                Console.WriteLine($"LeaveLobby Error: Lobby {lobbyCode} not found for user {username}.");
                 return;
             }
 
-            bool hostLeft = false;
-            bool lobbyClosed = false;
-            List<string> remainingPlayers = null;
-            bool removedFromMemory = false;
+            var (didHostLeave, isLobbyClosed, remainingPlayers) = tryRemovePlayerFromMemory(lobbyState, username);
 
-            lock (lobbyState)
+            if (remainingPlayers == null)
             {
-                if (!lobbyState.players.Remove(username))
-                {
-                    Console.WriteLine($"LeaveLobby Info: User {username} was not in lobby {lobbyCode}.");
-                    return;
-                }
-                removedFromMemory = true; 
-
-                Console.WriteLine($"User {username} left lobby {lobbyCode} in memory. Remaining: {string.Join(", ", lobbyState.players)}");
-
-                if (username == lobbyState.hostUsername)
-                {
-                    hostLeft = true;
-                    lobbyClosed = true;
-                    remainingPlayers = lobbyState.players.ToList();
-                    Console.WriteLine($"Host {username} left lobby {lobbyCode}. Lobby closing.");
-                }
-                else if (lobbyState.players.Count == 0)
-                {
-                    lobbyClosed = true;
-                    Console.WriteLine($"Last player {username} left lobby {lobbyCode}. Lobby closing.");
-                }
+                return;
             }
-            if (removedFromMemory)
+            await synchronizeDbOnLeaveAsync(username, lobbyCode, isLobbyClosed);
+
+            if (isLobbyClosed)
             {
-                using (var context = new MindWeaveDBEntities1())
-                {
-                    try
-                    {
-                        var match = await context.Matches.FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
-                        var player = await context.Player.FirstOrDefaultAsync(p => p.username == username);
-
-                        if (match != null && player != null)
-                        {
-                            var participantToRemove = await context.MatchParticipants
-                                                                .FirstOrDefaultAsync(mp => mp.match_id == match.matches_id && mp.player_id == player.idPlayer);
-
-                            if (participantToRemove != null)
-                            {
-                                context.MatchParticipants.Remove(participantToRemove);
-                                await context.SaveChangesAsync();
-                                Console.WriteLine($"LeaveLobby DB: Removed participant PlayerID={player.idPlayer} from MatchID={match.matches_id}");
-
-                                if (lobbyClosed && match.match_status_id == 1) // Si estaba 'Waiting'
-                                {
-                                    match.match_status_id = 3; 
-                                    await context.SaveChangesAsync();
-                                    Console.WriteLine($"LeaveLobby DB: MatchID={match.matches_id} status updated to Canceled.");
-                                }
-                            }
-                            else { /* Log: No se encontró el participante a eliminar */ }
-                        }
-                        else { /* Log: No se encontró la partida o el jugador */ }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"!!! LeaveLobby DB ERROR for user {username}, lobby {lobbyCode}: {ex.ToString()}");
-  
-                    }
-                } 
-            }
-
-            if (!lobbyClosed)
-            {
-                sendLobbyUpdateToAll(lobbyState); 
+                handleLobbyClosure(lobbyCode, didHostLeave, remainingPlayers);
             }
             else
             {
-                if (hostLeft && remainingPlayers != null)
-                {
-                    foreach (var playerUsername in remainingPlayers)
-                    {
-                        sendCallbackToUser(playerUsername, cb => cb.kickedFromLobby("Host left the lobby.")); // TODO: Lang Key
-                    }
-                }
-
-                if (activeLobbies.TryRemove(lobbyCode, out _))
-                {
-                    Console.WriteLine($"Lobby {lobbyCode} removed from active lobbies.");
-                }
+                sendLobbyUpdateToAll(lobbyState);
             }
+            removeCallback(username);
         }
-
+        
         public void handleUserDisconnect(string username)
         {
-            Console.WriteLine($"Handling disconnect for user: {username}");
             List<string> lobbiesToLeave = activeLobbies
                 .Where(kvp => kvp.Value.players.Contains(username)) 
                 .Select(kvp => kvp.Key) 
@@ -351,159 +139,79 @@ namespace MindWeaveServer.BusinessLogic
 
             foreach (var lobbyCode in lobbiesToLeave)
             {
-                Console.WriteLine($"User {username} was in lobby {lobbyCode}. Forcing leave due to disconnect.");
-                leaveLobby(username, lobbyCode); 
+                Task.Run(async () => await leaveLobbyAsync(username, lobbyCode));
             }
-            userCallbacks.TryRemove(username, out _);
-            Console.WriteLine($"Removed matchmaking callback for disconnected user: {username}");
+            removeCallback(username);
         }
-        public async void startGame(string hostUsername, string lobbyCode)
+
+        public async Task startGameAsync(string hostUsername, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
-                Console.WriteLine($"StartGame Error: Lobby {lobbyCode} not found.");
-                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Lobby not found."));
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode)));
                 return;
             }
 
-            List<string> currentPlayers;
-
-            lock (lobbyState)
+            var (isValid, playersSnapshot) = validateLobbyStateAndGetSnapshot(lobbyState, hostUsername);
+            if (!isValid)
             {
-                if (lobbyState.hostUsername != hostUsername)
-                {
-                    Console.WriteLine($"StartGame Error: User {hostUsername} is not host of {lobbyCode}.");
-                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("You are not the host."));
-                    return;
-                }
-             
-                if (lobbyState.players.Count < 1) 
-                {
-                    Console.WriteLine($"StartGame Error: Not enough players in lobby {lobbyCode}.");
-                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Not enough players to start."));
-                    return;
-                }
+                return;
+            }
 
-                Console.WriteLine($"Host {hostUsername} is starting game for lobby {lobbyCode}.");
-                currentPlayers = lobbyState.players.ToList();
-            } 
-            bool dbUpdateSuccess = false;
-            using (var context = new MindWeaveDBEntities1())
-            {
-                try
-                {
-                    var matchToStart = await context.Matches.FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
-                    if (matchToStart != null && matchToStart.match_status_id == 1)
-                    {
-                        matchToStart.match_status_id = 2;
-                        matchToStart.start_time = DateTime.UtcNow; 
-                        await context.SaveChangesAsync();
-                        dbUpdateSuccess = true;
-                        Console.WriteLine($"StartGame DB: MatchID={matchToStart.matches_id} status updated to InProgress.");
-                    }
-                    else { /* Log: Partida no encontrada o ya iniciada/terminada */ }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"!!! StartGame DB ERROR for lobby {lobbyCode}: {ex.ToString()}");
-       
-                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Database error starting the match."));
-                    return; 
-                }
-            } 
+            bool dbUpdateSuccess = await tryStartMatchInDatabaseAsync(lobbyCode, hostUsername);
+            
             if (dbUpdateSuccess)
             {
-                string matchId = lobbyCode; 
-                foreach (var playerUsername in currentPlayers)
-                {
-                    sendCallbackToUser(playerUsername, cb => cb.matchFound(matchId, currentPlayers));
-                }
-
-                if (activeLobbies.TryRemove(lobbyCode, out _))
-                {
-                    Console.WriteLine($"Lobby {lobbyCode} removed from active lobbies as game started.");
-                }
+                notifyAllAndCleanupLobby(lobbyCode, playersSnapshot);
             }
         }
 
-        public async void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyCode)
-        {
-            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState)) return;
-
-            bool kickedFromMemory = false;
-            lock (lobbyState)
-            {
-                if (lobbyState.hostUsername != hostUsername) { /* No es host */ return; }
-                if (hostUsername.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase)) { return; }
-
-                if (lobbyState.players.Remove(playerToKickUsername))
-                {
-                    kickedFromMemory = true;
-                    Console.WriteLine($"Player {playerToKickUsername} kicked from {lobbyCode} in memory by {hostUsername}.");
-                }
-            } 
-            if (kickedFromMemory)
-            {
-                using (var context = new MindWeaveDBEntities1())
-                {
-                    try
-                    {
-                        var match = await context.Matches.FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
-                        var playerKicked = await context.Player.FirstOrDefaultAsync(p => p.username == playerToKickUsername);
-
-                        if (match != null && playerKicked != null)
-                        {
-                            var participantToRemove = await context.MatchParticipants
-                                                                .FirstOrDefaultAsync(mp => mp.match_id == match.matches_id && mp.player_id == playerKicked.idPlayer);
-                            if (participantToRemove != null)
-                            {
-                                context.MatchParticipants.Remove(participantToRemove);
-                                await context.SaveChangesAsync();
-                                Console.WriteLine($"KickPlayer DB: Removed participant PlayerID={playerKicked.idPlayer} from MatchID={match.matches_id}");
-                            }
-                        }
-                    }
-                    catch (Exception ex) { Console.WriteLine($"!!! KickPlayer DB ERROR: {ex.ToString()}"); }
-                } 
-                sendCallbackToUser(playerToKickUsername, cb => cb.kickedFromLobby("Kicked by host.")); // TODO: Lang Key
-                sendLobbyUpdateToAll(lobbyState);
-            }
-        }
-
-        public void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyCode)
+        public async Task kickPlayerAsync(string hostUsername, string playerToKickUsername, string lobbyCode)
         {
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
-                Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Error: Lobby {lobbyCode} not found.");
-                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} no longer exists.")); // Notificar al invitador
                 return;
             }
-            if (!SocialManagerService.ConnectedUsers.ContainsKey(invitedUsername)) 
+
+            bool kickedFromMemory = tryKickPlayerFromMemory(lobbyState, hostUsername, playerToKickUsername);
+
+            if (kickedFromMemory)
             {
-                Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Error: User {invitedUsername} is not online.");
-                // *** CAMBIO: Usar mensaje de Lang ***
-                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} {Lang.ErrorUserNotOnline}")); // Notificar al invitador
-                return;
+                await synchronizeDbOnKickAsync(playerToKickUsername, lobbyCode);
+                notifyAllOnKick(lobbyState, playerToKickUsername);
             }
+        }
+
+        public Task inviteToLobbyAsync(string inviterUsername, string invitedUsername, string lobbyCode)
+        {
+            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
+            {
+                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(String.Format(Lang.LobbyNoLongerAvailable, lobbyCode)));
+                return Task.CompletedTask;
+            }
+
+            if (!SocialManagerService.ConnectedUsers.ContainsKey(invitedUsername))
+            {
+                sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} {Lang.ErrorUserNotOnline}")); 
+                return Task.CompletedTask;
+            }
+            
             lock (lobbyState)
             {
                 if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
                 {
-                    Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Error: Lobby {lobbyCode} is full.");
-                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"Lobby {lobbyCode} is full."));
-                    return;
+                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyIsFull, lobbyCode)));
+                    return Task.CompletedTask;
                 }
 
                 if (lobbyState.players.Contains(invitedUsername))
                 {
-                    Console.WriteLine($"[{DateTime.UtcNow:O}] Invite Info: User {invitedUsername} is already in lobby {lobbyCode}.");
-                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} is already in the lobby."));
-                    return;
+                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.PlayerAlreadyInLobby, invitedUsername)));
+                    return Task.CompletedTask; 
                 }
             } 
-            Console.WriteLine($"[{DateTime.UtcNow:O}] Sending lobby invite notification via Social Service to {invitedUsername} for lobby {lobbyCode} from {inviterUsername}.");
             SocialManagerService.sendNotificationToUser(invitedUsername, cb => cb.notifyLobbyInvite(inviterUsername, lobbyCode));
-
+            return Task.CompletedTask;
         }
 
 
@@ -515,75 +223,36 @@ namespace MindWeaveServer.BusinessLogic
             {
                 currentPlayersSnapshot = lobbyState.players.ToList();
             }
-            Console.WriteLine($"Sending lobby update for {lobbyState.lobbyId} to: {string.Join(", ", currentPlayersSnapshot)}");
             foreach (var username in currentPlayersSnapshot)
             {
                 sendCallbackToUser(username, cb => cb.updateLobbyState(lobbyState));
             }
         }
 
-        public async void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
+        public async Task changeDifficultyAsync(string hostUsername, string lobbyId, int newDifficultyId)
         {
-            if (!activeLobbies.TryGetValue(lobbyId, out LobbyStateDto lobbyState))
+            if (newDifficultyId < 1 || newDifficultyId > 3)
             {
-                Console.WriteLine($"ChangeDifficulty Error: Lobby {lobbyId} not found.");
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Invalid difficulty selected."));
                 return;
             }
 
-            bool changed = false;
-            LobbyStateDto updatedState = null;
-
-            lock (lobbyState)
+            if (!activeLobbies.TryGetValue(lobbyId, out LobbyStateDto lobbyState))
             {
-                if (lobbyState.hostUsername != hostUsername)
+                return;
+            }
+
+            bool changedInMemory = tryChangeDifficultyInMemory(lobbyState, hostUsername, newDifficultyId);
+
+            if (changedInMemory)
+            {
+                bool dbSyncSuccess = await trySynchronizeDifficultyToDbAsync(lobbyId, newDifficultyId, hostUsername);
+
+                if (!dbSyncSuccess)
                 {
-                    Console.WriteLine($"ChangeDifficulty Error: User {hostUsername} is not host of {lobbyId}.");
-                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("You are not the host."));
                     return;
                 }
-
-                if (newDifficultyId < 1 || newDifficultyId > 3)
-                {
-                    Console.WriteLine($"ChangeDifficulty Error: Invalid difficulty ID {newDifficultyId}.");
-                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Invalid difficulty selected."));
-                    return;
-                }
-
-                if (lobbyState.currentSettingsDto.difficultyId != newDifficultyId)
-                {
-                    lobbyState.currentSettingsDto.difficultyId = newDifficultyId;
-                    changed = true;
-                    updatedState = lobbyState; 
-                    Console.WriteLine($"Difficulty for lobby {lobbyId} changed to {newDifficultyId} in memory by host {hostUsername}.");
-                }
-                else
-                {
-                    Console.WriteLine($"ChangeDifficulty Info: Difficulty for lobby {lobbyId} is already {newDifficultyId}.");
-                    return; 
-                }
-            } 
-
-            if (changed && updatedState != null)
-            {
-              
-                Task.Run(async () => { 
-                    using (var context = new MindWeaveDBEntities1())
-                    {
-                        try
-                        {
-                            var matchToUpdate = await context.Matches.FirstOrDefaultAsync(m => m.lobby_code == lobbyId);
-                            if (matchToUpdate != null)
-                            {
-                                matchToUpdate.difficulty_id = newDifficultyId;
-                                await context.SaveChangesAsync();
-                                Console.WriteLine($"ChangeDifficulty DB: Difficulty for MatchID={matchToUpdate.matches_id} updated to {newDifficultyId}.");
-                            }
-                            else { /* Log: Partida no encontrada en BD */ }
-                        }
-                        catch (Exception ex) { Console.WriteLine($"!!! ChangeDifficulty DB ERROR for lobby {lobbyId}: {ex.ToString()}"); }
-                    }
-                }); 
-                sendLobbyUpdateToAll(updatedState);
+                sendLobbyUpdateToAll(lobbyState);
             }
         }
 
@@ -600,22 +269,402 @@ namespace MindWeaveServer.BusinessLogic
                     }
                     else
                     {
-                        Console.WriteLine($"Callback channel for {username} is not open (State: {commObject?.State}). Removing.");
-
+                        Task.Run(() => handleUserDisconnect(username));
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error sending callback to {username}: {ex.Message}. Channel will be removed on Fault/Close.");
-
+                    Task.Run(() => handleUserDisconnect(username));
                 }
             }
-            else
+        }
+        public void removeCallback(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return;
+
+            if (userCallbacks.TryRemove(username, out _))
             {
-                Console.WriteLine($"Callback channel not found for user: {username}.");
+                Console.WriteLine($"Removed matchmaking callback for {username}.");
             }
         }
 
+        public void registerCallback(string username, IMatchmakingCallback callback)
+        {
+            if (string.IsNullOrWhiteSpace(username) || callback == null) return;
+
+            userCallbacks.AddOrUpdate(username, callback, (key, existingVal) =>
+            {
+                var existingComm = existingVal as ICommunicationObject;
+                if (existingComm == null || existingComm.State != CommunicationState.Opened)
+                {
+                    return callback;
+                }
+                if (existingVal == callback) return existingVal;
+                return callback; 
+            });
+        }
+
+        private async Task<Matches> tryCreateUniqueLobbyAsync(LobbySettingsDto settings, Player hostPlayer)
+        {
+            Matches newMatch = null;
+            int attempts = 0;
+            while (newMatch == null && attempts < MAX_LOBBY_CODE_GENERATION_ATTEMPTS)
+            {
+                attempts++;
+                string lobbyCode = LobbyCodeGenerator.generateUniqueCode();
+                if (activeLobbies.ContainsKey(lobbyCode) || await matchmakingRepository.doesLobbyCodeExistAsync(lobbyCode))
+                {
+                    continue;
+                }
+
+                newMatch = buildNewMatch(settings, lobbyCode);
+                try
+                {
+                    newMatch = await matchmakingRepository.createMatchAsync(newMatch);
+                    await addHostParticipantAsync(newMatch, hostPlayer);
+                }
+                catch (DbUpdateException dbEx) when (dbEx.InnerException?.InnerException?.Message.Contains("UNIQUE KEY constraint") ?? false)
+                {
+                    newMatch = null;
+                }
+                catch (Exception ex)
+                {
+                    return null;
+                }
+            }
+            return newMatch;
+        }
+
+        private Matches buildNewMatch(LobbySettingsDto settings, string code)
+        {
+            return new Matches
+            {
+                creation_time = DateTime.UtcNow,
+                match_status_id = MATCH_STATUS_WAITING,
+                puzzle_id = settings.preloadedPuzzleId ?? DEFAULT_PUZZLE_ID,
+                difficulty_id = settings.difficultyId > 0 ? settings.difficultyId : DEFAULT_DIFFICULTY_ID,
+                lobby_code = code
+            };
+        }
+
+        private async Task addHostParticipantAsync(Matches match, Player hostPlayer)
+        {
+            var hostParticipant = new MatchParticipants
+            {
+                match_id = match.matches_id,
+                player_id = hostPlayer.idPlayer,
+                is_host = true
+            };
+
+            await matchmakingRepository.addParticipantAsync(hostParticipant);
+        }
+
+        private LobbyStateDto buildInitialLobbyState(Matches match, string hostUsername, LobbySettingsDto settings)
+        {
+            return new LobbyStateDto
+            {
+                lobbyId = match.lobby_code,
+                hostUsername = hostUsername,
+                players = new List<string> { hostUsername },
+                currentSettingsDto = settings
+            };
+        }
+
+        private (bool needsDbUpdate, bool proceed) tryAddPlayerToMemory(LobbyStateDto lobbyState, string username, string lobbyCode)
+        {
+            lock (lobbyState)
+            {
+                if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
+                {
+                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyIsFull, lobbyCode)));
+                    return (needsDbUpdate: false, proceed: false);
+                }
+
+                if (lobbyState.players.Contains(username))
+                {
+                    return (needsDbUpdate: false, proceed: true);
+                }
+
+                lobbyState.players.Add(username);
+                return (needsDbUpdate: true, proceed: true);
+            }
+        }
+
+        private async Task<bool> tryAddParticipantToDatabaseAsync(string username, string lobbyCode, LobbyStateDto lobbyState)
+        {
+            try
+            {
+                Player player = await playerRepository.getPlayerByUsernameAsync(username);
+                Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+
+                if (player != null && match != null && match.match_status_id == MATCH_STATUS_WAITING)
+                {
+                    await addParticipantIfNotExistsAsync(match, player);
+                    return true;
+                }
+
+                if (match?.match_status_id != MATCH_STATUS_WAITING)
+                {
+                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyNoLongerAvailable, lobbyCode)));
+                    lock (lobbyState) { lobbyState.players.Remove(username); }
+                    activeLobbies.TryRemove(lobbyCode, out _);
+                    return false;
+                }
+
+                throw new Exception(string.Format(Lang.PlayerOrMatchNotFoundInDb, username, lobbyCode));
+            }
+            catch (Exception e)
+            {
+                lock (lobbyState) { lobbyState.players.Remove(username); }
+                sendCallbackToUser(username, cb => cb.lobbyCreationFailed(Lang.ErrorJoiningLobbyData));
+                return false;
+            }
+        }
+
+        private async Task addParticipantIfNotExistsAsync(Matches match, Player player)
+        {
+            var existingParticipant = await matchmakingRepository.getParticipantAsync(match.matches_id, player.idPlayer);
+
+            if (existingParticipant == null)
+            {
+                var newParticipant = new MatchParticipants
+                {
+                    match_id = match.matches_id,
+                    player_id = player.idPlayer,
+                    is_host = false
+                };
+                await matchmakingRepository.addParticipantAsync(newParticipant);
+            }
+        }
+
+        private (bool didHostLeave, bool isLobbyClosed, List<string> remainingPlayers)
+            tryRemovePlayerFromMemory(LobbyStateDto lobbyState, string username)
+        {
+            bool didHostLeave = false;
+            bool isLobbyClosed = false;
+            List<string> remainingPlayers = null;
+
+            lock (lobbyState)
+            {
+                if (!lobbyState.players.Remove(username))
+                    return (false, false, null);
+
+                if (username.Equals(lobbyState.hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    didHostLeave = true;
+                    isLobbyClosed = true;
+                    remainingPlayers = lobbyState.players.ToList();
+                }
+                else if (lobbyState.players.Count == 0)
+                {
+                    isLobbyClosed = true;
+                }
+            }
+
+            return (didHostLeave, isLobbyClosed, remainingPlayers);
+        }
+
+        private async Task synchronizeDbOnLeaveAsync(string username, string lobbyCode, bool isLobbyClosed)
+        {
+            try
+            {
+                Task<Player> playerTask = playerRepository.getPlayerByUsernameAsync(username);
+                Task<Matches> matchTask = matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+                await Task.WhenAll(playerTask, matchTask);
+                Player player = await playerTask;
+                Matches match = await matchTask;
+
+                if (player != null && match != null)
+                {
+                    List<Task> dbTasks = new List<Task>();
+                    dbTasks.Add(removeParticipantFromDbAsync(match.matches_id, player.idPlayer));
+
+                    if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
+                    {
+                        dbTasks.Add(matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_CANCELED));
+                    }
+
+                    await Task.WhenAll(dbTasks);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"LeaveLobby DB ERROR for {username}, lobby {lobbyCode}: {ex.ToString()}");
+            }
+        }
+
+        private async Task removeParticipantFromDbAsync(int matchId, int playerId)
+        {
+            var participant = await matchmakingRepository.getParticipantAsync(matchId, playerId);
+            if (participant != null)
+            {
+                await matchmakingRepository.removeParticipantAsync(participant);
+            }
+        }
+
+        private void handleLobbyClosure(string lobbyCode, bool didHostLeave, List<string> remainingPlayers)
+        {
+            if (didHostLeave && remainingPlayers != null)
+            {
+                foreach (var playerUsername in remainingPlayers)
+                {
+                    sendCallbackToUser(playerUsername, cb => cb.kickedFromLobby(Lang.HostLeftLobby));
+                }
+            }
+
+            if (activeLobbies.TryRemove(lobbyCode, out _))
+            {
+                Console.WriteLine($"Lobby {lobbyCode} removed from active lobbies.");
+            }
+        }
+
+        private (bool isValid, List<string> playersSnapshot) validateLobbyStateAndGetSnapshot(LobbyStateDto lobbyState, string hostUsername)
+        {
+            lock (lobbyState)
+            {
+                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost));
+                    return (false, null);
+                }
+
+                if (lobbyState.players.Count != MAX_PLAYERS_PER_LOBBY)
+                {
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.NotEnoughPlayersToStart));
+                    return (false, null);
+                }
+                return (true, lobbyState.players.ToList());
+            }
+        }
+
+        private async Task<bool> tryStartMatchInDatabaseAsync(string lobbyCode, string hostUsername)
+        {
+            try
+            {
+                Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+
+                if (match == null)
+                {
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyDataNotFound));
+                    return false;
+                }
+
+                if (match.match_status_id != MATCH_STATUS_WAITING)
+                {
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyNotInWaitingState));
+                    return false;
+                }
+                Task statusUpdateTask = matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_IN_PROGRESS);
+                Task timeUpdateTask = matchmakingRepository.updateMatchStartTimeAsync(match);
+                await Task.WhenAll(statusUpdateTask, timeUpdateTask);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.DatabaseErrorStartingMatch));
+                return false;
+            }
+        }
+
+        private void notifyAllAndCleanupLobby(string lobbyCode, List<string> playersSnapshot)
+        {
+            foreach (var playerUsername in playersSnapshot)
+            {
+                sendCallbackToUser(playerUsername, cb => cb.matchFound(lobbyCode, playersSnapshot));
+            }
+
+            if (activeLobbies.TryRemove(lobbyCode, out _))
+            {
+                Console.WriteLine($"Lobby {lobbyCode} removed from active lobbies as game started.");
+            }
+        }
+
+        private bool tryKickPlayerFromMemory(LobbyStateDto lobbyState, string hostUsername, string playerToKickUsername)
+        {
+            lock (lobbyState)
+            {
+                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (hostUsername.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return lobbyState.players.Remove(playerToKickUsername);
+            }
+        }
+
+        private async Task synchronizeDbOnKickAsync(string playerToKickUsername, string lobbyCode)
+        {
+            try
+            {
+                Task<Player> playerTask = playerRepository.getPlayerByUsernameAsync(playerToKickUsername);
+                Task<Matches> matchTask = matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+                await Task.WhenAll(playerTask, matchTask);
+
+                Player playerKicked = await playerTask;
+                Matches match = await matchTask;
+
+                if (playerKicked != null && match != null)
+                {
+                    await removeParticipantFromDbAsync(match.matches_id, playerKicked.idPlayer);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"KickPlayer DB ERROR for {playerToKickUsername}, lobby {lobbyCode}: {ex.ToString()}");
+            }
+        }
+        private void notifyAllOnKick(LobbyStateDto lobbyState, string playerToKickUsername)
+        {
+            sendCallbackToUser(playerToKickUsername, cb => cb.kickedFromLobby(Lang.KickedByHost));
+            removeCallback(playerToKickUsername);
+            sendLobbyUpdateToAll(lobbyState);
+        }
+
+        private bool tryChangeDifficultyInMemory(LobbyStateDto lobbyState, string hostUsername, int newDifficultyId)
+        {
+            lock (lobbyState)
+            {
+                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost));
+                    return false;
+                }
+
+                if (lobbyState.currentSettingsDto.difficultyId == newDifficultyId)
+                {
+                    return false;
+                }
+
+                lobbyState.currentSettingsDto.difficultyId = newDifficultyId;
+                return true;
+            }
+        }
+
+        private async Task<bool> trySynchronizeDifficultyToDbAsync(string lobbyId, int newDifficultyId, string hostUsername)
+        {
+            try
+            {
+                var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyId);
+
+                if (match != null && match.match_status_id == MATCH_STATUS_WAITING)
+                {
+                    await matchmakingRepository.updateMatchDifficultyAsync(match, newDifficultyId);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ErrorSavingDifficultyChange));
+                return false; 
+            }
+        }
 
     }
 }

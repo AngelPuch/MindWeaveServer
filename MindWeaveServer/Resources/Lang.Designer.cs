@@ -61,6 +61,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Error en la base de datos al iniciar la partida..
+        /// </summary>
+        public static string DatabaseErrorStartingMatch {
+            get {
+                return ResourceManager.GetString("DatabaseErrorStartingMatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Tu código de recuperación es:.
         /// </summary>
         public static string EmailCodeInfoPasswordRecovery {
@@ -205,6 +214,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Error al unirse a los datos del lobby..
+        /// </summary>
+        public static string ErrorJoiningLobbyData {
+            get {
+                return ResourceManager.GetString("ErrorJoiningLobbyData", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a No se encontró una solicitud de amistad pendiente de este usuario..
         /// </summary>
         public static string ErrorNoPendingRequestFound {
@@ -219,6 +237,15 @@ namespace MindWeaveServer.Resources {
         public static string ErrorPlayerNotFound {
             get {
                 return ResourceManager.GetString("ErrorPlayerNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Error al guardar el cambio de dificultad..
+        /// </summary>
+        public static string ErrorSavingDifficultyChange {
+            get {
+                return ResourceManager.GetString("ErrorSavingDifficultyChange", resourceCulture);
             }
         }
         
@@ -313,6 +340,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a El anfitrión salió del lobby..
+        /// </summary>
+        public static string HostLeftLobby {
+            get {
+                return ResourceManager.GetString("HostLeftLobby", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Tu contraseña ha sido restablecida correctamente. Ya puedes iniciar sesión..
         /// </summary>
         public static string InfoPasswordResetSuccess {
@@ -327,6 +363,87 @@ namespace MindWeaveServer.Resources {
         public static string InfoRecoveryCodeSent {
             get {
                 return ResourceManager.GetString("InfoRecoveryCodeSent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Expulsado por el anfitrión..
+        /// </summary>
+        public static string KickedByHost {
+            get {
+                return ResourceManager.GetString("KickedByHost", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Error al generar un código único para el lobby..
+        /// </summary>
+        public static string lobbyCodeGenerationFailed {
+            get {
+                return ResourceManager.GetString("lobbyCodeGenerationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Lobby creado exitosamente..
+        /// </summary>
+        public static string lobbyCreatedSuccessfully {
+            get {
+                return ResourceManager.GetString("lobbyCreatedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Datos del lobby no encontrados..
+        /// </summary>
+        public static string LobbyDataNotFound {
+            get {
+                return ResourceManager.GetString("LobbyDataNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El lobby {0} está lleno..
+        /// </summary>
+        public static string LobbyIsFull {
+            get {
+                return ResourceManager.GetString("LobbyIsFull", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El lobby {0} ya no está disponible..
+        /// </summary>
+        public static string LobbyNoLongerAvailable {
+            get {
+                return ResourceManager.GetString("LobbyNoLongerAvailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El lobby {0} no existe o está inactivo..
+        /// </summary>
+        public static string lobbyNotFoundOrInactive {
+            get {
+                return ResourceManager.GetString("lobbyNotFoundOrInactive", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El lobby no está en estado de espera..
+        /// </summary>
+        public static string LobbyNotInWaitingState {
+            get {
+                return ResourceManager.GetString("LobbyNotInWaitingState", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Error al registrar el lobby en memoria después de guardar en la base de datos..
+        /// </summary>
+        public static string lobbyRegistrationFailed {
+            get {
+                return ResourceManager.GetString("lobbyRegistrationFailed", resourceCulture);
             }
         }
         
@@ -358,6 +475,24 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a No hay suficientes jugadores para iniciar..
+        /// </summary>
+        public static string NotEnoughPlayersToStart {
+            get {
+                return ResourceManager.GetString("NotEnoughPlayersToStart", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No eres el anfitrión..
+        /// </summary>
+        public static string notHost {
+            get {
+                return ResourceManager.GetString("notHost", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a No se pudo guardar la nueva contraseña..
         /// </summary>
         public static string PasswordChangedFailed {
@@ -372,6 +507,24 @@ namespace MindWeaveServer.Resources {
         public static string PasswordChangedSuccessfully {
             get {
                 return ResourceManager.GetString("PasswordChangedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a {0} ya está en el lobby..
+        /// </summary>
+        public static string PlayerAlreadyInLobby {
+            get {
+                return ResourceManager.GetString("PlayerAlreadyInLobby", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El jugador &apos;{0}&apos; o la partida del lobby &apos;{1}&apos; no se encontraron en la base de datos..
+        /// </summary>
+        public static string PlayerOrMatchNotFoundInDb {
+            get {
+                return ResourceManager.GetString("PlayerOrMatchNotFoundInDb", resourceCulture);
             }
         }
         

@@ -144,6 +144,7 @@
     <Compile Include="Contracts\ServiceContracts\UploadResultDto.cs" />
     <Compile Include="DataAccess\Abstractions\IFriendshipRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IGenderRepository.cs" />
+    <Compile Include="DataAccess\Abstractions\IMatchmakingRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IPlayerRepository.cs" />
     <Compile Include="DataAccess\Achievements.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
@@ -201,6 +202,7 @@
     </Compile>
     <Compile Include="DataAccess\Repositories\FriendshipRepository.cs" />
     <Compile Include="DataAccess\Repositories\GenderRepository.cs" />
+    <Compile Include="DataAccess\Repositories\MatchmakingRepository.cs" />
     <Compile Include="DataAccess\Repositories\PlayerRepository.cs" />
     <Compile Include="DataAccess\RequestStatus.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>

@@ -117,6 +117,9 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="DatabaseErrorStartingMatch" xml:space="preserve">
+    <value>Database error starting the match.</value>
+  </data>
   <data name="EmailCodeInfoPasswordRecovery" xml:space="preserve">
     <value>Your recovery code is:</value>
   </data>
@@ -165,11 +168,17 @@
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>You are not friends with this player.</value>
   </data>
+  <data name="ErrorJoiningLobbyData" xml:space="preserve">
+    <value>Error joining lobby data.</value>
+  </data>
   <data name="ErrorNoPendingRequestFound" xml:space="preserve">
     <value>No pending friend request found from this user to respond to.</value>
   </data>
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Player not found</value>
+  </data>
+  <data name="ErrorSavingDifficultyChange" xml:space="preserve">
+    <value>Error saving difficulty change.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>User is not online</value>
@@ -201,11 +210,41 @@
   <data name="GenericServerError" xml:space="preserve">
     <value>An unexpected server error occurred.</value>
   </data>
+  <data name="HostLeftLobby" xml:space="preserve">
+    <value>Host left the lobby.</value>
+  </data>
   <data name="InfoPasswordResetSuccess" xml:space="preserve">
     <value>Your password has been reset successfully. You can now log in.</value>
   </data>
   <data name="InfoRecoveryCodeSent" xml:space="preserve">
     <value>A recovery code has been sent to your email address.</value>
+  </data>
+  <data name="KickedByHost" xml:space="preserve">
+    <value>Kicked by host.</value>
+  </data>
+  <data name="lobbyCodeGenerationFailed" xml:space="preserve">
+    <value>Failed to generate unique lobby code.</value>
+  </data>
+  <data name="lobbyCreatedSuccessfully" xml:space="preserve">
+    <value>Lobby created successfully</value>
+  </data>
+  <data name="LobbyDataNotFound" xml:space="preserve">
+    <value>Lobby data not found.</value>
+  </data>
+  <data name="LobbyIsFull" xml:space="preserve">
+    <value>Lobby {0} is full.</value>
+  </data>
+  <data name="LobbyNoLongerAvailable" xml:space="preserve">
+    <value>Lobby {0} is no longer available.</value>
+  </data>
+  <data name="lobbyNotFoundOrInactive" xml:space="preserve">
+    <value>Lobby {0} not found or is inactive.</value>
+  </data>
+  <data name="LobbyNotInWaitingState" xml:space="preserve">
+    <value>Lobby is not in a waiting state.</value>
+  </data>
+  <data name="lobbyRegistrationFailed" xml:space="preserve">
+    <value>Failed to register lobby in memory after DB save</value>
   </data>
   <data name="LoginAccountNotVerified" xml:space="preserve">
     <value>Your account has not been verified. Please check your email.</value>
@@ -216,11 +255,23 @@
   <data name="LoginSuccessful" xml:space="preserve">
     <value>Login successful.</value>
   </data>
+  <data name="NotEnoughPlayersToStart" xml:space="preserve">
+    <value>Not enough players to start.</value>
+  </data>
+  <data name="notHost" xml:space="preserve">
+    <value>You are not the host.</value>
+  </data>
   <data name="PasswordChangedFailed" xml:space="preserve">
     <value>Failed to save new password</value>
   </data>
   <data name="PasswordChangedSuccessfully" xml:space="preserve">
     <value>Your password has been reset successfully.</value>
+  </data>
+  <data name="PlayerAlreadyInLobby" xml:space="preserve">
+    <value>{0} is already in the lobby.</value>
+  </data>
+  <data name="PlayerOrMatchNotFoundInDb" xml:space="preserve">
+    <value>Player '{0}' or Match for lobby '{1}' not found in DB.</value>
   </data>
   <data name="ProfileUpdatedSuccessfully" xml:space="preserve">
     <value>Profile updated successfully</value>
