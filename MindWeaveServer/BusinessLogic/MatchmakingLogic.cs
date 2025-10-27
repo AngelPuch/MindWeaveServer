@@ -76,8 +76,9 @@ namespace MindWeaveServer.BusinessLogic
             return new LobbyCreationResultDto { success = false, message = Lang.lobbyRegistrationFailed };
         }
 
-        public async Task joinLobbyAsync(string username, string lobbyCode)
+        public async Task joinLobbyAsync(string username, string lobbyCode, IMatchmakingCallback callback)
         {
+            registerCallback(username, callback);
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
                 sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode)));
@@ -117,6 +118,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 return;
             }
+            
             await synchronizeDbOnLeaveAsync(username, lobbyCode, isLobbyClosed);
 
             if (isLobbyClosed)
@@ -401,12 +403,12 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     await addParticipantIfNotExistsAsync(match, player);
                     return true;
-                }
-
-                if (match?.match_status_id != MATCH_STATUS_WAITING)
+                } 
+                else if (match?.match_status_id != MATCH_STATUS_WAITING)
                 {
-                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyNoLongerAvailable, lobbyCode)));
                     lock (lobbyState) { lobbyState.players.Remove(username); }
+                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyNoLongerAvailable, lobbyCode)));
+                    
                     activeLobbies.TryRemove(lobbyCode, out _);
                     return false;
                 }
@@ -437,8 +439,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private (bool didHostLeave, bool isLobbyClosed, List<string> remainingPlayers)
-            tryRemovePlayerFromMemory(LobbyStateDto lobbyState, string username)
+        private (bool didHostLeave, bool isLobbyClosed, List<string> remainingPlayers) tryRemovePlayerFromMemory(LobbyStateDto lobbyState, string username)
         {
             bool didHostLeave = false;
             bool isLobbyClosed = false;
@@ -446,9 +447,16 @@ namespace MindWeaveServer.BusinessLogic
 
             lock (lobbyState)
             {
-                if (!lobbyState.players.Remove(username))
-                    return (false, false, null);
+                int initialCount = lobbyState.players.Count;
+                lobbyState.players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase));
+                bool removed = lobbyState.players.Count < initialCount;
 
+                if (!removed)
+                {
+                    return (false, false, null);
+                }
+
+                // Check if the host left
                 if (username.Equals(lobbyState.hostUsername, StringComparison.OrdinalIgnoreCase))
                 {
                     didHostLeave = true;
@@ -458,6 +466,11 @@ namespace MindWeaveServer.BusinessLogic
                 else if (lobbyState.players.Count == 0)
                 {
                     isLobbyClosed = true;
+                    remainingPlayers = new List<string>();
+                }
+                else
+                {
+                    remainingPlayers = lobbyState.players.ToList();
                 }
             }
 
@@ -468,37 +481,21 @@ namespace MindWeaveServer.BusinessLogic
         {
             try
             {
-                Task<Player> playerTask = playerRepository.getPlayerByUsernameAsync(username);
-                Task<Matches> matchTask = matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-                await Task.WhenAll(playerTask, matchTask);
-                Player player = await playerTask;
-                Matches match = await matchTask;
+                var player = await playerRepository.getPlayerByUsernameAsync(username);
+                var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+                if (player == null || match == null)
+                    return;
 
-                if (player != null && match != null)
-                {
-                    List<Task> dbTasks = new List<Task>();
-                    dbTasks.Add(removeParticipantFromDbAsync(match.matches_id, player.idPlayer));
+                var participant = await matchmakingRepository.getParticipantAsync(match.matches_id, player.idPlayer);
+                if (participant != null)
+                    await matchmakingRepository.removeParticipantAsync(participant);
 
-                    if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
-                    {
-                        dbTasks.Add(matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_CANCELED));
-                    }
-
-                    await Task.WhenAll(dbTasks);
-                }
+                if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
+                    await matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_CANCELED);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"LeaveLobby DB ERROR for {username}, lobby {lobbyCode}: {ex.ToString()}");
-            }
-        }
-
-        private async Task removeParticipantFromDbAsync(int matchId, int playerId)
-        {
-            var participant = await matchmakingRepository.getParticipantAsync(matchId, playerId);
-            if (participant != null)
-            {
-                await matchmakingRepository.removeParticipantAsync(participant);
+                Console.WriteLine($"LeaveLobby DB ERROR for {username}, lobby {lobbyCode}: {ex}");
             }
         }
 
@@ -602,22 +599,24 @@ namespace MindWeaveServer.BusinessLogic
         {
             try
             {
-                Task<Player> playerTask = playerRepository.getPlayerByUsernameAsync(playerToKickUsername);
-                Task<Matches> matchTask = matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-                await Task.WhenAll(playerTask, matchTask);
-
-                Player playerKicked = await playerTask;
-                Matches match = await matchTask;
+                var playerKicked = await playerRepository.getPlayerByUsernameAsync(playerToKickUsername);
+                var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
 
                 if (playerKicked != null && match != null)
                 {
-                    await removeParticipantFromDbAsync(match.matches_id, playerKicked.idPlayer);
+                    var participant = await matchmakingRepository.getParticipantAsync(match.matches_id, playerKicked.idPlayer);
+                    if (participant != null)
+                    {
+                        await matchmakingRepository.removeParticipantAsync(participant);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"KickPlayer DB ERROR for {playerToKickUsername}, lobby {lobbyCode}: {ex.ToString()}");
+                // Continue with notifications even if DB fails
             }
+            
         }
         private void notifyAllOnKick(LobbyStateDto lobbyState, string playerToKickUsername)
         {

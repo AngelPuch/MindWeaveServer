@@ -64,7 +64,7 @@ namespace MindWeaveServer.Services
 
             try
             {
-                await matchmakingLogic.joinLobbyAsync(username, lobbyId);
+                await matchmakingLogic.joinLobbyAsync(username, lobbyId, currentUserCallback);
             }
             catch (Exception ex)
             {
