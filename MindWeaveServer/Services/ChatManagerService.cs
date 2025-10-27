@@ -1,69 +1,51 @@
-﻿
-using MindWeaveServer.Contracts.DataContracts;
+﻿using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Chat;
 
 namespace MindWeaveServer.Services
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ChatManagerService : IChatManager
     {
-        private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers =
-            new ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>>(StringComparer.OrdinalIgnoreCase);
-
-        private static readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory =
-            new ConcurrentDictionary<string, List<ChatMessageDto>>(StringComparer.OrdinalIgnoreCase);
-        private const int MAX_HISTORY_PER_LOBBY = 50;
-
+        private readonly ChatLogic chatLogic;
         private string currentUsername = null;
         private string currentLobbyId = null;
         private IChatCallback currentUserCallback = null;
+        private bool isDisconnected = false;
 
         public ChatManagerService()
         {
+            this.chatLogic = new ChatLogic();
+
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {
-                OperationContext.Current.Channel.Faulted += Channel_FaultedOrClosed;
-                OperationContext.Current.Channel.Closed += Channel_FaultedOrClosed;
+                OperationContext.Current.Channel.Faulted += channel_FaultedOrClosed;
+                OperationContext.Current.Channel.Closed += channel_FaultedOrClosed;
             }
         }
 
         public Task joinLobbyChat(string username, string lobbyId)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(lobbyId) || OperationContext.Current == null)
+            if (isDisconnected)
             {
-                Console.WriteLine($"[Chat JOIN FAILED] Invalid parameters or context. User: {username}, Lobby: {lobbyId}");
                 return Task.CompletedTask;
             }
 
-            currentUserCallback = OperationContext.Current.GetCallbackChannel<IChatCallback>();
-            if (currentUserCallback == null)
+            if (!registerSessionDetails(username, lobbyId))
             {
-                Console.WriteLine($"[Chat JOIN FAILED] Could not get callback channel for {username}.");
                 return Task.CompletedTask;
             }
 
-            currentUsername = username;
-            currentLobbyId = lobbyId;
-
-            var usersInLobby = lobbyChatUsers.GetOrAdd(lobbyId, new ConcurrentDictionary<string, IChatCallback>(StringComparer.OrdinalIgnoreCase));
-
-            usersInLobby.AddOrUpdate(username, currentUserCallback, (key, existingVal) => currentUserCallback);
-
-            Console.WriteLine($"[Chat JOIN] User '{username}' joined chat for lobby '{lobbyId}'.");
-
-            if (lobbyChatHistory.TryGetValue(lobbyId, out var history))
+            try
             {
-                foreach (var msg in history)
-                {
-                    try { currentUserCallback.receiveLobbyMessage(msg); } catch { /* Ignore issues sending history */ }
-                }
+                chatLogic.joinLobbyChat(currentUsername, currentLobbyId, currentUserCallback);
+            }
+            catch (Exception ex)
+            {
+                Task.Run(() => handleDisconnect());
             }
 
             return Task.CompletedTask;
@@ -71,130 +53,140 @@ namespace MindWeaveServer.Services
 
         public Task leaveLobbyChat(string username, string lobbyId)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(lobbyId))
+            if (string.IsNullOrEmpty(currentUsername) ||
+                !currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase) ||
+                !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
             {
                 return Task.CompletedTask;
             }
 
-            if (lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
+            if (isDisconnected)
             {
-                if (usersInLobby.TryRemove(username, out _))
-                {
-                    Console.WriteLine($"[Chat LEAVE] User '{username}' left chat for lobby '{lobbyId}'.");
-                    
-                    if (usersInLobby.IsEmpty)
-                    {
-                        lobbyChatUsers.TryRemove(lobbyId, out _);
-                        lobbyChatHistory.TryRemove(lobbyId, out _);
-                        Console.WriteLine($"[Chat CLEANUP] Lobby '{lobbyId}' chat resources released.");
-                    }
-                }
+                return Task.CompletedTask;
             }
 
-            if (username.Equals(currentUsername, StringComparison.OrdinalIgnoreCase) && lobbyId.Equals(currentLobbyId, StringComparison.OrdinalIgnoreCase))
+            try
             {
-                currentUsername = null;
-                currentLobbyId = null;
-                currentUserCallback = null;
+                chatLogic.leaveLobbyChat(username, lobbyId);
             }
-
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ChatService LEAVE EXCEPTION] User: {username}, Lobby: {lobbyId}. Error: {ex.ToString()}");
+            }
 
             return Task.CompletedTask;
         }
 
         public Task sendLobbyMessage(string senderUsername, string lobbyId, string messageContent)
         {
-            if (string.IsNullOrWhiteSpace(senderUsername) || string.IsNullOrWhiteSpace(lobbyId) || string.IsNullOrWhiteSpace(messageContent))
+            if (isDisconnected || currentUserCallback == null ||
+                string.IsNullOrEmpty(currentUsername) ||
+                !currentUsername.Equals(senderUsername, StringComparison.OrdinalIgnoreCase) ||
+                !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
             {
+                Console.WriteLine($"[ChatService SEND] Denied due to invalid state or mismatch. Request: Sender={senderUsername}, Lobby={lobbyId}. Session: User={currentUsername}, Lobby={currentLobbyId}, Disconnected={isDisconnected}, CallbackNull={currentUserCallback == null}.");
                 return Task.CompletedTask;
             }
 
-            if (messageContent.Length > 200)
+            try
             {
-                messageContent = messageContent.Substring(0, 200) + "...";
+                chatLogic.processAndBroadcastMessage(senderUsername, lobbyId, messageContent);
             }
-
-            var messageDto = new ChatMessageDto
+            catch (Exception ex)
             {
-                senderUsername = senderUsername,
-                content = messageContent,
-                timestamp = DateTime.UtcNow
-            };
-
-            var history = lobbyChatHistory.GetOrAdd(lobbyId, new List<ChatMessageDto>());
-            lock (history) 
-            {
-                history.Add(messageDto);
-                if (history.Count > MAX_HISTORY_PER_LOBBY)
-                {
-                    history.RemoveAt(0);
-                }
+                Console.WriteLine($"[ChatService SEND EXCEPTION] Sender: {senderUsername}, Lobby: {lobbyId}. Error: {ex.ToString()}");
             }
-
-            broadcastMessage(lobbyId, messageDto);
 
             return Task.CompletedTask;
         }
 
-        private void broadcastMessage(string lobbyId, ChatMessageDto messageDto)
+        
+        private bool registerSessionDetails(string username, string lobbyId)
         {
-            Console.WriteLine($"[Chat BROADCAST] Lobby '{lobbyId}', Sender: {messageDto.senderUsername}, Msg: '{messageDto.content}'");
-            if (lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
+            if (currentUserCallback != null &&
+                currentUsername == username &&
+                currentLobbyId == lobbyId)
             {
-                foreach (var userEntry in usersInLobby)
-                {
-                    string recipientUsername = userEntry.Key;
-                    IChatCallback recipientCallback = userEntry.Value;
-                    try
-                    {
-                        var commObject = recipientCallback as ICommunicationObject;
-                        if (commObject != null && commObject.State == CommunicationState.Opened)
-                        {
-                            recipientCallback.receiveLobbyMessage(messageDto);
-                            Console.WriteLine($"  -> Sent to {recipientUsername}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"  -> FAILED sending to {recipientUsername} (Channel State: {commObject?.State}). Removing.");
-                            usersInLobby.TryRemove(recipientUsername, out _);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"  -> EXCEPTION sending to {recipientUsername}: {ex.Message}. Removing.");
-                        usersInLobby.TryRemove(recipientUsername, out _);
-                    }
-                }
+                return true;
+            }
 
-                if (usersInLobby.IsEmpty)
+            if (currentUserCallback == null || (currentUserCallback as ICommunicationObject)?.State != CommunicationState.Opened)
+            {
+                if (OperationContext.Current == null)
                 {
-                    lobbyChatUsers.TryRemove(lobbyId, out _);
-                    lobbyChatHistory.TryRemove(lobbyId, out _);
-                    Console.WriteLine($"[Chat CLEANUP] Lobby '{lobbyId}' chat resources released after broadcast failures.");
+                    Console.WriteLine($"[ChatService REGISTER FAILED] OperationContext is null for User: {username}, Lobby: {lobbyId}.");
+                    return false;
+                }
+                try
+                {
+                    currentUserCallback = OperationContext.Current.GetCallbackChannel<IChatCallback>();
+                    if (currentUserCallback == null)
+                    {
+                        Console.WriteLine($"[ChatService REGISTER FAILED] GetCallbackChannel returned null for User: {username}, Lobby: {lobbyId}.");
+                        return false;
+                    }
+                    Console.WriteLine($"[ChatService REGISTER] Callback channel obtained for User: {username}, Lobby: {lobbyId}.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ChatService REGISTER FAILED] Exception getting callback channel for User: {username}, Lobby: {lobbyId}. Error: {ex.Message}");
+                    currentUserCallback = null; // Ensure it's null on failure
+                    return false;
+                }
+            }
+
+            currentUsername = username;
+            currentLobbyId = lobbyId;
+            Console.WriteLine($"[ChatService REGISTER] Session details registered: User={currentUsername}, Lobby={currentLobbyId}.");
+            return true;
+        }
+
+        private void channel_FaultedOrClosed(object sender, EventArgs e)
+        {
+            Task.Run(() => handleDisconnect());
+        }
+
+        private void handleDisconnect()
+        {
+            if (isDisconnected)
+            {
+                return;
+            }
+
+            isDisconnected = true;
+
+            string userToDisconnect = currentUsername;
+            string lobbyToDisconnect = currentLobbyId;
+            cleanupCallbackEvents(OperationContext.Current?.Channel);
+            cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
+
+            if (!string.IsNullOrWhiteSpace(userToDisconnect) && !string.IsNullOrWhiteSpace(lobbyToDisconnect))
+            {
+                try
+                {
+                    chatLogic.leaveLobbyChat(userToDisconnect, lobbyToDisconnect);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[ChatService DISCONNECT EXCEPTION] Error during ChatLogic.leave for {userToDisconnect}: {ex.Message}");
                 }
             }
             else
             {
-                Console.WriteLine($"[Chat BROADCAST WARNING] Lobby '{lobbyId}' not found in chat users dictionary.");
+                Console.WriteLine("[ChatService DISCONNECT] No user/lobby associated with this session, skipping ChatLogic.leave call.");
             }
-        }
 
-        private void Channel_FaultedOrClosed(object sender, EventArgs e)
-        {
-            Console.WriteLine($"[Chat Channel Event] Faulted or Closed detected for User: '{currentUsername}', Lobby: '{currentLobbyId}'");
-            if (!string.IsNullOrEmpty(currentUsername) && !string.IsNullOrEmpty(currentLobbyId))
-            {
-                Task.Run(() => leaveLobbyChat(currentUsername, currentLobbyId));
-            }
-            cleanupCallbackEvents(sender as ICommunicationObject);
+            currentUsername = null;
+            currentLobbyId = null;
+            currentUserCallback = null;
         }
 
         private void cleanupCallbackEvents(ICommunicationObject commObject)
         {
             if (commObject != null)
             {
-                commObject.Faulted -= Channel_FaultedOrClosed;
-                commObject.Closed -= Channel_FaultedOrClosed;
+                commObject.Faulted -= channel_FaultedOrClosed;
+                commObject.Closed -= channel_FaultedOrClosed;
             }
         }
     }
