@@ -120,6 +120,9 @@
   <data name="DatabaseErrorStartingMatch" xml:space="preserve">
     <value>Database error starting the match.</value>
   </data>
+  <data name="EmailCodeInfoGuestInvite" xml:space="preserve">
+    <value>Use the following code to join:</value>
+  </data>
   <data name="EmailCodeInfoPasswordRecovery" xml:space="preserve">
     <value>Your recovery code is:</value>
   </data>
@@ -129,14 +132,26 @@
   <data name="EmailGreeting" xml:space="preserve">
     <value>Hello {0}!</value>
   </data>
+  <data name="EmailGreetingGuest" xml:space="preserve">
+    <value>Hello!</value>
+  </data>
+  <data name="EmailHowToJoinGuest" xml:space="preserve">
+    <value>Launch Mind Weave, select 'Play as Guest', and enter this code.</value>
+  </data>
   <data name="EmailIgnoreInfo" xml:space="preserve">
     <value>If you didn't request this, you can safely ignore this email.</value>
+  </data>
+  <data name="EmailInstructionGuestInvite" xml:space="preserve">
+    <value>{0} has invited you to join a Mind Weave puzzle lobby.</value>
   </data>
   <data name="EmailInstructionPasswordRecovery" xml:space="preserve">
     <value>You requested a password reset for Mind Weave.</value>
   </data>
   <data name="EmailInstructionVerify" xml:space="preserve">
     <value>Thank you for registering. Use the following code to activate your account:</value>
+  </data>
+  <data name="EmailSubjectGuestInvite" xml:space="preserve">
+    <value>You've been invited to play Mind Weave!</value>
   </data>
   <data name="EmailSubjectPasswordRecovery" xml:space="preserve">
     <value>Password Recovery - Mind Weave</value>
@@ -168,6 +183,18 @@
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>You are not friends with this player.</value>
   </data>
+  <data name="ErrorGuestUsernameGenerationFailed" xml:space="preserve">
+    <value>Could not generate a unique guest username. Please try a different name.</value>
+  </data>
+  <data name="ErrorGuestUsernameTaken" xml:space="preserve">
+    <value>The desired guest username '{0}' is already taken in this lobby. Trying another...</value>
+  </data>
+  <data name="ErrorInvalidInvitationData" xml:space="preserve">
+    <value>Invalid invitation data.</value>
+  </data>
+  <data name="ErrorInvalidOrExpiredGuestInvite" xml:space="preserve">
+    <value>Invalid, expired, or already used lobby invitation code for this email.</value>
+  </data>
   <data name="ErrorJoiningLobbyData" xml:space="preserve">
     <value>Error joining lobby data.</value>
   </data>
@@ -179,6 +206,9 @@
   </data>
   <data name="ErrorSavingDifficultyChange" xml:space="preserve">
     <value>Error saving difficulty change.</value>
+  </data>
+  <data name="ErrorSendingGuestInvitation" xml:space="preserve">
+    <value>Failed to send the guest invitation. Please try again.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>User is not online</value>
@@ -287,6 +317,9 @@
   </data>
   <data name="SuccessAvatarUpdated" xml:space="preserve">
     <value>Avatar updated successfully.</value>
+  </data>
+  <data name="SuccessGuestJoinedLobby" xml:space="preserve">
+    <value>Successfully joined the lobby as a guest.</value>
   </data>
   <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
     <value>You must be at least 13 years old to register.</value>

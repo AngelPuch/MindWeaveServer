@@ -1,5 +1,4 @@
 ﻿using MindWeaveServer.BusinessLogic;
-using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
 using System.ServiceModel;
@@ -11,10 +10,10 @@ namespace MindWeaveServer.Services
     public class ChatManagerService : IChatManager
     {
         private readonly ChatLogic chatLogic;
-        private string currentUsername = null;
-        private string currentLobbyId = null;
-        private IChatCallback currentUserCallback = null;
-        private bool isDisconnected = false;
+        private string currentUsername;
+        private string currentLobbyId;
+        private IChatCallback currentUserCallback;
+        private bool isDisconnected;
 
         public ChatManagerService()
         {
@@ -130,7 +129,7 @@ namespace MindWeaveServer.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[ChatService REGISTER FAILED] Exception getting callback channel for User: {username}, Lobby: {lobbyId}. Error: {ex.Message}");
-                    currentUserCallback = null; // Ensure it's null on failure
+                    currentUserCallback = null; 
                     return false;
                 }
             }

@@ -1,13 +1,10 @@
-﻿using MindWeaveServer.Contracts.DataContracts;
-using MindWeaveServer.Contracts.DataContracts.Social;
+﻿using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities; 
 using System;
 using System.Collections.Generic;
-using System.Data.Entity;
 using System.Linq;
 using System.Threading.Tasks;
 using MindWeaveServer.Contracts.DataContracts.Shared;

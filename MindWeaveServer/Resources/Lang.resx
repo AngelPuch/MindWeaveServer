@@ -120,6 +120,9 @@
   <data name="DatabaseErrorStartingMatch" xml:space="preserve">
     <value>Error en la base de datos al iniciar la partida.</value>
   </data>
+  <data name="EmailCodeInfoGuestInvite" xml:space="preserve">
+    <value>Usa el siguiente código para unirte:</value>
+  </data>
   <data name="EmailCodeInfoPasswordRecovery" xml:space="preserve">
     <value>Tu código de recuperación es:</value>
   </data>
@@ -129,14 +132,26 @@
   <data name="EmailGreeting" xml:space="preserve">
     <value>¡Hola {0}!</value>
   </data>
+  <data name="EmailGreetingGuest" xml:space="preserve">
+    <value>¡Hola!</value>
+  </data>
+  <data name="EmailHowToJoinGuest" xml:space="preserve">
+    <value>Inicia Mind Weave, selecciona 'Jugar como Invitado' e ingresa este código.</value>
+  </data>
   <data name="EmailIgnoreInfo" xml:space="preserve">
     <value>Si no solicitaste esto, puedes ignorar este correo de forma segura.</value>
+  </data>
+  <data name="EmailInstructionGuestInvite" xml:space="preserve">
+    <value>{0} te ha invitado a unirte a una sala de rompecabezas en Mind Weave.</value>
   </data>
   <data name="EmailInstructionPasswordRecovery" xml:space="preserve">
     <value>Solicitaste restablecer tu contraseña para Mind Weave.</value>
   </data>
   <data name="EmailInstructionVerify" xml:space="preserve">
     <value>Gracias por registrarte. Usa el siguiente código para activar tu cuenta:</value>
+  </data>
+  <data name="EmailSubjectGuestInvite" xml:space="preserve">
+    <value>¡Te han invitado a jugar Mind Weave!</value>
   </data>
   <data name="EmailSubjectPasswordRecovery" xml:space="preserve">
     <value>Recuperación de Contraseña - Mind Weave</value>
@@ -168,6 +183,18 @@
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>No eres amigo de este jugador.</value>
   </data>
+  <data name="ErrorGuestUsernameGenerationFailed" xml:space="preserve">
+    <value>No se pudo generar un nombre de usuario único para el invitado. Intenta con otro nombre.</value>
+  </data>
+  <data name="ErrorGuestUsernameTaken" xml:space="preserve">
+    <value>El nombre de invitado deseado '{0}' ya está en uso en esta sala. Intentando otro...</value>
+  </data>
+  <data name="ErrorInvalidInvitationData" xml:space="preserve">
+    <value>Datos de invitación inválidos. </value>
+  </data>
+  <data name="ErrorInvalidOrExpiredGuestInvite" xml:space="preserve">
+    <value>El código de invitación para este correo es inválido, ha expirado o ya fue usado.</value>
+  </data>
   <data name="ErrorJoiningLobbyData" xml:space="preserve">
     <value>Error al unirse a los datos del lobby.</value>
   </data>
@@ -179,6 +206,9 @@
   </data>
   <data name="ErrorSavingDifficultyChange" xml:space="preserve">
     <value>Error al guardar el cambio de dificultad.</value>
+  </data>
+  <data name="ErrorSendingGuestInvitation" xml:space="preserve">
+    <value>No se pudo enviar la invitación de invitado. Inténtalo de nuevo.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>El Usuario no esta en línea</value>
@@ -287,6 +317,9 @@
   </data>
   <data name="SuccessAvatarUpdated" xml:space="preserve">
     <value>Avatar actualizado correctamente.</value>
+  </data>
+  <data name="SuccessGuestJoinedLobby" xml:space="preserve">
+    <value>Te has unido a la sala como invitado.</value>
   </data>
   <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
     <value>Debes tener al menos 13 años para registrarte.</value>

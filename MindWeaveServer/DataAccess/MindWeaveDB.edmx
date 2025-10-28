@@ -47,6 +47,18 @@
           <Property Name="idGender" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="gender" Type="varchar" MaxLength="45" Nullable="false" />
         </EntityType>
+        <EntityType Name="GuestInvitations">
+          <Key>
+            <PropertyRef Name="invitation_id" />
+          </Key>
+          <Property Name="invitation_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="match_id" Type="int" Nullable="false" />
+          <Property Name="guest_email" Type="varchar" MaxLength="255" Nullable="false" />
+          <Property Name="inviter_player_id" Type="int" Nullable="false" />
+          <Property Name="sent_timestamp" Type="datetime" Nullable="false" />
+          <Property Name="expiry_timestamp" Type="datetime" Nullable="false" />
+          <Property Name="used_timestamp" Type="datetime" />
+        </EntityType>
         <EntityType Name="Matches">
           <Key>
             <PropertyRef Name="matches_id" />
@@ -212,6 +224,30 @@
             </Principal>
             <Dependent Role="Friendships">
               <PropertyRef Name="status_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="fk_guest_invitations_matches">
+          <End Role="Matches" Type="Self.Matches" Multiplicity="1" />
+          <End Role="GuestInvitations" Type="Self.GuestInvitations" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="GuestInvitations">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="fk_guest_invitations_player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="GuestInvitations" Type="Self.GuestInvitations" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="GuestInvitations">
+              <PropertyRef Name="inviter_player_id" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -411,6 +447,7 @@
           <EntitySet Name="ExpulsionReasons" EntityType="Self.ExpulsionReasons" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Friendships" EntityType="Self.Friendships" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Gender" EntityType="Self.Gender" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="GuestInvitations" EntityType="Self.GuestInvitations" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Matches" EntityType="Self.Matches" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="MatchExpulsions" EntityType="Self.MatchExpulsions" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="MatchParticipants" EntityType="Self.MatchParticipants" Schema="dbo" store:Type="Tables" />
@@ -440,6 +477,14 @@
           <AssociationSet Name="FK_Friendships_RequestStatus" Association="Self.FK_Friendships_RequestStatus">
             <End Role="RequestStatus" EntitySet="RequestStatus" />
             <End Role="Friendships" EntitySet="Friendships" />
+          </AssociationSet>
+          <AssociationSet Name="fk_guest_invitations_matches" Association="Self.fk_guest_invitations_matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="GuestInvitations" EntitySet="GuestInvitations" />
+          </AssociationSet>
+          <AssociationSet Name="fk_guest_invitations_player" Association="Self.fk_guest_invitations_player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="GuestInvitations" EntitySet="GuestInvitations" />
           </AssociationSet>
           <AssociationSet Name="FK_Matches_DifficultyLevels" Association="Self.FK_Matches_DifficultyLevels">
             <End Role="DifficultyLevels" EntitySet="DifficultyLevels" />
@@ -573,6 +618,7 @@
           <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Matches" FromRole="Matches" ToRole="MatchParticipants" />
           <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Matches" FromRole="Matches" ToRole="MatchReports" />
           <Property Name="lobby_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
+          <NavigationProperty Name="GuestInvitations" Relationship="MindWeaveDBModel.fk_guest_invitations_matches" FromRole="Matches" ToRole="GuestInvitations" />
         </EntityType>
         <EntityType Name="MatchExpulsions">
           <Key>
@@ -651,6 +697,7 @@
           <NavigationProperty Name="PlayerStats" Relationship="Self.FK_PlayerStats_Player" FromRole="Player" ToRole="PlayerStats" />
           <NavigationProperty Name="Puzzles" Relationship="Self.FK_Puzzles_Player" FromRole="Player" ToRole="Puzzles" />
           <NavigationProperty Name="Achievements" Relationship="Self.PlayerAchievements" FromRole="Player" ToRole="Achievements" />
+          <NavigationProperty Name="GuestInvitations" Relationship="MindWeaveDBModel.fk_guest_invitations_player" FromRole="Player" ToRole="GuestInvitations" />
         </EntityType>
         <EntityType Name="PlayerStats">
           <Key>
@@ -1003,7 +1050,54 @@
             <End Role="Achievements" EntitySet="Achievements" />
             <End Role="Player" EntitySet="Player" />
           </AssociationSet>
+          <EntitySet Name="GuestInvitations" EntityType="MindWeaveDBModel.GuestInvitations" />
+          <AssociationSet Name="fk_guest_invitations_matches" Association="MindWeaveDBModel.fk_guest_invitations_matches">
+            <End Role="Matches" EntitySet="Matches" />
+            <End Role="GuestInvitations" EntitySet="GuestInvitations" />
+          </AssociationSet>
+          <AssociationSet Name="fk_guest_invitations_player" Association="MindWeaveDBModel.fk_guest_invitations_player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="GuestInvitations" EntitySet="GuestInvitations" />
+          </AssociationSet>
         </EntityContainer>
+        <EntityType Name="GuestInvitations">
+          <Key>
+            <PropertyRef Name="invitation_id" />
+          </Key>
+          <Property Name="invitation_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="match_id" Type="Int32" Nullable="false" />
+          <Property Name="guest_email" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="false" />
+          <Property Name="inviter_player_id" Type="Int32" Nullable="false" />
+          <Property Name="sent_timestamp" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="expiry_timestamp" Type="DateTime" Nullable="false" Precision="3" />
+          <Property Name="used_timestamp" Type="DateTime" Precision="3" />
+          <NavigationProperty Name="Matches" Relationship="MindWeaveDBModel.fk_guest_invitations_matches" FromRole="GuestInvitations" ToRole="Matches" />
+          <NavigationProperty Name="Player" Relationship="MindWeaveDBModel.fk_guest_invitations_player" FromRole="GuestInvitations" ToRole="Player" />
+        </EntityType>
+        <Association Name="fk_guest_invitations_matches">
+          <End Type="MindWeaveDBModel.Matches" Role="Matches" Multiplicity="1" />
+          <End Type="MindWeaveDBModel.GuestInvitations" Role="GuestInvitations" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Matches">
+              <PropertyRef Name="matches_id" />
+            </Principal>
+            <Dependent Role="GuestInvitations">
+              <PropertyRef Name="match_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="fk_guest_invitations_player">
+          <End Type="MindWeaveDBModel.Player" Role="Player" Multiplicity="1" />
+          <End Type="MindWeaveDBModel.GuestInvitations" Role="GuestInvitations" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="GuestInvitations">
+              <PropertyRef Name="inviter_player_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
       </Schema>
     </edmx:ConceptualModels>
     <!-- C-S mapping content -->
@@ -1170,6 +1264,19 @@
               <ScalarProperty Name="idPlayer" ColumnName="player_id" />
             </EndProperty>
           </AssociationSetMapping>
+          <EntitySetMapping Name="GuestInvitations">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.GuestInvitations">
+              <MappingFragment StoreEntitySet="GuestInvitations">
+                <ScalarProperty Name="used_timestamp" ColumnName="used_timestamp" />
+                <ScalarProperty Name="expiry_timestamp" ColumnName="expiry_timestamp" />
+                <ScalarProperty Name="sent_timestamp" ColumnName="sent_timestamp" />
+                <ScalarProperty Name="inviter_player_id" ColumnName="inviter_player_id" />
+                <ScalarProperty Name="guest_email" ColumnName="guest_email" />
+                <ScalarProperty Name="match_id" ColumnName="match_id" />
+                <ScalarProperty Name="invitation_id" ColumnName="invitation_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
         </EntityContainerMapping>
       </Mapping>
     </edmx:Mappings>

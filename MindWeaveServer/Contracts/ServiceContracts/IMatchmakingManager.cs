@@ -1,5 +1,4 @@
-﻿using MindWeaveServer.Contracts.DataContracts;
-using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+﻿using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -29,6 +28,12 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract(IsOneWay = true)] 
         Task changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId);
+
+        [OperationContract(IsOneWay = true)]
+        Task inviteGuestByEmail(GuestInvitationDto invitationData);
+
+        [OperationContract]
+        Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest);
 
     }
 

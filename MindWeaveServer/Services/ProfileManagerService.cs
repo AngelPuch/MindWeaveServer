@@ -1,6 +1,4 @@
 ﻿using MindWeaveServer.BusinessLogic;
-using MindWeaveServer.Contracts.DataContracts;
-using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;

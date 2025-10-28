@@ -1,7 +1,7 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Shared;
-using System.Runtime.Serialization;
+﻿using System.Runtime.Serialization;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
-namespace MindWeaveServer.Contracts.DataContracts
+namespace MindWeaveServer.Contracts.ServiceContracts
 {
     [DataContract]
     public class UploadResultDto : OperationResultDto

@@ -3,7 +3,6 @@ using System;
 using System.Data.Entity;
 using System.Data.Entity.Infrastructure;
 using System.Threading.Tasks;
-using System.Linq; // Added for FirstOrDefaultAsync
 
 namespace MindWeaveServer.DataAccess.Repositories
 {
@@ -82,10 +81,8 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
             catch (DbUpdateException ex)
             {
-                // Basic logging, consider a more robust logging framework
                 Console.WriteLine($"Database Update Error: {ex.InnerException?.InnerException?.Message ?? ex.Message}");
-                // Handle specific exceptions if necessary (e.g., unique key violation)
-                throw; // Re-throw to allow higher layers to handle
+                throw;
             }
             catch (Exception ex)
             {

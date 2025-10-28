@@ -70,6 +70,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Usa el siguiente código para unirte:.
+        /// </summary>
+        public static string EmailCodeInfoGuestInvite {
+            get {
+                return ResourceManager.GetString("EmailCodeInfoGuestInvite", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Tu código de recuperación es:.
         /// </summary>
         public static string EmailCodeInfoPasswordRecovery {
@@ -97,11 +106,38 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a ¡Hola!.
+        /// </summary>
+        public static string EmailGreetingGuest {
+            get {
+                return ResourceManager.GetString("EmailGreetingGuest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Inicia Mind Weave, selecciona &apos;Jugar como Invitado&apos; e ingresa este código..
+        /// </summary>
+        public static string EmailHowToJoinGuest {
+            get {
+                return ResourceManager.GetString("EmailHowToJoinGuest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Si no solicitaste esto, puedes ignorar este correo de forma segura..
         /// </summary>
         public static string EmailIgnoreInfo {
             get {
                 return ResourceManager.GetString("EmailIgnoreInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a {0} te ha invitado a unirte a una sala de rompecabezas en Mind Weave..
+        /// </summary>
+        public static string EmailInstructionGuestInvite {
+            get {
+                return ResourceManager.GetString("EmailInstructionGuestInvite", resourceCulture);
             }
         }
         
@@ -120,6 +156,15 @@ namespace MindWeaveServer.Resources {
         public static string EmailInstructionVerify {
             get {
                 return ResourceManager.GetString("EmailInstructionVerify", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a ¡Te han invitado a jugar Mind Weave!.
+        /// </summary>
+        public static string EmailSubjectGuestInvite {
+            get {
+                return ResourceManager.GetString("EmailSubjectGuestInvite", resourceCulture);
             }
         }
         
@@ -214,6 +259,42 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a No se pudo generar un nombre de usuario único para el invitado. Intenta con otro nombre..
+        /// </summary>
+        public static string ErrorGuestUsernameGenerationFailed {
+            get {
+                return ResourceManager.GetString("ErrorGuestUsernameGenerationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El nombre de invitado deseado &apos;{0}&apos; ya está en uso en esta sala. Intentando otro....
+        /// </summary>
+        public static string ErrorGuestUsernameTaken {
+            get {
+                return ResourceManager.GetString("ErrorGuestUsernameTaken", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Datos de invitación inválidos. .
+        /// </summary>
+        public static string ErrorInvalidInvitationData {
+            get {
+                return ResourceManager.GetString("ErrorInvalidInvitationData", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El código de invitación para este correo es inválido, ha expirado o ya fue usado..
+        /// </summary>
+        public static string ErrorInvalidOrExpiredGuestInvite {
+            get {
+                return ResourceManager.GetString("ErrorInvalidOrExpiredGuestInvite", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Error al unirse a los datos del lobby..
         /// </summary>
         public static string ErrorJoiningLobbyData {
@@ -246,6 +327,15 @@ namespace MindWeaveServer.Resources {
         public static string ErrorSavingDifficultyChange {
             get {
                 return ResourceManager.GetString("ErrorSavingDifficultyChange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No se pudo enviar la invitación de invitado. Inténtalo de nuevo..
+        /// </summary>
+        public static string ErrorSendingGuestInvitation {
+            get {
+                return ResourceManager.GetString("ErrorSendingGuestInvitation", resourceCulture);
             }
         }
         
@@ -570,6 +660,15 @@ namespace MindWeaveServer.Resources {
         public static string SuccessAvatarUpdated {
             get {
                 return ResourceManager.GetString("SuccessAvatarUpdated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Te has unido a la sala como invitado..
+        /// </summary>
+        public static string SuccessGuestJoinedLobby {
+            get {
+                return ResourceManager.GetString("SuccessGuestJoinedLobby", resourceCulture);
             }
         }
         

@@ -26,6 +26,7 @@ namespace MindWeaveServer.DataAccess
             this.MatchReports1 = new HashSet<MatchReports>();
             this.Puzzles = new HashSet<Puzzles>();
             this.Achievements = new HashSet<Achievements>();
+            this.GuestInvitations = new HashSet<GuestInvitations>();
         }
     
         public int idPlayer { get; set; }
@@ -61,5 +62,7 @@ namespace MindWeaveServer.DataAccess
         public virtual ICollection<Puzzles> Puzzles { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<Achievements> Achievements { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<GuestInvitations> GuestInvitations { get; set; }
     }
 }

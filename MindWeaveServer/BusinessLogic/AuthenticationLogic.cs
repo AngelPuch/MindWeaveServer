@@ -1,5 +1,4 @@
 ﻿using FluentValidation;
-using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;

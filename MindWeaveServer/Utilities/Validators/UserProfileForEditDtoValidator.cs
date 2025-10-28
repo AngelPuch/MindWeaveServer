@@ -11,34 +11,34 @@ namespace MindWeaveServer.Utilities.Validators
             RuleFor(x => x.firstName)
                 .NotEmpty().WithMessage(Lang.ValidationFirstNameRequired)
                 .MaximumLength(45).WithMessage(Lang.ValidationFirstNameLength)
-                .Must(NotHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
+                .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").WithMessage(Lang.ValidationOnlyLetters);
 
             RuleFor(x => x.lastName)
-                .NotEmpty().WithMessage("El apellido es requerido.") // Asumiendo que ahora es requerido en la edición
+                .NotEmpty().WithMessage("El  eapellidos requerido.") // Asumiendo que ahora es requerido en la edición
                 .MaximumLength(45).WithMessage(Lang.ValidationLastNameLength)
-                .Must(NotHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
+                .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationOnlyLetters);
 
             RuleFor(x => x.dateOfBirth)
                 .NotNull().WithMessage(Lang.ValidationDateOfBirthRequired)
-                .Must(BeAValidAge).WithMessage(Lang.ValidationDateOfBirthMinimumAge)
-                .Must(BeARealisticAge).WithMessage(Lang.ValidationDateOfBirthRealistic);
+                .Must(beAValidAge).WithMessage(Lang.ValidationDateOfBirthMinimumAge)
+                .Must(beARealisticAge).WithMessage(Lang.ValidationDateOfBirthRealistic);
         }
 
-        private bool NotHaveLeadingOrTrailingWhitespace(string value)
+        private bool notHaveLeadingOrTrailingWhitespace(string value)
         {
             if (string.IsNullOrEmpty(value)) return true;
             return value.Trim() == value;
         }
 
-        private bool BeAValidAge(System.DateTime? dateOfBirth)
+        private bool beAValidAge(System.DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue) return false;
             return dateOfBirth.Value.Date <= System.DateTime.Now.Date.AddYears(-13);
         }
 
-        private bool BeARealisticAge(System.DateTime? dateOfBirth)
+        private bool beARealisticAge(System.DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue) return false;
             return dateOfBirth.Value.Year > (System.DateTime.Now.Year - 100);
