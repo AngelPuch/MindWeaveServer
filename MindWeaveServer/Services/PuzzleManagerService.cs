@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using NLog; // ¡Añadir using para NLog!
 // QUITA: using System.Web.Hosting;
 
 namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
@@ -18,6 +19,9 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerCall, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class PuzzleManagerService : IPuzzleManager
     {
+        // Obtener instancia del logger (NOMBRE CORREGIDO)
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); // <--- NOMBRE CORREGIDO
+
         // Ruta relativa a la carpeta de ejecución del servidor
         private readonly string UPLOAD_FOLDER_NAME = "UploadedPuzzles";
         private string getUploadFolderPath()
@@ -29,18 +33,19 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()
         {
+            logger.Info("getAvailablePuzzlesAsync request received."); // <--- LOG AÑADIDO
             try
             {
                 using (var context = new MindWeaveDBEntities1())
                 {
                     // PASO 1: Traer solo los datos necesarios de la BD
                     var puzzlesFromDb = await context.Puzzles
-                                                .OrderBy(p => p.puzzle_id)
-                                                .Select(p => new { // Selecciona un tipo anónimo temporalmente
-                                                    Id = p.puzzle_id,
-                                                    Path = p.image_path
-                                                })
-                                                .ToListAsync(); // Ejecuta la consulta SQL aquí
+                                             .OrderBy(p => p.puzzle_id)
+                                             .Select(p => new { // Selecciona un tipo anónimo temporalmente
+                                                 Id = p.puzzle_id,
+                                                 Path = p.image_path
+                                             })
+                                             .ToListAsync(); // Ejecuta la consulta SQL aquí
 
                     // PASO 2: Mapear a PuzzleInfoDto EN MEMORIA, calculando el nombre ahora
                     var puzzles = puzzlesFromDb.Select(p => new PuzzleInfoDto
@@ -51,22 +56,26 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
                         name = Path.GetFileNameWithoutExtension(p.Path ?? "Puzzle")
                     }).ToList(); // Convierte a lista de DTOs
 
-                    Console.WriteLine($"getAvailablePuzzlesAsync: Found {puzzles.Count} puzzles in DB."); // Log para confirmar
+                    // Reemplazar Console.WriteLine
+                    logger.Info("getAvailablePuzzlesAsync: Found {Count} puzzles in DB.", puzzles.Count);
                     return puzzles;
                 }
             }
             catch (Exception ex)
             {
-                // Loguea el error completo para más detalles
-                Console.WriteLine($"Error getting puzzles: {ex.ToString()}");
+                // Reemplazar Console.WriteLine
+                logger.Error(ex, "Error getting available puzzles.");
                 return new List<PuzzleInfoDto>();
             }
         }
 
         public async Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName)
         {
+            logger.Info("uploadPuzzleImageAsync attempt by user: {Username}, fileName: {FileName}", username ?? "NULL", fileName ?? "NULL"); // <--- LOG AÑADIDO
+
             if (imageBytes == null || imageBytes.Length == 0 || string.IsNullOrWhiteSpace(fileName) || string.IsNullOrWhiteSpace(username))
             {
+                logger.Warn("uploadPuzzleImageAsync failed for {Username}: Invalid data provided (null/empty bytes, fileName, or username).", username ?? "NULL");
                 return new UploadResultDto { success = false, message = "Invalid data provided for upload." }; // TODO: Lang key
             }
 
@@ -77,7 +86,8 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
                 if (!Directory.Exists(uploadPath))
                 {
                     Directory.CreateDirectory(uploadPath);
-                    Console.WriteLine($"Created upload directory: {uploadPath}");
+                    // Reemplazar Console.WriteLine
+                    logger.Info("Created upload directory: {UploadPath}", uploadPath);
                 }
 
                 string uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
@@ -87,14 +97,16 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
 
 
                 File.WriteAllBytes(filePath, imageBytes);
-                Console.WriteLine($"Image saved to: {filePath}");
+                // Reemplazar Console.WriteLine
+                logger.Info("Image saved successfully to: {FilePath}", filePath);
 
                 using (var context = new MindWeaveDBEntities1())
                 {
                     var player = await context.Player.FirstOrDefaultAsync(p => p.username == username);
                     if (player == null)
                     {
-                        Console.WriteLine($"Upload Error: Player {username} not found.");
+                        // Reemplazar Console.WriteLine
+                        logger.Warn("Upload Error: Player {Username} not found.", username);
                         // Considerar borrar el archivo guardado si el jugador no existe?
                         // File.Delete(filePath);
                         return new UploadResultDto { success = false, message = "Uploading player not found." }; // TODO: Lang key
@@ -110,7 +122,7 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
 
                     context.Puzzles.Add(newPuzzle);
                     await context.SaveChangesAsync();
-                    Console.WriteLine($"New puzzle record created with ID: {newPuzzle.puzzle_id}");
+                    logger.Info("New puzzle record created with ID: {PuzzleId} for user {Username}", newPuzzle.puzzle_id, username);
 
                     return new UploadResultDto { success = true, message = "Image uploaded successfully!", newPuzzleId = newPuzzle.puzzle_id }; // TODO: Lang key
                 }
@@ -118,12 +130,14 @@ namespace MindWeaveServer.Services // Asegúrate que el namespace sea correcto
             // Captura específicamente errores de I/O
             catch (IOException ioEx)
             {
-                Console.WriteLine($"I/O Error uploading image for {username}: {ioEx.ToString()}");
+                // Reemplazar Console.WriteLine
+                logger.Error(ioEx, "I/O Error uploading image for {Username}", username ?? "NULL");
                 return new UploadResultDto { success = false, message = $"Server file error during upload: {ioEx.Message}" }; // TODO: Lang key
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Generic Error uploading image for {username}: {ex.ToString()}");
+                // Reemplazar Console.WriteLine
+                logger.Error(ex, "Generic Error uploading image for {Username}", username ?? "NULL");
                 return new UploadResultDto { success = false, message = $"Server error during upload: {ex.Message}" }; // TODO: Lang key
             }
         }

@@ -1,4 +1,5 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿// MindWeaveServer/Services/MatchmakingManagerService.cs
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
@@ -9,12 +10,17 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using NLog; // ¡Añadir using para NLog!
+using MindWeaveServer.Resources; // Añadir para Lang
 
 namespace MindWeaveServer.Services
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class MatchmakingManagerService : IMatchmakingManager
     {
+        // Obtener instancia del logger
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
         private readonly MatchmakingLogic matchmakingLogic;
 
         private static readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies =
@@ -32,7 +38,7 @@ namespace MindWeaveServer.Services
             var dbContext = new MindWeaveDBEntities1();
             var matchmakingRepository = new MatchmakingRepository(dbContext);
             var playerRepository = new PlayerRepository(dbContext);
-            var guestInvitationRepository = new GuestInvitationRepository(dbContext); // Instantiate new repository
+            var guestInvitationRepository = new GuestInvitationRepository(dbContext);
             var emailService = new SmtpEmailService();
 
             matchmakingLogic = new MatchmakingLogic(
@@ -47,58 +53,77 @@ namespace MindWeaveServer.Services
             {
                 OperationContext.Current.Channel.Faulted += channel_FaultedOrClosed;
                 OperationContext.Current.Channel.Closed += channel_FaultedOrClosed;
+                logger.Debug("Attached Faulted/Closed event handlers to the current WCF channel.");
             }
+            else
+            {
+                logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
+            }
+            logger.Info("MatchmakingManagerService instance created (PerSession).");
         }
 
         public async Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto)
         {
+            logger.Info("createLobby attempt by user: {Username}", hostUsername ?? "NULL");
             if (!ensureSessionIsRegistered(hostUsername))
             {
+                logger.Warn("createLobby failed for {Username}: Session could not be registered.", hostUsername ?? "NULL");
                 return new LobbyCreationResultDto
-                    { success = false, message = "Failed to establish communication channel." }; // TODO: Lang
+                { success = false, message = "Failed to establish communication channel." }; // TODO: Lang
             }
 
             try
             {
-                return await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
+                var result = await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
+                if (result.success)
+                {
+                    logger.Info("Lobby created successfully by {Username} with code: {LobbyCode}", hostUsername, result.lobbyCode);
+                }
+                else
+                {
+                    logger.Warn("Lobby creation failed for {Username}. Reason: {Reason}", hostUsername, result.message);
+                }
+                return result;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in createLobby for {hostUsername}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in createLobby for {Username}", hostUsername ?? "NULL");
                 return new LobbyCreationResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
         }
 
         public async Task joinLobby(string username, string lobbyId)
         {
+            logger.Info("joinLobby attempt by user: {Username} for lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(username))
             {
+                logger.Warn("joinLobby failed for {Username}: Session could not be registered.", username ?? "NULL");
                 try
                 {
-                    currentUserCallback?.lobbyCreationFailed("Failed to establish communication channel.");
+                    currentUserCallback?.lobbyCreationFailed("Failed to establish communication channel."); // TODO: Lang
                 }
-                catch
+                catch (Exception cbEx)
                 {
+                    logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback during joinLobby session check for {Username}", username ?? "NULL");
                 }
-
                 return;
             }
 
             try
             {
                 await matchmakingLogic.joinLobbyAsync(username, lobbyId, currentUserCallback);
+                logger.Info("joinLobby logic executed for {Username} and lobby {LobbyId}. Logic will handle callbacks.", username, lobbyId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in joinLobby for {username}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in joinLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
                 try
                 {
                     currentUserCallback?.lobbyCreationFailed(Resources.Lang.GenericServerError);
                 }
-                catch
+                catch (Exception cbEx)
                 {
+                    logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback after error in joinLobby for {Username}", username ?? "NULL");
                 }
 
                 await handleDisconnect();
@@ -107,133 +132,156 @@ namespace MindWeaveServer.Services
 
         public async Task leaveLobby(string username, string lobbyId)
         {
+            logger.Info("leaveLobby attempt by user: {Username} from lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(username))
             {
+                logger.Warn("leaveLobby called by {Username}, but session is not registered. Ignoring.", username ?? "NULL");
                 return;
             }
 
             try
             {
                 await matchmakingLogic.leaveLobbyAsync(username, lobbyId);
+                logger.Info("leaveLobby logic executed for {Username} from lobby {LobbyId}.", username, lobbyId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in leaveLobby for {username}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in leaveLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             }
         }
 
         public async Task startGame(string hostUsername, string lobbyId)
         {
+            logger.Info("startGame attempt by host: {Username} for lobby: {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(hostUsername))
             {
+                logger.Warn("startGame called by {Username}, but session is not registered. Ignoring.", hostUsername ?? "NULL");
                 return;
             }
 
             try
             {
                 await matchmakingLogic.startGameAsync(hostUsername, lobbyId);
+                logger.Info("startGame logic executed for {Username} and lobby {LobbyId}.", hostUsername, lobbyId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in startGame by {hostUsername}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in startGame by {Username}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
             }
         }
 
         public async Task kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId)
         {
+            logger.Info("kickPlayer attempt by host: {HostUsername} to kick {PlayerToKick} from lobby: {LobbyId}", hostUsername ?? "NULL", playerToKickUsername ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(hostUsername))
             {
+                logger.Warn("kickPlayer called by {Username}, but session is not registered. Ignoring.", hostUsername ?? "NULL");
                 return;
             }
 
             try
             {
                 await matchmakingLogic.kickPlayerAsync(hostUsername, playerToKickUsername, lobbyId);
+                logger.Info("kickPlayer logic executed by {HostUsername} for {PlayerToKick}, lobby {LobbyId}.", hostUsername, playerToKickUsername, lobbyId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in kickPlayer by {hostUsername}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in kickPlayer by {HostUsername}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
             }
         }
 
         public async Task inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId)
         {
+            logger.Info("inviteToLobby attempt by: {InviterUsername} to {InvitedUsername} for lobby: {LobbyId}", inviterUsername ?? "NULL", invitedUsername ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(inviterUsername))
             {
+                logger.Warn("inviteToLobby called by {Username}, but session is not registered. Ignoring.", inviterUsername ?? "NULL");
                 return;
             }
 
             try
             {
                 await matchmakingLogic.inviteToLobbyAsync(inviterUsername, invitedUsername, lobbyId);
+                logger.Info("inviteToLobby logic executed by {InviterUsername} to {InvitedUsername}, lobby {LobbyId}.", inviterUsername, invitedUsername, lobbyId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in inviteToLobby from {inviterUsername}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in inviteToLobby from {InviterUsername}, lobby {LobbyId}", inviterUsername ?? "NULL", lobbyId ?? "NULL");
             }
         }
 
         public async Task changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
         {
+            logger.Info("changeDifficulty attempt by host: {Username} for lobby: {LobbyId}, new difficulty: {DifficultyId}", hostUsername ?? "NULL", lobbyId ?? "NULL", newDifficultyId);
             if (!ensureSessionIsRegistered(hostUsername))
             {
+                logger.Warn("changeDifficulty called by {Username}, but session is not registered. Ignoring.", hostUsername ?? "NULL");
                 return;
             }
 
             try
             {
                 await matchmakingLogic.changeDifficultyAsync(hostUsername, lobbyId, newDifficultyId);
+                logger.Info("changeDifficulty logic executed for lobby {LobbyId}.", lobbyId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in changeDifficulty by {hostUsername}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in changeDifficulty by {Username}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
             }
         }
 
 
         public async Task inviteGuestByEmail(GuestInvitationDto invitationData)
         {
-            if (matchmakingLogic == null) return;
+            if (matchmakingLogic == null)
+            {
+                logger.Error("inviteGuestByEmail failed: matchmakingLogic is null.");
+                return;
+            }
             if (invitationData == null || string.IsNullOrWhiteSpace(invitationData.inviterUsername))
             {
-                Console.WriteLine($"[{DateTime.UtcNow:O}] inviteGuestByEmail called with invalid invitation data.");
+                logger.Warn("inviteGuestByEmail called with invalid invitation data.");
                 return;
             }
 
-            if (!ensureSessionIsRegistered(invitationData.inviterUsername))
+            string inviter = invitationData.inviterUsername;
+            logger.Info("inviteGuestByEmail attempt by: {InviterUsername} for email {GuestEmail}, lobby: {LobbyId}", inviter, invitationData.guestEmail ?? "NULL", invitationData.lobbyCode ?? "NULL");
+
+            if (!ensureSessionIsRegistered(inviter))
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] inviteGuestByEmail called by user '{invitationData.inviterUsername}' but session is invalid or mismatched.");
+                logger.Warn("inviteGuestByEmail called by user {InviterUsername} but session is invalid or mismatched.", inviter);
                 return;
             }
 
             try
             {
                 await matchmakingLogic.inviteGuestByEmailAsync(invitationData);
+                logger.Info("inviteGuestByEmail logic executed for {GuestEmail}, lobby {LobbyId}.", invitationData.guestEmail, invitationData.lobbyCode);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! Service Exception in inviteGuestByEmail from {invitationData.inviterUsername} for {invitationData.guestEmail}, lobby {invitationData.lobbyCode}: {ex.ToString()}");
+                logger.Error(ex, "Service Exception in inviteGuestByEmail from {InviterUsername} for {GuestEmail}, lobby {LobbyId}", inviter, invitationData.guestEmail ?? "NULL", invitationData.lobbyCode ?? "NULL");
             }
         }
 
         public async Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest)
         {
+            // ***** CORRECCIÓN AQUÍ *****
+            // Usar joinRequest.lobbyCode (de GuestJoinRequestDto.cs) en lugar de invitationCode
+            string codeForContext = joinRequest?.lobbyCode ?? "NULL";
+            logger.Info("joinLobbyAsGuest attempt with code: {LobbyCode}", codeForContext);
+
             if (matchmakingLogic == null)
-                return new GuestJoinResultDto { success = false, message = "Service initialization failed." };
+            {
+                logger.Error("joinLobbyAsGuest failed: Service initialization failed.");
+                return new GuestJoinResultDto { success = false, message = "Service initialization failed." }; // TODO: Lang
+            }
 
             if (isDisconnected)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] joinLobbyAsGuest rejected: Service instance is marked as disconnected.");
+                logger.Warn("joinLobbyAsGuest rejected for code {LobbyCode}: Service instance is marked as disconnected.", codeForContext);
                 return new GuestJoinResultDto
-                    { success = false, message = "Service connection closing." }; // TODO: Lang key
+                { success = false, message = "Service connection closing." }; // TODO: Lang key
             }
 
             IMatchmakingCallback guestCallback = null;
@@ -241,7 +289,10 @@ namespace MindWeaveServer.Services
             {
                 guestCallback = OperationContext.Current?.GetCallbackChannel<IMatchmakingCallback>();
                 if (guestCallback == null)
+                {
+                    logger.Error("joinLobbyAsGuest failed for code {LobbyCode}: Could not retrieve callback channel for guest.", codeForContext);
                     throw new InvalidOperationException("Could not retrieve callback channel for guest.");
+                }
 
                 GuestJoinResultDto result = await matchmakingLogic.joinLobbyAsGuestAsync(joinRequest, guestCallback);
 
@@ -249,28 +300,34 @@ namespace MindWeaveServer.Services
                 {
                     currentUsername = result.assignedGuestUsername;
                     currentUserCallback = guestCallback;
-                    setupCallbackEvents(guestCallback as ICommunicationObject);
-                }
+                    setupCallbackEvents(guestCallback as ICommunicationObject); 
+                    logger.Info("joinLobbyAsGuest successful for code {LobbyCode}. Assigned username: {GuestUsername}", codeForContext, result.assignedGuestUsername);
 
+                }
+                else
+                {
+                    logger.Warn("joinLobbyAsGuest failed for code {LobbyCode}. Reason: {Reason}", codeForContext, result.message);
+                }
                 return result;
             }
             catch (Exception ex)
             {
+                logger.Error(ex, "Service Exception in joinLobbyAsGuest for code {LobbyCode}", codeForContext);
                 try
                 {
                     guestCallback?.lobbyCreationFailed(Resources.Lang.GenericServerError);
                 }
-                catch
+                catch (Exception cbEx)
                 {
-
+                    logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback after error in joinLobbyAsGuest for code {LobbyCode}", codeForContext);
                 }
-
                 return new GuestJoinResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
         }
 
         private async void channel_FaultedOrClosed(object sender, EventArgs e)
         {
+            logger.Warn("WCF channel Faulted or Closed for user: {Username}. Initiating disconnect.", currentUsername ?? "UNKNOWN");
             await handleDisconnect();
         }
 
@@ -280,6 +337,7 @@ namespace MindWeaveServer.Services
             {
                 commObject.Faulted -= channel_FaultedOrClosed;
                 commObject.Closed -= channel_FaultedOrClosed;
+                logger.Debug("Removed Faulted/Closed event handlers from a callback channel.");
             }
         }
 
@@ -287,8 +345,7 @@ namespace MindWeaveServer.Services
         {
             if (OperationContext.Current == null)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! CRITICAL: tryRegisterCurrentUserCallback failed, OperationContext is null for {username}.");
+                logger.Fatal("CRITICAL: tryRegisterCurrentUserCallback failed, OperationContext is null for {Username}.", username ?? "NULL");
                 return false;
             }
 
@@ -297,8 +354,7 @@ namespace MindWeaveServer.Services
                 IMatchmakingCallback callback = OperationContext.Current.GetCallbackChannel<IMatchmakingCallback>();
                 if (callback == null)
                 {
-                    Console.WriteLine(
-                        $"[{DateTime.UtcNow:O}] !!! CRITICAL: GetCallbackChannel returned null for {username}.");
+                    logger.Fatal("CRITICAL: GetCallbackChannel returned null for {Username}.", username ?? "NULL");
                     return false;
                 }
 
@@ -314,13 +370,12 @@ namespace MindWeaveServer.Services
                     commObject.Closed += channel_FaultedOrClosed;
                 }
 
-                Console.WriteLine($"[{DateTime.UtcNow:O}] Session and Callback registered for {username}.");
+                logger.Info("Session and Callback registered for {Username}.", username);
                 return true;
             }
             catch (Exception ex)
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! CRITICAL: Exception in tryRegisterCurrentUserCallback for {username}: {ex.ToString()}");
+                logger.Fatal(ex, "CRITICAL: Exception in tryRegisterCurrentUserCallback for {Username}", username ?? "NULL");
                 currentUsername = null;
                 currentUserCallback = null;
                 return false;
@@ -329,7 +384,11 @@ namespace MindWeaveServer.Services
 
         private bool ensureSessionIsRegistered(string username)
         {
-            if (isDisconnected) return false;
+            if (isDisconnected)
+            {
+                logger.Warn("ensureSessionIsRegistered check failed for {Username}: Session is already marked as disconnected.", username ?? "NULL");
+                return false;
+            }
 
             if (!string.IsNullOrEmpty(currentUsername))
             {
@@ -338,16 +397,14 @@ namespace MindWeaveServer.Services
                     return true;
                 }
 
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! CRITICAL: Session previously registered for '{currentUsername}' received a call for '{username}'. Aborting and disconnecting session.");
+                logger.Fatal("CRITICAL: Session previously registered for {CurrentUsername} received a call for {Username}. Aborting and disconnecting session.", currentUsername, username ?? "NULL");
                 Task.Run(async () => await handleDisconnect());
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(username))
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] !!! CRITICAL: Method called with null or empty username before session was registered.");
+                logger.Fatal("CRITICAL: Method called with null or empty username before session was registered.");
                 return false;
             }
 
@@ -361,8 +418,7 @@ namespace MindWeaveServer.Services
 
             string userToDisconnect = currentUsername;
 
-            Console.WriteLine(
-                $"[{DateTime.UtcNow:O}] Disconnect triggered for session. User: '{userToDisconnect ?? "UNKNOWN"}'");
+            logger.Warn("Disconnect triggered for session. User: {Username}", userToDisconnect ?? "UNKNOWN");
 
             if (OperationContext.Current?.Channel != null)
             {
@@ -380,17 +436,16 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await Task.Run(() => matchmakingLogic.handleUserDisconnect(userToDisconnect));
+                    logger.Info("Logic layer disconnect notification sent for {Username}", userToDisconnect);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(
-                        $"[{DateTime.UtcNow:O}] !!! Exception during logic layer disconnect notification for {userToDisconnect}: {ex.Message}");
+                    logger.Error(ex, "Exception during logic layer disconnect notification for {Username}", userToDisconnect);
                 }
             }
             else
             {
-                Console.WriteLine(
-                    $"[{DateTime.UtcNow:O}] No username was associated with this disconnecting session, skipping logic notification.");
+                logger.Info("No username was associated with this disconnecting session, skipping logic notification.");
             }
 
             currentUsername = null;
@@ -401,20 +456,16 @@ namespace MindWeaveServer.Services
         {
             if (commObject != null)
             {
-                // Remover handlers primero para evitar duplicados
                 commObject.Faulted -= channel_FaultedOrClosed;
                 commObject.Closed -= channel_FaultedOrClosed;
-                // Añadir handlers
                 commObject.Faulted += channel_FaultedOrClosed;
                 commObject.Closed += channel_FaultedOrClosed;
-                Debug.WriteLine(
-                    $"[{DateTime.UtcNow:O}] Event handlers (Faulted/Closed) attached for user: {currentUsername ?? "UNKNOWN"} callback. Channel State: {commObject.State}");
 
+                logger.Debug("Event handlers (Faulted/Closed) attached for user: {Username} callback. Channel State: {State}", currentUsername ?? "UNKNOWN", commObject.State);
             }
             else
             {
-                Debug.WriteLine(
-                    $"[{DateTime.UtcNow:O}] WARN: Attempted to setup callback events, but communication object was null for user: {currentUsername ?? "UNKNOWN"}.");
+                logger.Warn("Attempted to setup callback events, but communication object was null for user: {Username}.", currentUsername ?? "UNKNOWN");
             }
         }
     }

@@ -1,4 +1,5 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿// MindWeaveServer/Services/ProfileManagerService.cs
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
@@ -11,85 +12,156 @@ using MindWeaveServer.Utilities.Validators;
 using System;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using NLog; // ¡Añadir using para NLog!
 
 namespace MindWeaveServer.Services
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerCall, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ProfileManagerService : IProfileManager
     {
+        // Obtener una instancia del logger (NOMBRE CORREGIDO)
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); // <--- NOMBRE CORREGIDO
+
         private readonly ProfileLogic profileLogic;
 
         public ProfileManagerService()
         {
+            // ... (inicialización de dependencias igual que antes) ...
             var dbContext = new MindWeaveDBEntities1();
             var playerRepository = new PlayerRepository(dbContext);
             var genderRepository = new GenderRepository(dbContext);
             var passwordService = new PasswordService();
             var passwordPolicyValidator = new PasswordPolicyValidator();
             this.profileLogic = new ProfileLogic(
-                playerRepository, 
-                genderRepository, 
-                passwordService, 
+                playerRepository,
+                genderRepository,
+                passwordService,
                 passwordPolicyValidator);
+
+            logger.Info("ProfileManagerService instance created."); // <--- NOMBRE CORREGIDO
         }
 
 
         public async Task<PlayerProfileViewDto> getPlayerProfileView(string username)
         {
+            string userForContext = username ?? "NULL";
+            logger.Info("getPlayerProfileView request started for user: {Username}", userForContext);
             try
             {
-                return await profileLogic.getPlayerProfileViewAsync(username);
+                var result = await profileLogic.getPlayerProfileViewAsync(username);
+                if (result != null)
+                {
+                    logger.Info("Successfully retrieved profile view for user: {Username}", userForContext);
+                }
+                else
+                {
+                    logger.Warn("Profile view not found for user: {Username}", userForContext);
+                }
+                return result;
             }
             catch (Exception ex)
             {
+                logger.Error(ex, "An unexpected error occurred during getPlayerProfileView for user: {Username}", userForContext);
+                // Devolver null como indica la lógica original en caso de error
                 return null;
             }
         }
 
         public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
         {
+            string userForContext = username ?? "NULL";
+            logger.Info("getPlayerProfileForEdit request started for user: {Username}", userForContext);
             try
             {
-                return await profileLogic.getPlayerProfileForEditAsync(username);
+                var result = await profileLogic.getPlayerProfileForEditAsync(username);
+                if (result != null)
+                {
+                    logger.Info("Successfully retrieved editable profile for user: {Username}", userForContext);
+                }
+                else
+                {
+                    logger.Warn("Editable profile not found for user: {Username}", userForContext);
+                }
+                return result;
             }
             catch (Exception ex)
             {
+                logger.Error(ex, "An unexpected error occurred during getPlayerProfileForEdit for user: {Username}", userForContext);
+                // Devolver null como indica la lógica original en caso de error
                 return null;
             }
         }
 
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
         {
+            string userForContext = username ?? "NULL";
+            logger.Info("updateProfile request started for user: {Username}", userForContext);
             try
             {
-                return await profileLogic.updateProfileAsync(username, updatedProfileData);
+                var result = await profileLogic.updateProfileAsync(username, updatedProfileData);
+                if (result.success)
+                {
+                    logger.Info("Profile updated successfully for user: {Username}", userForContext);
+                }
+                else
+                {
+                    logger.Warn("Profile update failed for user: {Username}. Reason: {Reason}", userForContext, result.message);
+                }
+                return result;
             }
             catch (Exception ex)
             {
+                logger.Error(ex, "An unexpected error occurred during updateProfile for user: {Username}", userForContext);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
 
         public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
         {
+            string userForContext = username ?? "NULL";
+            logger.Info("updateAvatarPath request started for user: {Username}, NewPath: {AvatarPath}", userForContext, newAvatarPath ?? "NULL");
             try
             {
-                return await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
+                var result = await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
+                if (result.success)
+                {
+                    logger.Info("Avatar path updated successfully for user: {Username}", userForContext);
+                }
+                else
+                {
+                    logger.Warn("Avatar path update failed for user: {Username}. Reason: {Reason}", userForContext, result.message);
+                }
+                return result;
             }
             catch (Exception ex)
             {
+                logger.Error(ex, "An unexpected error occurred during updateAvatarPath for user: {Username}", userForContext);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
 
         public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
         {
+            // ¡Importante! No loguear contraseñas en texto plano.
+            string userForContext = username ?? "NULL";
+            logger.Info("changePassword request started for user: {Username}", userForContext);
             try
             {
-                return await profileLogic.changePasswordAsync(username, currentPassword, newPassword);
+                // Pasamos "***" a los logs en lugar de las contraseñas reales
+                var result = await profileLogic.changePasswordAsync(username, currentPassword, newPassword);
+                if (result.success)
+                {
+                    logger.Info("Password changed successfully for user: {Username}", userForContext);
+                }
+                else
+                {
+                    logger.Warn("Password change failed for user: {Username}. Reason: {Reason}", userForContext, result.message);
+                }
+                return result;
             }
             catch (Exception ex)
             {
+                logger.Error(ex, "An unexpected error occurred during changePassword for user: {Username}", userForContext);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }

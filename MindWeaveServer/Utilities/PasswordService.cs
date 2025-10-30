@@ -1,4 +1,4 @@
-﻿using MindWeaveServer.Utilities.Abstractions;
+﻿              using MindWeaveServer.Utilities.Abstractions;
 
 namespace MindWeaveServer.Utilities
 {
@@ -14,4 +14,5 @@ namespace MindWeaveServer.Utilities
             return PasswordHasher.verifyPassword(password, storedHash);
         }
     }
+
 }
