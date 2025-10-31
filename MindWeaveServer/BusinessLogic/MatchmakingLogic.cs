@@ -265,8 +265,14 @@ namespace MindWeaveServer.BusinessLogic
 
                 Task.Run(async () => {
                     logger.Info("[HandleDisconnect] Initiating leaveLobbyAsync background task for '{Username}' from lobby '{LobbyCode}'.", username, lobbyCode);
-                    try { await leaveLobbyAsync(username, lobbyCode); }
-                    catch (Exception ex) { logger.Error(ex, "[HandleDisconnect] Exception in background leaveLobbyAsync task for User: {Username}, Lobby: {LobbyCode}", username, lobbyCode); }
+                    try
+                    {
+                        await leaveLobbyAsync(username, lobbyCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "[HandleDisconnect] Exception in background leaveLobbyAsync task for User: {Username}, Lobby: {LobbyCode}", username, lobbyCode);
+                    }
                 });
             }
             removeCallback(username);
@@ -545,11 +551,12 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
                 Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-                if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
+                if (match == null || match.lobby_code != joinRequest.lobbyCode || match.match_status_id != MATCH_STATUS_WAITING)
                 {
                     logger.Warn("Join guest failed: Match for lobby {LobbyCode} not found or not in waiting state (Status: {StatusId}).", lobbyCode, match?.match_status_id);
-                    return new GuestJoinResultDto { success = false, message = string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode) };
+                    return new GuestJoinResultDto { success = false, message = string.Format(Lang.lobbyNotFoundOrInactive, joinRequest.lobbyCode) };
                 }
+
                 logger.Debug("Match record found (ID: {MatchId}) and is in waiting state.", match.matches_id);
 
                 logger.Debug("Searching for valid guest invitation for Match: {MatchId}, Email: {GuestEmail}", match.matches_id, guestEmailLower);
@@ -993,35 +1000,86 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Debug("Attempting to mark match as started in DB for lobby {LobbyCode}", lobbyCode);
                 Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-                if (match == null) { logger.Error("Cannot start match in DB: Match not found for lobby {LobbyCode}.", lobbyCode); sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyDataNotFound)); return false; }
-                if (match.match_status_id != MATCH_STATUS_WAITING) { logger.Warn("Cannot start match in DB: Match {MatchId} (Lobby {LobbyCode}) is not in waiting state (Status: {StatusId}).", match.matches_id, lobbyCode, match.match_status_id); sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyNotInWaitingState)); return false; }
-                logger.Debug("Updating match status to InProgress and setting start time for MatchID: {MatchId}", match.matches_id);
+
+                if (match == null)
+                {
+                    logger.Error("Cannot start match in DB: Match not found for lobby {LobbyCode}.", lobbyCode);
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyDataNotFound));
+                    return false;
+                }
+
+                if (match.match_status_id != MATCH_STATUS_WAITING)
+                {
+                    logger.Warn(
+                        "Cannot start match in DB: Match {MatchId} (Lobby {LobbyCode}) is not in waiting state (Status: {StatusId}).",
+                        match.matches_id, lobbyCode, match.match_status_id);
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyNotInWaitingState));
+                    return false;
+
+                }
+
+                logger.Debug("Updating match status to InProgress and setting start time for MatchID: {MatchId}",
+                    match.matches_id);
                 Task statusUpdateTask = matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_IN_PROGRESS);
                 Task timeUpdateTask = matchmakingRepository.updateMatchStartTimeAsync(match);
                 await Task.WhenAll(statusUpdateTask, timeUpdateTask);
-                logger.Info("Successfully updated match status and start time for MatchID: {MatchId}", match.matches_id);
+                logger.Info("Successfully updated match status and start time for MatchID: {MatchId}",
+                    match.matches_id);
                 return true;
             }
-            catch (Exception ex) { logger.Error(ex, "Exception trying to start match in DB for lobby {LobbyCode}", lobbyCode); sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.DatabaseErrorStartingMatch)); return false; }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception trying to start match in DB for lobby {LobbyCode}", lobbyCode); 
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.DatabaseErrorStartingMatch)); 
+                return false;
+            }
         }
 
         private void notifyAllAndCleanupLobby(string lobbyCode, List<string> playersSnapshot)
         {
             logger.Info("Notifying {Count} players in lobby {LobbyCode} that the match has started.", playersSnapshot.Count, lobbyCode);
-            foreach (var playerUsername in playersSnapshot) { sendCallbackToUser(playerUsername, cb => cb.matchFound(lobbyCode, playersSnapshot)); /* TODO: removeCallback(playerUsername); */ }
-            if (activeLobbies.TryRemove(lobbyCode, out _)) { logger.Info("Lobby {LobbyCode} removed from active lobbies as game started.", lobbyCode); }
-            else { logger.Warn("Lobby {LobbyCode} was already removed when trying to clean up after game start.", lobbyCode); }
-            if (guestUsernamesInLobby.TryRemove(lobbyCode, out _)) { logger.Debug("Guest tracking list removed for started lobby {LobbyCode}.", lobbyCode); }
+            foreach (var playerUsername in playersSnapshot)
+            {
+                sendCallbackToUser(playerUsername, cb => cb.matchFound(lobbyCode, playersSnapshot)); 
+                /* TODO: removeCallback(playerUsername); */
+            }
+
+            if (activeLobbies.TryRemove(lobbyCode, out _))
+            {
+                logger.Info("Lobby {LobbyCode} removed from active lobbies as game started.", lobbyCode);
+            }
+            else
+            {
+                logger.Warn("Lobby {LobbyCode} was already removed when trying to clean up after game start.", lobbyCode);
+            }
+
+            if (guestUsernamesInLobby.TryRemove(lobbyCode, out _))
+            {
+                logger.Debug("Guest tracking list removed for started lobby {LobbyCode}.", lobbyCode);
+            }
         }
 
         private bool tryKickPlayerFromMemory(LobbyStateDto lobbyState, string hostUsername, string playerToKickUsername)
         {
             lock (lobbyState)
             {
-                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase)) { logger.Warn("Kick player failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.lobbyId); return false; }
-                if (hostUsername.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase)) { logger.Warn("Kick player failed: Host {Username} cannot kick themselves from lobby {LobbyId}.", hostUsername, lobbyState.lobbyId); return false; }
+                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.Warn("Kick player failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.lobbyId); 
+                    return false;
+                }
+
+                if (hostUsername.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.Warn("Kick player failed: Host {Username} cannot kick themselves from lobby {LobbyId}.", hostUsername, lobbyState.lobbyId); 
+                    return false;
+                }
+
                 bool removed = lobbyState.players.RemoveAll(p => p.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase)) > 0;
-                if (!removed) { logger.Warn("Kick player failed: User {TargetUsername} not found in memory list for lobby {LobbyId}.", playerToKickUsername, lobbyState.lobbyId); }
+                if (!removed)
+                {
+                    logger.Warn("Kick player failed: User {TargetUsername} not found in memory list for lobby {LobbyId}.", playerToKickUsername, lobbyState.lobbyId);
+                }
                 return removed;
             }
         }
@@ -1042,9 +1100,15 @@ namespace MindWeaveServer.BusinessLogic
                         await matchmakingRepository.removeParticipantAsync(participant);
                         logger.Info("Successfully removed participant PlayerID: {PlayerId} from MatchID: {MatchId} due to kick.", playerKicked.idPlayer, match.matches_id);
                     }
-                    else { logger.Warn("Participant record not found for kicked PlayerID: {PlayerId}, MatchID: {MatchId}.", playerKicked.idPlayer, match.matches_id); }
+                    else
+                    {
+                        logger.Warn("Participant record not found for kicked PlayerID: {PlayerId}, MatchID: {MatchId}.", playerKicked.idPlayer, match.matches_id);
+                    }
                 }
-                else { logger.Warn("Cannot synchronize kick to DB: Player {TargetUsername} (Found={PlayerFound}) or Match for lobby {LobbyCode} (Found={MatchFound}) not found.", playerToKickUsername, playerKicked != null, lobbyCode, match != null); }
+                else
+                {
+                    logger.Warn("Cannot synchronize kick to DB: Player {TargetUsername} (Found={PlayerFound}) or Match for lobby {LobbyCode} (Found={MatchFound}) not found.", playerToKickUsername, playerKicked != null, lobbyCode, match != null);
+                }
             }
             catch (Exception ex) { logger.Error(ex, "Exception during synchronizeDbOnKickAsync for User: {TargetUsername}, Lobby: {LobbyCode}", playerToKickUsername, lobbyCode); }
         }
@@ -1060,8 +1124,18 @@ namespace MindWeaveServer.BusinessLogic
         {
             lock (lobbyState)
             {
-                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase)) { logger.Warn("Change difficulty failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.lobbyId); sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost)); return false; }
-                if (lobbyState.currentSettingsDto.difficultyId == newDifficultyId) { logger.Debug("Change difficulty ignored: Difficulty for lobby {LobbyId} is already {DifficultyId}.", lobbyState.lobbyId, newDifficultyId); return false; }
+                if (!lobbyState.hostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.Warn("Change difficulty failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.lobbyId); 
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost)); 
+                    return false;
+                }
+
+                if (lobbyState.currentSettingsDto.difficultyId == newDifficultyId)
+                {
+                    logger.Debug("Change difficulty ignored: Difficulty for lobby {LobbyId} is already {DifficultyId}.", lobbyState.lobbyId, newDifficultyId); 
+                    return false;
+                }
                 lobbyState.currentSettingsDto.difficultyId = newDifficultyId;
                 logger.Debug("Difficulty updated in memory for lobby {LobbyId} to {DifficultyId}.", lobbyState.lobbyId, newDifficultyId);
                 return true;
@@ -1076,15 +1150,30 @@ namespace MindWeaveServer.BusinessLogic
                 var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyId);
                 if (match != null && match.match_status_id == MATCH_STATUS_WAITING)
                 {
-                    logger.Debug("Match {MatchId} found and is waiting. Updating difficulty to {DifficultyId}", match.matches_id, newDifficultyId);
+                    logger.Debug("Match {MatchId} found and is waiting. Updating difficulty to {DifficultyId}",
+                        match.matches_id, newDifficultyId);
                     await matchmakingRepository.updateMatchDifficultyAsync(match, newDifficultyId);
                     logger.Info("Successfully updated difficulty in DB for MatchID: {MatchId}", match.matches_id);
                 }
-                else if (match == null) { logger.Warn("Cannot sync difficulty to DB: Match not found for lobby {LobbyId}.", lobbyId); }
-                else { logger.Warn("Cannot sync difficulty to DB: Match {MatchId} (Lobby {LobbyId}) is no longer in waiting state (Status: {StatusId}).", match.matches_id, lobbyId, match.match_status_id); }
+                else if (match == null)
+                {
+                    logger.Warn("Cannot sync difficulty to DB: Match not found for lobby {LobbyId}.", lobbyId);
+                }
+                else
+                {
+                    logger.Warn(
+                        "Cannot sync difficulty to DB: Match {MatchId} (Lobby {LobbyId}) is no longer in waiting state (Status: {StatusId}).",
+                        match.matches_id, lobbyId, match.match_status_id);
+                }
+
                 return true;
             }
-            catch (Exception ex) { logger.Error(ex, "Exception trying to synchronize difficulty change to DB for lobby {LobbyId}", lobbyId); sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ErrorSavingDifficultyChange)); return false; }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception trying to synchronize difficulty change to DB for lobby {LobbyId}", lobbyId); 
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ErrorSavingDifficultyChange)); 
+                return false;
+            }
         }
     }
 }
