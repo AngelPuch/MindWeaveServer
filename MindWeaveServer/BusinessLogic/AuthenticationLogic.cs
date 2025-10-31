@@ -1,5 +1,4 @@
-﻿// MindWeaveServer/BusinessLogic/AuthenticationLogic.cs
-using FluentValidation;
+﻿using FluentValidation;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
@@ -11,14 +10,13 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using MindWeaveServer.Contracts.DataContracts.Shared;
-using NLog; // ¡Añadir using para NLog!
+using NLog;
 
 namespace MindWeaveServer.BusinessLogic
 {
     public class AuthenticationLogic
     {
-        // Obtener instancia del logger (NOMBRE CORREGIDO)
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); // <--- NOMBRE CORREGIDO
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private const string RESULT_CODE_ACCOUNT_NOT_VERIFIED = "ACCOUNT_NOT_VERIFIED";
         private readonly IPlayerRepository playerRepository;
@@ -45,12 +43,11 @@ namespace MindWeaveServer.BusinessLogic
             this.verificationCodeService = verificationCodeService;
             this.profileValidator = profileValidator;
             this.loginValidator = loginValidator;
-            logger.Info("AuthenticationLogic instance created."); // Log de creación
+            logger.Info("AuthenticationLogic instance created.");
         }
 
         public async Task<OperationResultDto> registerPlayerAsync(UserProfileDto userProfile, string password)
         {
-            // Loguear inicio
             string usernameForContext = userProfile?.username ?? "NULL";
             string emailForContext = userProfile?.email ?? "NULL";
             logger.Info("registerPlayerAsync called for User: {Username}, Email: {Email}", usernameForContext, emailForContext);
@@ -61,7 +58,6 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired };
             }
 
-            // Validar perfil
             var profileValidationResult = await this.profileValidator.ValidateAsync(userProfile);
             if (!profileValidationResult.IsValid)
             {
@@ -71,7 +67,6 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Debug("Profile validation successful for User: {Username}", usernameForContext);
 
-            // Validar contraseña
             var passwordValidationResult = this.passwordPolicyValidator.validate(password);
             if (!passwordValidationResult.success)
             {
@@ -82,7 +77,6 @@ namespace MindWeaveServer.BusinessLogic
 
             try
             {
-                // Buscar jugador existente
                 logger.Debug("Checking for existing player by username or email for User: {Username}", usernameForContext);
                 var existingPlayer = await this.playerRepository.getPlayerByUsernameAsync(userProfile.username)
                                      ?? await this.playerRepository.getPlayerByEmailAsync(userProfile.email);
@@ -119,7 +113,6 @@ namespace MindWeaveServer.BusinessLogic
                 string newVerificationCode = this.verificationCodeService.generateVerificationCode();
                 logger.Debug("Generated new verification code for unverified User: {Username}", existingPlayer.username);
 
-                // Actualizar datos del jugador no verificado
                 existingPlayer.password_hash = this.passwordService.hashPassword(password);
                 existingPlayer.first_name = userProfile.firstName.Trim();
                 existingPlayer.last_name = userProfile.lastName?.Trim();
@@ -127,12 +120,12 @@ namespace MindWeaveServer.BusinessLogic
                 existingPlayer.gender_id = userProfile.genderId;
                 existingPlayer.verification_code = newVerificationCode;
                 existingPlayer.code_expiry_date = this.verificationCodeService.getVerificationExpiryTime();
-                existingPlayer.email = userProfile.email.Trim(); // Actualizar email si cambió
+                existingPlayer.email = userProfile.email.Trim();
 
                 await this.playerRepository.saveChangesAsync();
                 logger.Info("Updated existing unverified player data for User: {Username}", existingPlayer.username);
 
-                await sendVerificationEmailAsync(existingPlayer.email, existingPlayer.username, newVerificationCode); // Log dentro de este método
+                await sendVerificationEmailAsync(existingPlayer.email, existingPlayer.username, newVerificationCode);
 
                 return new OperationResultDto { success = true, message = Lang.RegistrationSuccessful };
             }
@@ -163,7 +156,7 @@ namespace MindWeaveServer.BusinessLogic
                     is_verified = false,
                     verification_code = verificationCode,
                     code_expiry_date = this.verificationCodeService.getVerificationExpiryTime(),
-                    avatar_path = "/Resources/Images/Avatar/default_avatar.png" // Ruta por defecto
+                    avatar_path = "/Resources/Images/Avatar/default_avatar.png"
                 };
 
                 this.playerRepository.addPlayer(newPlayer);
@@ -173,7 +166,7 @@ namespace MindWeaveServer.BusinessLogic
                 //TODO: Initialize player stats
                 logger.Debug("TODO: Initialize player stats for new User: {Username}", newPlayer.username);
 
-                await sendVerificationEmailAsync(newPlayer.email, newPlayer.username, verificationCode); // Log dentro de este método
+                await sendVerificationEmailAsync(newPlayer.email, newPlayer.username, verificationCode);
 
                 return new OperationResultDto { success = true, message = Lang.RegistrationSuccessful };
             }
@@ -230,8 +223,8 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Debug("Verification code is valid and not expired for Email: {Email}", email);
 
                 playerToVerify.is_verified = true;
-                playerToVerify.verification_code = null; // Limpiar código
-                playerToVerify.code_expiry_date = null; // Limpiar fecha
+                playerToVerify.verification_code = null;
+                playerToVerify.code_expiry_date = null;
 
                 await this.playerRepository.saveChangesAsync();
                 logger.Info("Account successfully verified for Email: {Email}, User: {Username}", email, playerToVerify.username);
@@ -240,7 +233,7 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during verifyAccountAsync for Email: {Email}", email ?? "NULL");
+                logger.Error(ex, "Exception during verifyAccountAsync for Email: {Email}", email);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
@@ -270,7 +263,6 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Debug("Fetching player by email for login: {Email}", emailForContext);
                 var player = await this.playerRepository.getPlayerByEmailAsync(loginData.email);
 
-                // Verificar jugador y contraseña
                 bool passwordVerified = false;
                 if (player != null)
                 {
@@ -286,10 +278,9 @@ namespace MindWeaveServer.BusinessLogic
                 if (player == null || !passwordVerified)
                 {
                     logger.Warn("Login failed for Email: {Email}: Invalid credentials (player not found or password mismatch).", emailForContext);
-                    return new LoginResultDto { operationResult = new OperationResultDto { success = false, message = Lang.LoginPasswordNotEmpty } }; // Mensaje podría mejorar
+                    return new LoginResultDto { operationResult = new OperationResultDto { success = false, message = Lang.LoginPasswordNotEmpty } };
                 }
 
-                // Verificar si la cuenta está verificada
                 if (!player.is_verified)
                 {
                     logger.Warn("Login failed for Email: {Email}, User: {Username}: Account is not verified.", emailForContext, player.username);
@@ -350,13 +341,13 @@ namespace MindWeaveServer.BusinessLogic
                 await playerRepository.saveChangesAsync();
                 logger.Info("Updated verification code in DB for Email: {Email}", email);
 
-                await sendVerificationEmailAsync(playerToVerify.email, playerToVerify.username, newVerificationCode); // Log dentro de este método
+                await sendVerificationEmailAsync(playerToVerify.email, playerToVerify.username, newVerificationCode);
 
-                return new OperationResultDto { success = true, message = Lang.RegistrationSuccessful }; // Mensaje debería ser específico de reenvío
+                return new OperationResultDto { success = true, message = Lang.RegistrationSuccessful };
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during resendVerificationCodeAsync for Email: {Email}", email ?? "NULL");
+                logger.Error(ex, "Exception during resendVerificationCodeAsync for Email: {Email}", email);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
@@ -386,21 +377,20 @@ namespace MindWeaveServer.BusinessLogic
                 DateTime expiryTime = verificationCodeService.getVerificationExpiryTime();
                 logger.Debug("Generated password recovery code for Email: {Email}", email);
 
-                player.verification_code = recoveryCode; // Reutilizar campo de verificación
+                player.verification_code = recoveryCode;
                 player.code_expiry_date = expiryTime;
 
                 await playerRepository.saveChangesAsync();
                 logger.Info("Updated recovery code in DB for Email: {Email}", email);
 
                 var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, recoveryCode);
-                await emailService.sendEmailAsync(player.email, player.username, emailTemplate); // Log dentro de emailService
+                await emailService.sendEmailAsync(player.email, player.username, emailTemplate);
 
                 return new OperationResultDto { success = true, message = Lang.InfoRecoveryCodeSent };
             }
             catch (Exception ex)
             {
-                // No loguear ex directamente aquí si emailService ya lo hace, pero sí el contexto
-                logger.Error(ex, "Exception during sendPasswordRecoveryCodeAsync for Email: {Email}. Could be DB or Email sending failure.", email ?? "NULL");
+                logger.Error(ex, "Exception during sendPasswordRecoveryCodeAsync for Email: {Email}. Could be DB or Email sending failure.", email);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
@@ -408,7 +398,6 @@ namespace MindWeaveServer.BusinessLogic
         public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
         {
             logger.Info("resetPasswordWithCodeAsync called for Email: {Email}", email ?? "NULL");
-            // No loguear code ni newPassword por seguridad
 
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(newPassword))
             {
@@ -422,7 +411,6 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { success = false, message = Lang.VerificationCodeInvalidFormat };
             }
 
-            // Validar nueva contraseña
             var passwordValidation = passwordPolicyValidator.validate(newPassword);
             if (!passwordValidation.success)
             {
@@ -442,7 +430,6 @@ namespace MindWeaveServer.BusinessLogic
                     return new OperationResultDto { success = false, message = Lang.ErrorAccountNotFound };
                 }
 
-                // Validar código y expiración
                 bool isCodeValid = player.verification_code == code;
                 bool isCodeExpired = player.code_expiry_date < DateTime.UtcNow;
 
@@ -454,11 +441,10 @@ namespace MindWeaveServer.BusinessLogic
 
                 logger.Debug("Recovery code is valid and not expired for Email: {Email}", email);
 
-                // Actualizar contraseña y limpiar código
                 player.password_hash = passwordService.hashPassword(newPassword);
                 player.verification_code = null;
                 player.code_expiry_date = null;
-                if (!player.is_verified) // Verificar cuenta si no lo estaba (ej. si usó recuperación en lugar de verificación inicial)
+                if (!player.is_verified)
                 {
                     player.is_verified = true;
                     logger.Info("Account for Email: {Email} was also marked as verified during password reset.", email);
@@ -471,12 +457,11 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during resetPasswordWithCodeAsync for Email: {Email}", email ?? "NULL");
+                logger.Error(ex, "Exception during resetPasswordWithCodeAsync for Email: {Email}", email);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
 
-        // Método helper privado para enviar email (con logging)
         private async Task sendVerificationEmailAsync(string email, string username, string code)
         {
             logger.Info("Attempting to send verification email to {Email} for user {Username}", email, username);

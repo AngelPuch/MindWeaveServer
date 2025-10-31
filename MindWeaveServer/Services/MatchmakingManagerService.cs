@@ -1,5 +1,4 @@
-﻿// MindWeaveServer/Services/MatchmakingManagerService.cs
-using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
@@ -7,18 +6,15 @@ using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Utilities.Email;
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using NLog; // ¡Añadir using para NLog!
-using MindWeaveServer.Resources; // Añadir para Lang
+using NLog;
 
 namespace MindWeaveServer.Services
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class MatchmakingManagerService : IMatchmakingManager
     {
-        // Obtener instancia del logger
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly MatchmakingLogic matchmakingLogic;
@@ -266,8 +262,6 @@ namespace MindWeaveServer.Services
 
         public async Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest)
         {
-            // ***** CORRECCIÓN AQUÍ *****
-            // Usar joinRequest.lobbyCode (de GuestJoinRequestDto.cs) en lugar de invitationCode
             string codeForContext = joinRequest?.lobbyCode ?? "NULL";
             logger.Info("joinLobbyAsGuest attempt with code: {LobbyCode}", codeForContext);
 

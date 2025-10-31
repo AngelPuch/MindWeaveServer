@@ -1,5 +1,4 @@
-﻿// MindWeaveServer/BusinessLogic/ProfileLogic.cs
-using FluentValidation;
+﻿using FluentValidation;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
@@ -67,7 +66,7 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during getPlayerProfileViewAsync for User: {Username}", username ?? "NULL");
+                logger.Error(ex, "Exception during getPlayerProfileViewAsync for User: {Username}", username);
                 return null; 
             }
         }
@@ -104,7 +103,7 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during getPlayerProfileForEditAsync for User: {Username}", username ?? "NULL");
+                logger.Error(ex, "Exception during getPlayerProfileForEditAsync for User: {Username}", username);
                 return null;
             }
         }
@@ -117,10 +116,9 @@ namespace MindWeaveServer.BusinessLogic
             if (updatedProfileData == null)
             {
                 logger.Warn("Update profile failed for {Username}: Updated profile data is null.", username ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired }; // TODO: Lang key check
+                return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired };
             }
 
-            // Validar los datos recibidos
             logger.Debug("Validating updated profile data for User: {Username}", username);
             var validationResult = await profileEditValidator.ValidateAsync(updatedProfileData);
             if (!validationResult.IsValid)
@@ -149,7 +147,7 @@ namespace MindWeaveServer.BusinessLogic
                 await playerRepository.saveChangesAsync();
                 logger.Info("Profile updated successfully for User: {Username}", username);
 
-                return new OperationResultDto { success = true, message = Lang.ProfileUpdatedSuccessfully }; // TODO: Lang key check
+                return new OperationResultDto { success = true, message = Lang.ProfileUpdatedSuccessfully };
             }
             catch (Exception ex)
             {
@@ -166,7 +164,7 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(newAvatarPath))
             {
                 logger.Warn("Update avatar path failed: Username or new path is null/whitespace.");
-                return new OperationResultDto { success = false, message = Lang.ErrorAvatarPathCannotBeEmpty }; // TODO: Lang key check
+                return new OperationResultDto { success = false, message = Lang.ErrorAvatarPathCannotBeEmpty };
             }
 
             try
@@ -197,13 +195,13 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto
                 {
                     success = success,
-                    message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed // TODO: Lang key check
+                    message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
                 };
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during updateAvatarPathAsync for User: {Username}", username ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.ErrorAvatarUpdateFailed }; // TODO: Lang key check (usar genérico?)
+                logger.Error(ex, "Exception during updateAvatarPathAsync for User: {Username}", username);
+                return new OperationResultDto { success = false, message = Lang.ErrorAvatarUpdateFailed };
             }
         }
 
@@ -236,7 +234,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (!currentPasswordVerified)
                 {
                     logger.Warn("Change password failed for {Username}: Current password verification failed.", username);
-                    return new OperationResultDto { success = false, message = Lang.LoginPasswordNotEmpty }; // Reusar mensaje? O crear uno nuevo?
+                    return new OperationResultDto { success = false, message = Lang.LoginPasswordNotEmpty };
                 }
 
          
@@ -269,12 +267,12 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto
                 {
                     success = success,
-                    message = success ? Lang.PasswordChangedSuccessfully : Lang.PasswordChangedFailed // TODO: Lang key check
+                    message = success ? Lang.PasswordChangedSuccessfully : Lang.PasswordChangedFailed
                 };
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during changePasswordAsync for User: {Username}", username ?? "NULL");
+                logger.Error(ex, "Exception during changePasswordAsync for User: {Username}", username);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
@@ -324,7 +322,7 @@ namespace MindWeaveServer.BusinessLogic
             player.last_name = updatedProfileData.lastName?.Trim(); 
             player.date_of_birth = updatedProfileData.dateOfBirth;
             
-            player.gender_id = updatedProfileData.idGender > 0 ? updatedProfileData.idGender : (int?)null; // Poner null si id es 0? Depende de tu BD
+            player.gender_id = updatedProfileData.idGender > 0 ? updatedProfileData.idGender : (int?)null;
         }
 
     }

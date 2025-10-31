@@ -19,7 +19,6 @@ namespace MindWeaveServer.Services
     internal class AuthenticationManagerService : IAuthenticationManager
     {
         private readonly AuthenticationLogic authenticationLogic;
-        // Obtener una instancia del logger para esta clase
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public AuthenticationManagerService()
@@ -51,7 +50,6 @@ namespace MindWeaveServer.Services
         public async Task<LoginResultDto> login(LoginDto loginCredentials)
         {
             string emailForContext = loginCredentials?.email ?? "NULL";
-            // Usar propiedades estructuradas para el contexto
             logger.Info("Login attempt started for email: {Email}", emailForContext);
             try
             {
@@ -72,7 +70,6 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                // Log de ERROR con NLog, pasando la excepción directamente
                logger.Error(ex, "An unexpected error occurred during login. Email: {Email}", emailForContext);
                 return new LoginResultDto
                 {
@@ -206,7 +203,6 @@ namespace MindWeaveServer.Services
         {
             string userForContext = username ?? "NULL";
             logger.Info("Logout requested for user: {Username}", userForContext);
-            // No hay mucho más que loggear aquí para un OneWay
             return Task.CompletedTask;
         }
 

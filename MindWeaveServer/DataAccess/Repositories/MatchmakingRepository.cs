@@ -1,7 +1,6 @@
 ﻿using MindWeaveServer.DataAccess.Abstractions;
 using System;
 using System.Data.Entity;
-using System.Data.Entity.Infrastructure;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.DataAccess.Repositories
@@ -75,20 +74,7 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public async Task<int> saveChangesAsync()
         {
-            try
-            {
-                return await context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                Console.WriteLine($"Database Update Error: {ex.InnerException?.InnerException?.Message ?? ex.Message}");
-                throw;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Generic Database Error: {ex.Message}");
-                throw;
-            }
+            return await context.SaveChangesAsync();
         }
     }
 }

@@ -4,14 +4,13 @@ using MimeKit;
 using System;
 using System.Configuration;
 using System.Threading.Tasks;
-using NLog; // Using para NLog
-using MindWeaveServer.Utilities.Email.Templates; // Asegúrate que IEmailTemplate esté aquí o en un namespace superior
+using NLog;
 
 namespace MindWeaveServer.Utilities.Email
 {
     public class SmtpEmailService : IEmailService
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); // Logger NLog
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly string host;
         private readonly int port;
@@ -21,56 +20,50 @@ namespace MindWeaveServer.Utilities.Email
 
         public SmtpEmailService()
         {
-            logger.Info("SmtpEmailService (MailKit) instance created."); // Log añadido
-            try // Mantener try-catch original para la configuración
+            logger.Info("SmtpEmailService (MailKit) instance created.");
+            try
             {
                 host = ConfigurationManager.AppSettings["SmtpHost"];
                 port = Convert.ToInt32(ConfigurationManager.AppSettings["SmtpPort"]);
-                user = ConfigurationManager.AppSettings["SmtpUser"]; // Clave de tu App.config
-                pass = ConfigurationManager.AppSettings["SmtpPass"]; // Clave de tu App.config
-                senderName = ConfigurationManager.AppSettings["SenderName"]; // Clave de tu App.config
+                user = ConfigurationManager.AppSettings["SmtpUser"];
+                pass = ConfigurationManager.AppSettings["SmtpPass"];
+                senderName = ConfigurationManager.AppSettings["SenderName"];
 
-                // Loguear configuración (sin contraseña)
-                logger.Debug("SMTP (MailKit) Configuration loaded: Host={SmtpHost}, Port={SmtpPort}, User={SmtpUser}, SenderName={SenderName}", host, port, user, senderName); // Log añadido
+                logger.Debug("SMTP (MailKit) Configuration loaded: Host={SmtpHost}, Port={SmtpPort}, User={SmtpUser}, SenderName={SenderName}", host, port, user, senderName); 
 
-                // Validar que las claves existan (básico)
                 if (string.IsNullOrWhiteSpace(host) || port <= 0 || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass) || string.IsNullOrWhiteSpace(senderName))
                 {
-                    logger.Fatal("CRITICAL: SMTP (MailKit) configuration is missing or invalid in App.config. Email service will likely fail."); // Log añadido
+                    logger.Fatal("CRITICAL: SMTP (MailKit) configuration is missing or invalid in App.config. Email service will likely fail.");
                 }
             }
             catch (Exception ex)
             {
-                logger.Fatal(ex, "CRITICAL: Failed to load or parse SMTP (MailKit) configuration from App.config. Email service might be non-functional."); // Log añadido
-                                                                                                                                                            // Considerar relanzar si es crítico para el arranque
-                                                                                                                                                            // throw;
+                logger.Fatal(ex, "CRITICAL: Failed to load or parse SMTP (MailKit) configuration from App.config. Email service might be non-functional."); 
             }
         }
 
         public async Task sendEmailAsync(string recipientEmail, string recipientName, IEmailTemplate template)
         {
-            // Usar propiedades de IEmailTemplate como en tu código original
-            string subject = template.subject; // Propiedad directa
-            string htmlBody = template.htmlBody; // Propiedad directa
+            string subject = template.subject;
+            string htmlBody = template.htmlBody;
 
             logger.Info("Attempting to send email (MailKit). Template: {TemplateType}, To: {RecipientEmail}, Name: {RecipientName}, Subject: '{Subject}'",
-               template?.GetType().Name ?? "Unknown", recipientEmail ?? "NULL", recipientName ?? "NULL", subject ?? "NULL"); // Log añadido
+               template?.GetType().Name, recipientEmail ?? "NULL", recipientName ?? "NULL", subject ?? "NULL");
 
-            // Validar parámetros (mejorado ligeramente para loguear)
-            if (string.IsNullOrWhiteSpace(recipientEmail) || template == null)
+            if (string.IsNullOrWhiteSpace(recipientEmail))
             {
-                logger.Warn("Failed to send email (MailKit): Recipient email or template is null/whitespace."); // Log añadido
-                return; // Salir temprano
+                logger.Warn("Failed to send email (MailKit): Recipient email or template is null/whitespace.");
+                return;
             }
             if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(htmlBody))
             {
-                logger.Warn("Failed to send email (MailKit) to {RecipientEmail}: Template subject or body is null/whitespace.", recipientEmail); // Log añadido
-                return; // Salir si la plantilla no tiene contenido
+                logger.Warn("Failed to send email (MailKit) to {RecipientEmail}: Template subject or body is null/whitespace.", recipientEmail);
+                return;
             }
 
-            try // Añadir try-catch alrededor de las operaciones de MailKit
+            try
             {
-                logger.Debug("Creating MimeMessage for recipient {RecipientEmail}", recipientEmail); // Log añadido
+                logger.Debug("Creating MimeMessage for recipient {RecipientEmail}", recipientEmail);
                 var message = new MimeMessage();
                 message.From.Add(new MailboxAddress(senderName, user));
                 message.To.Add(new MailboxAddress(recipientName, recipientEmail));
@@ -78,39 +71,37 @@ namespace MindWeaveServer.Utilities.Email
 
                 var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
                 message.Body = bodyBuilder.ToMessageBody();
-                logger.Debug("MimeMessage created successfully."); // Log añadido
+                logger.Debug("MimeMessage created successfully.");
 
                 using (var client = new SmtpClient())
                 {
-                    logger.Debug("Connecting to SMTP server: {SmtpHost}:{SmtpPort} using StartTls...", host, port); // Log añadido
-                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls); // Como en tu código
-                    logger.Debug("Connected. Authenticating with user: {SmtpUser}...", user); // Log añadido
+                    logger.Debug("Connecting to SMTP server: {SmtpHost}:{SmtpPort} using StartTls...", host, port);
+                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls);
+                    logger.Debug("Connected. Authenticating with user: {SmtpUser}...", user);
                     await client.AuthenticateAsync(user, pass);
-                    logger.Debug("Authenticated. Sending message to {RecipientEmail}...", recipientEmail); // Log añadido
+                    logger.Debug("Authenticated. Sending message to {RecipientEmail}...", recipientEmail);
                     await client.SendAsync(message);
-                    logger.Info("Email sent successfully via MailKit to {RecipientEmail}", recipientEmail); // Log añadido
-                    logger.Debug("Disconnecting from SMTP server..."); // Log añadido
+                    logger.Info("Email sent successfully via MailKit to {RecipientEmail}", recipientEmail);
+                    logger.Debug("Disconnecting from SMTP server...");
                     await client.DisconnectAsync(true);
-                    logger.Debug("Disconnected."); // Log añadido
+                    logger.Debug("Disconnected.");
                 }
             }
-            // Capturar excepciones específicas de MailKit (las más comunes)
             catch (AuthenticationException authEx)
             {
-                logger.Error(authEx, "MailKit AuthenticationException sending email to {RecipientEmail}. Check SMTP credentials (User: {SmtpUser}).", recipientEmail, user); // Log añadido
+                logger.Error(authEx, "MailKit AuthenticationException sending email to {RecipientEmail}. Check SMTP credentials (User: {SmtpUser}).", recipientEmail, user); 
             }
             catch (SmtpCommandException smtpCmdEx)
             {
-                logger.Error(smtpCmdEx, "MailKit SmtpCommandException sending email to {RecipientEmail}. StatusCode: {StatusCode}, Mailbox: {Mailbox}", recipientEmail, smtpCmdEx.StatusCode, smtpCmdEx.Mailbox?.Address ?? "N/A"); // Log añadido
+                logger.Error(smtpCmdEx, "MailKit SmtpCommandException sending email to {RecipientEmail}. StatusCode: {StatusCode}, Mailbox: {Mailbox}", recipientEmail, smtpCmdEx.StatusCode, smtpCmdEx.Mailbox?.Address ?? "N/A");
             }
-            catch (System.Net.Sockets.SocketException sockEx) // Excepción común de conexión
+            catch (System.Net.Sockets.SocketException sockEx)
             {
-                logger.Error(sockEx, "SocketException during MailKit operation (likely ConnectAsync) for {RecipientEmail}. Check Host/Port ({SmtpHost}:{SmtpPort}) and network.", recipientEmail, host, port); // Log añadido
+                logger.Error(sockEx, "SocketException during MailKit operation (likely ConnectAsync) for {RecipientEmail}. Check Host/Port ({SmtpHost}:{SmtpPort}) and network.", recipientEmail, host, port);
             }
-            // Captura general
             catch (Exception ex)
             {
-                logger.Error(ex, "General exception occurred while sending email (MailKit) to {RecipientEmail}", recipientEmail); // Log añadido
+                logger.Error(ex, "General exception occurred while sending email (MailKit) to {RecipientEmail}", recipientEmail);
             }
         }
     }

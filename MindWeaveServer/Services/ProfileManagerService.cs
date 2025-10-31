@@ -1,5 +1,4 @@
-﻿// MindWeaveServer/Services/ProfileManagerService.cs
-using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
@@ -12,21 +11,19 @@ using MindWeaveServer.Utilities.Validators;
 using System;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using NLog; // ¡Añadir using para NLog!
+using NLog;
 
 namespace MindWeaveServer.Services
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerCall, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ProfileManagerService : IProfileManager
     {
-        // Obtener una instancia del logger (NOMBRE CORREGIDO)
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); // <--- NOMBRE CORREGIDO
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly ProfileLogic profileLogic;
 
         public ProfileManagerService()
         {
-            // ... (inicialización de dependencias igual que antes) ...
             var dbContext = new MindWeaveDBEntities1();
             var playerRepository = new PlayerRepository(dbContext);
             var genderRepository = new GenderRepository(dbContext);
@@ -38,7 +35,7 @@ namespace MindWeaveServer.Services
                 passwordService,
                 passwordPolicyValidator);
 
-            logger.Info("ProfileManagerService instance created."); // <--- NOMBRE CORREGIDO
+            logger.Info("ProfileManagerService instance created.");
         }
 
 
@@ -62,7 +59,6 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during getPlayerProfileView for user: {Username}", userForContext);
-                // Devolver null como indica la lógica original en caso de error
                 return null;
             }
         }
@@ -87,7 +83,6 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during getPlayerProfileForEdit for user: {Username}", userForContext);
-                // Devolver null como indica la lógica original en caso de error
                 return null;
             }
         }
@@ -142,12 +137,10 @@ namespace MindWeaveServer.Services
 
         public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
         {
-            // ¡Importante! No loguear contraseñas en texto plano.
             string userForContext = username ?? "NULL";
             logger.Info("changePassword request started for user: {Username}", userForContext);
             try
             {
-                // Pasamos "***" a los logs en lugar de las contraseñas reales
                 var result = await profileLogic.changePasswordAsync(username, currentPassword, newPassword);
                 if (result.success)
                 {

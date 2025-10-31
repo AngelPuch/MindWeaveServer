@@ -15,7 +15,7 @@ namespace MindWeaveServer.Utilities.Validators
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").WithMessage(Lang.ValidationOnlyLetters);
 
             RuleFor(x => x.lastName)
-                .NotEmpty().WithMessage("El  eapellidos requerido.") // Asumiendo que ahora es requerido en la edición
+                .NotEmpty().WithMessage("El  eapellidos requerido.") //TODO: Lang
                 .MaximumLength(45).WithMessage(Lang.ValidationLastNameLength)
                 .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationOnlyLetters);

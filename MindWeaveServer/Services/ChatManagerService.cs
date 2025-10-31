@@ -1,18 +1,16 @@
-﻿// MindWeaveServer/Services/ChatManagerService.cs
-using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using NLog; // ¡Añadir using para NLog!
+using NLog;
 
 namespace MindWeaveServer.Services
 {
     [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ChatManagerService : IChatManager
     {
-        // Obtener instancia del logger (NOMBRE CORREGIDO)
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); // <--- NOMBRE CORREGIDO
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly ChatLogic chatLogic;
         private string currentUsername;
@@ -90,7 +88,6 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                // Reemplazar Console.WriteLine
                 logger.Error(ex, "[ChatService LEAVE EXCEPTION] User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
             }
 
@@ -99,7 +96,6 @@ namespace MindWeaveServer.Services
 
         public Task sendLobbyMessage(string senderUsername, string lobbyId, string messageContent)
         {
-            // No loguear messageContent para evitar spam en logs (o usar NLog.config para filtrarlo)
             logger.Info("sendLobbyMessage attempt by user: {Username} in lobby: {LobbyId}", senderUsername ?? "NULL", lobbyId ?? "NULL");
 
             if (isDisconnected || currentUserCallback == null ||
@@ -107,7 +103,6 @@ namespace MindWeaveServer.Services
                 !currentUsername.Equals(senderUsername, StringComparison.OrdinalIgnoreCase) ||
                 !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
             {
-                // Reemplazar Console.WriteLine
                 logger.Warn("ChatService SEND Denied due to invalid state or mismatch. Request: Sender={SenderUsername}, Lobby={LobbyId}. Session: User={CurrentUsername}, Lobby={CurrentLobbyId}, Disconnected={IsDisconnected}, CallbackNull={CallbackNull}.",
                     senderUsername, lobbyId, currentUsername, currentLobbyId, isDisconnected, currentUserCallback == null);
                 return Task.CompletedTask;
@@ -120,7 +115,6 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                // Reemplazar Console.WriteLine
                 logger.Error(ex, "[ChatService SEND EXCEPTION] Sender: {SenderUsername}, Lobby: {LobbyId}.", senderUsername, lobbyId);
             }
 
@@ -142,7 +136,6 @@ namespace MindWeaveServer.Services
             {
                 if (OperationContext.Current == null)
                 {
-                    // Reemplazar Console.WriteLine
                     logger.Error("[ChatService REGISTER FAILED] OperationContext is null for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
                     return false;
                 }
@@ -151,16 +144,13 @@ namespace MindWeaveServer.Services
                     currentUserCallback = OperationContext.Current.GetCallbackChannel<IChatCallback>();
                     if (currentUserCallback == null)
                     {
-                        // Reemplazar Console.WriteLine
                         logger.Error("[ChatService REGISTER FAILED] GetCallbackChannel returned null for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
                         return false;
                     }
-                    // Reemplazar Console.WriteLine
                     logger.Debug("[ChatService REGISTER] Callback channel obtained for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
                 }
                 catch (Exception ex)
                 {
-                    // Reemplazar Console.WriteLine
                     logger.Error(ex, "[ChatService REGISTER FAILED] Exception getting callback channel for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
                     currentUserCallback = null;
                     return false;
@@ -169,7 +159,6 @@ namespace MindWeaveServer.Services
 
             currentUsername = username;
             currentLobbyId = lobbyId;
-            // Reemplazar Console.WriteLine
             logger.Info("[ChatService REGISTER] Session details registered: User={CurrentUsername}, Lobby={CurrentLobbyId}.", currentUsername, currentLobbyId);
             return true;
         }

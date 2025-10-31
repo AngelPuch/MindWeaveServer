@@ -2,7 +2,7 @@
 using MindWeaveServer.Utilities.Abstractions;
 using System.Linq;
 using MindWeaveServer.Contracts.DataContracts.Shared;
-using NLog; // Using para NLog
+using NLog;
 
 namespace MindWeaveServer.Utilities.Validators
 {
@@ -17,7 +17,7 @@ namespace MindWeaveServer.Utilities.Validators
 
             if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
             {
-                logger.Warn("Password validation failed: Length is less than 8 characters or null/whitespace."); // Log añadido
+                logger.Warn("Password validation failed: Length is less than 8 characters or null/whitespace.");
                 return new OperationResultDto { success = false, message = Lang.ValidationPasswordLength };
             }
 
@@ -33,7 +33,7 @@ namespace MindWeaveServer.Utilities.Validators
 
             if (!hasUpper || !hasLower || !hasDigit)
             {
-                logger.Warn("Password validation failed: Complexity requirement not met (Upper={HasUpper}, Lower={HasLower}, Digit={HasDigit}).", hasUpper, hasLower, hasDigit); // Log añadido
+                logger.Warn("Password validation failed: Complexity requirement not met (Upper={HasUpper}, Lower={HasLower}, Digit={HasDigit}).", hasUpper, hasLower, hasDigit);
                 return new OperationResultDto { success = false, message = Lang.ValidationPasswordComplexity };
             }
 

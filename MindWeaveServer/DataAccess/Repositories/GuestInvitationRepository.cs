@@ -14,13 +14,14 @@ namespace MindWeaveServer.DataAccess.Repositories
             this.context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
-        public async Task addInvitationAsync(GuestInvitations invitation)
+        public Task addInvitationAsync(GuestInvitations invitation)
         {
             if (invitation == null)
             {
                 throw new ArgumentNullException(nameof(invitation));
             }
             context.GuestInvitations.Add(invitation);
+            return Task.CompletedTask;
         }
 
         public async Task<GuestInvitations> findValidInvitationAsync(int matchId, string guestEmail)
@@ -45,7 +46,6 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public async Task<int> saveChangesAsync()
         {
-            // Consider more specific error handling if needed
             return await context.SaveChangesAsync();
         }
     }

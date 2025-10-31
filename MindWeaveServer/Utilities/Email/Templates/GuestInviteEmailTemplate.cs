@@ -9,7 +9,6 @@ namespace MindWeaveServer.Utilities.Email.Templates
 
         public GuestInviteEmailTemplate(string inviterUsername, string lobbyCode)
         {
-            // Assumes Lang keys exist
             string greeting = Lang.EmailGreetingGuest;
             string instruction = string.Format(Lang.EmailInstructionGuestInvite, inviterUsername);
             string codeInfo = Lang.EmailCodeInfoGuestInvite;
