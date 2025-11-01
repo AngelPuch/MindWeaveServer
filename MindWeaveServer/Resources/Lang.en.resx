@@ -180,6 +180,12 @@
   <data name="ErrorCannotSelfFriend" xml:space="preserve">
     <value>Cannot send a friend request to yourself.</value>
   </data>
+  <data name="ErrorCommunicationChannelFailed" xml:space="preserve">
+    <value>Failed to establish communication channel.</value>
+  </data>
+  <data name="ErrorCurrentPasswordIncorrect" xml:space="preserve">
+    <value>Current password incorrect.</value>
+  </data>
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>You are not friends with this player.</value>
   </data>
@@ -209,6 +215,15 @@
   </data>
   <data name="ErrorSendingGuestInvitation" xml:space="preserve">
     <value>Failed to send the guest invitation. Please try again.</value>
+  </data>
+  <data name="ErrorServiceConnectionClosing" xml:space="preserve">
+    <value>Service connection closing.</value>
+  </data>
+  <data name="ErrorServiceInitializationFailed" xml:space="preserve">
+    <value>Service initialization failed.</value>
+  </data>
+  <data name="ErrorSessionMismatch" xml:space="preserve">
+    <value>Session mismatch.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>User is not online</value>
@@ -336,6 +351,9 @@
   <data name="ValidationEmailRequired" xml:space="preserve">
     <value>Email is required.</value>
   </data>
+  <data name="ValidationErrorDifficultyInvalid" xml:space="preserve">
+    <value>Invalid difficulty selected</value>
+  </data>
   <data name="ValidationFirstNameLength" xml:space="preserve">
     <value>First name cannot exceed 45 characters.</value>
   </data>
@@ -344,6 +362,9 @@
   </data>
   <data name="ValidationLastNameLength" xml:space="preserve">
     <value>Last name cannot exceed 45 characters</value>
+  </data>
+  <data name="ValidationLastNameRequired" xml:space="preserve">
+    <value>Last name is required.</value>
   </data>
   <data name="ValidationNoLeadingOrTrailingWhitespace" xml:space="preserve">
     <value>The field cannot start or end with spaces.</value>

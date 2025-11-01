@@ -165,7 +165,7 @@ namespace MindWeaveServer.Services
 
         private void channel_FaultedOrClosed(object sender, EventArgs e)
         {
-            logger.Warn("WCF channel Faulted or Closed for user: {Username}, lobby {LobbyId}. Initiating disconnect.", currentUsername ?? "UNKNOWN", currentLobbyId ?? "UNKNOWN");
+            logger.Warn("WCF channel Faulted or Closed for user: {Username}, lobby {LobbyId}. Initiating disconnect.", currentUsername, currentLobbyId);
             Task.Run(() => handleDisconnect());
         }
 

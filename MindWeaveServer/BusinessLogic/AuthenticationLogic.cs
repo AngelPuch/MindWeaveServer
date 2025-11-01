@@ -61,7 +61,7 @@ namespace MindWeaveServer.BusinessLogic
             var profileValidationResult = await this.profileValidator.ValidateAsync(userProfile);
             if (!profileValidationResult.IsValid)
             {
-                string firstError = profileValidationResult.Errors.First().ErrorMessage;
+                string firstError = profileValidationResult.Errors[0].ErrorMessage;
                 logger.Warn("Registration failed for User: {Username}: Profile validation failed. Reason: {Reason}", usernameForContext, firstError);
                 return new OperationResultDto { success = false, message = firstError };
             }
@@ -252,7 +252,7 @@ namespace MindWeaveServer.BusinessLogic
             var validationResult = await this.loginValidator.ValidateAsync(loginData);
             if (!validationResult.IsValid)
             {
-                string firstError = validationResult.Errors.First().ErrorMessage;
+                string firstError = validationResult.Errors[0].ErrorMessage;
                 logger.Warn("Login failed for Email: {Email}: Input validation failed. Reason: {Reason}", emailForContext, firstError);
                 return new LoginResultDto { operationResult = new OperationResultDto { success = false, message = firstError } };
             }

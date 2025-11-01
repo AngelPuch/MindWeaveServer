@@ -7,6 +7,7 @@ using MindWeaveServer.Resources;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
 using MindWeaveServer.Contracts.DataContracts.Shared;
@@ -19,7 +20,7 @@ namespace MindWeaveServer.Services
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        public static readonly ConcurrentDictionary<string, ISocialCallback> connectedUsers =
+        private static readonly ConcurrentDictionary<string, ISocialCallback> connectedUsers =
             new ConcurrentDictionary<string, ISocialCallback>(StringComparer.OrdinalIgnoreCase);
 
         private readonly SocialLogic socialLogic;
@@ -45,6 +46,20 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
             }
+        }
+
+        public static bool isUserConnected(string username)
+        {
+            if (string.IsNullOrEmpty(username))
+            {
+                return false;
+            }
+            return connectedUsers.ContainsKey(username);
+        }
+
+        public static ICollection<string> getConnectedUsernames()
+        {
+            return connectedUsers.Keys.ToList();
         }
 
         public async Task connect(string username)
@@ -155,7 +170,7 @@ namespace MindWeaveServer.Services
             if (!isCurrentUser(requesterUsername))
             {
                 logger.Warn("sendFriendRequest called by {RequesterUsername}, but current session is for {CurrentUsername}. Aborting.", requesterUsername, currentUsername ?? "N/A");
-                return new OperationResultDto { success = false, message = "Session mismatch." }; // TODO: Lang
+                return new OperationResultDto { success = false, message = Lang.ErrorSessionMismatch };
             }
             logger.Info("sendFriendRequest attempt from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername ?? "NULL");
             try
@@ -184,7 +199,7 @@ namespace MindWeaveServer.Services
             if (!isCurrentUser(responderUsername))
             {
                 logger.Warn("respondToFriendRequest called by {ResponderUsername}, but current session is for {CurrentUsername}. Aborting.", responderUsername, currentUsername ?? "N/A");
-                return new OperationResultDto { success = false, message = "Session mismatch." }; // TODO: Lang
+                return new OperationResultDto { success = false, message = Lang.ErrorSessionMismatch };
             }
             logger.Info("respondToFriendRequest attempt by {ResponderUsername} to request from {RequesterUsername}. Accepted: {Accepted}", responderUsername, requesterUsername ?? "NULL", accepted);
             try
@@ -197,7 +212,7 @@ namespace MindWeaveServer.Services
                     if (accepted)
                     {
                         await notifyFriendsStatusChange(responderUsername, true);
-                        await notifyFriendsStatusChange(requesterUsername, requesterUsername != null && connectedUsers.ContainsKey(requesterUsername));
+                        await notifyFriendsStatusChange(requesterUsername, isUserConnected(requesterUsername));
                     }
                 }
                 else
@@ -218,7 +233,7 @@ namespace MindWeaveServer.Services
             if (!isCurrentUser(username))
             {
                 logger.Warn("removeFriend called by {Username}, but current session is for {CurrentUsername}. Aborting.", username, currentUsername ?? "N/A");
-                return new OperationResultDto { success = false, message = "Session mismatch." }; // TODO: Lang
+                return new OperationResultDto { success = false, message = Lang.ErrorSessionMismatch };
             }
             logger.Info("removeFriend attempt by {Username} to remove {FriendToRemoveUsername}", username, friendToRemoveUsername ?? "NULL");
             try
@@ -252,7 +267,7 @@ namespace MindWeaveServer.Services
             logger.Info("getFriendsList request for user: {Username}", username);
             try
             {
-                var friends = await socialLogic.getFriendsListAsync(username, connectedUsers.Keys);
+                var friends = await socialLogic.getFriendsListAsync(username, getConnectedUsernames());
                 logger.Info("Retrieved {Count} friends for user {Username}", friends?.Count ?? 0, username);
                 return friends ?? new List<FriendDto>();
             }
@@ -335,17 +350,14 @@ namespace MindWeaveServer.Services
 
                 if (friendsToNotify == null) return;
 
-                foreach (var friend in friendsToNotify)
+                var onlineFriendUsernames = friendsToNotify
+                    .Select(friend => friend.username)
+                    .Where(username => SocialManagerService.isUserConnected(username));
+                
+                foreach (var username in onlineFriendUsernames)
                 {
-                    if (connectedUsers.ContainsKey(friend.username))
-                    {
-                        logger.Debug("Sending status change notification ({Username} is {Status}) to friend: {FriendUsername}", changedUsername, isOnline ? "Online" : "Offline", friend.username);
-                        sendNotificationToUser(friend.username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
-                    }
-                    else
-                    {
-                        logger.Debug("Friend {FriendUsername} is offline, skipping status change notification for {Username}.", friend.username, changedUsername);
-                    }
+                    logger.Debug("Sending status change notification ({Username} is {Status}) to friend: {FriendUsername}", changedUsername, isOnline ? "Online" : "Offline", username);
+                    sendNotificationToUser(username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
                 }
             }
             catch (Exception ex)

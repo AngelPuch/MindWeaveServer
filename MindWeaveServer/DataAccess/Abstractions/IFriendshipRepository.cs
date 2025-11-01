@@ -10,7 +10,7 @@ namespace MindWeaveServer.DataAccess.Abstractions
 
         Task<List<Friendships>> getPendingFriendRequestsAsync(int addresseeId);
 
-        Task<Friendships> findFriendshipAsync(int player1Id, int player2Id);
+        Task<Friendships?> findFriendshipAsync(int player1Id, int player2Id);
 
         void addFriendship(Friendships friendship);
 

@@ -71,7 +71,6 @@ namespace MindWeaveServer.Utilities.Email
 
                 var bodyBuilder = new BodyBuilder { HtmlBody = htmlBody };
                 message.Body = bodyBuilder.ToMessageBody();
-                logger.Debug("MimeMessage created successfully.");
 
                 using (var client = new SmtpClient())
                 {
@@ -82,9 +81,8 @@ namespace MindWeaveServer.Utilities.Email
                     logger.Debug("Authenticated. Sending message to {RecipientEmail}...", recipientEmail);
                     await client.SendAsync(message);
                     logger.Info("Email sent successfully via MailKit to {RecipientEmail}", recipientEmail);
-                    logger.Debug("Disconnecting from SMTP server...");
                     await client.DisconnectAsync(true);
-                    logger.Debug("Disconnected.");
+                    logger.Debug("Disconnected from SMTP server.");
                 }
             }
             catch (AuthenticationException authEx)

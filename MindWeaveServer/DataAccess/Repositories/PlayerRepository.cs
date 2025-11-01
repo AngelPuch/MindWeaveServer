@@ -18,7 +18,7 @@ namespace MindWeaveServer.DataAccess.Repositories
             this.context = context;
         }
 
-        public async Task<Player> getPlayerByEmailAsync(string email)
+        public async Task<Player?> getPlayerByEmailAsync(string email)
         {
             if (string.IsNullOrWhiteSpace(email)) return null;
             return await context.Player.FirstOrDefaultAsync(p => p.email == email);
@@ -30,14 +30,14 @@ namespace MindWeaveServer.DataAccess.Repositories
             context.Player.Add(player);
         }
 
-        public async Task<Player> getPlayerByUsernameAsync(string username)
+        public async Task<Player?> getPlayerByUsernameAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return null;
             return await context.Player
                 .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
-        public async Task<Player> getPlayerWithProfileViewDataAsync(string username)
+        public async Task<Player?> getPlayerWithProfileViewDataAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return null;
             return await context.Player
@@ -92,7 +92,7 @@ namespace MindWeaveServer.DataAccess.Repositories
             return finalResults;
         }
 
-        public async Task<Player> getPlayerByUsernameWithTrackingAsync(string username)
+        public async Task<Player?> getPlayerByUsernameWithTrackingAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
             {

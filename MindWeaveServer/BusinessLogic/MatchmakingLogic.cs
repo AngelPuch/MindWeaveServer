@@ -40,6 +40,8 @@ namespace MindWeaveServer.BusinessLogic
         private const int DEFAULT_DIFFICULTY_ID = 1;
         private const int DEFAULT_PUZZLE_ID = 4;
         private const int GUEST_INVITATION_EXPIRY_MINUTES = 10;
+        private const int MAX_GUEST_USERNAME_LENGTH = 16;
+        private const int MAX_GUEST_NAME_COUNTER = 99;
 
         public MatchmakingLogic(
             IMatchmakingRepository matchmakingRepository,
@@ -85,7 +87,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (newMatch == null)
                 {
                     logger.Error("Lobby creation failed for {Username}: Could not create unique lobby/match record (check previous logs).", hostUsername);
-                    return new LobbyCreationResultDto { success = false, message = Lang.lobbyCodeGenerationFailed }; // TODO: Lang key check
+                    return new LobbyCreationResultDto { success = false, message = Lang.lobbyCodeGenerationFailed };
                 }
                 logger.Info("Match record created successfully (ID: {MatchId}, Code: {LobbyCode}) for host {Username}", newMatch.matches_id, newMatch.lobby_code, hostUsername);
 
@@ -97,7 +99,7 @@ namespace MindWeaveServer.BusinessLogic
                     return new LobbyCreationResultDto
                     {
                         success = true,
-                        message = Lang.lobbyCreatedSuccessfully, // TODO: Lang key check
+                        message = Lang.lobbyCreatedSuccessfully,
                         lobbyCode = newMatch.lobby_code,
                         initialLobbyState = initialState
                     };
@@ -178,12 +180,9 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Info("[LeaveLobby] User '{Username}' identified as guest and removed from guest tracking for lobby '{LobbyCode}'.", username, lobbyCode);
                 }
-                if (currentGuests.Count == 0)
+                if (currentGuests.Count == 0 && guestUsernamesInLobby.TryRemove(lobbyCode, out _))
                 {
-                    if (guestUsernamesInLobby.TryRemove(lobbyCode, out _))
-                    {
-                        logger.Debug("[LeaveLobby] Guest tracking list removed for empty lobby '{LobbyCode}'.", lobbyCode);
-                    }
+                    logger.Debug("[LeaveLobby] Guest tracking list removed for empty lobby '{LobbyCode}'.", lobbyCode);
                 }
             }
 
@@ -223,7 +222,6 @@ namespace MindWeaveServer.BusinessLogic
             removeCallback(username); 
         }
 
-        // TODO: Refactor (Logging añadido)
         public void handleUserDisconnect(string username)
         {
             if (string.IsNullOrWhiteSpace(username))
@@ -236,44 +234,20 @@ namespace MindWeaveServer.BusinessLogic
 
             List<string> lobbiesToLeave = activeLobbies
                 .Where(kvp => {
-                    lock (kvp.Value) { return kvp.Value.players.Contains(username, StringComparer.OrdinalIgnoreCase); }
+                    lock (kvp.Value)
+                    {
+                        return kvp.Value.players.Contains(username, StringComparer.OrdinalIgnoreCase);
+                    }
                 })
                 .Select(kvp => kvp.Key)
                 .ToList();
 
             logger.Debug("[HandleDisconnect] User '{Username}' found in active lobbies: [{Lobbies}]", username, string.Join(", ", lobbiesToLeave));
 
+
             foreach (var lobbyCode in lobbiesToLeave)
             {
-                logger.Debug("[HandleDisconnect] Processing disconnect actions for User '{Username}' in Lobby '{LobbyCode}'", username, lobbyCode);
-                bool removedFromGuests;
-                if (guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests)) 
-                {
-                    removedFromGuests = currentGuests.Remove(username);
-                    if (removedFromGuests)
-                    {
-                        logger.Info("[HandleDisconnect] Removed '{Username}' from guest tracking for lobby '{LobbyCode}'.", username, lobbyCode);
-                    }
-                    if (currentGuests.Count == 0)
-                    {
-                        if (guestUsernamesInLobby.TryRemove(lobbyCode, out _))
-                        {
-                            logger.Debug("[HandleDisconnect] Guest tracking list removed for empty lobby '{LobbyCode}'.", lobbyCode);
-                        }
-                    }
-                }
-
-                Task.Run(async () => {
-                    logger.Info("[HandleDisconnect] Initiating leaveLobbyAsync background task for '{Username}' from lobby '{LobbyCode}'.", username, lobbyCode);
-                    try
-                    {
-                        await leaveLobbyAsync(username, lobbyCode);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "[HandleDisconnect] Exception in background leaveLobbyAsync task for User: {Username}, Lobby: {LobbyCode}", username, lobbyCode);
-                    }
-                });
+                processDisconnectForLobby(username, lobbyCode);
             }
             removeCallback(username);
         }
@@ -320,10 +294,12 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            bool isGuest;
-            
-            isGuest = guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests) && currentGuests.Contains(playerToKickUsername);
-            if (isGuest) logger.Debug("[KickPlayer] Player '{TargetUsername}' is identified as a guest in lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
+            bool isGuest = guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests) && currentGuests.Contains(playerToKickUsername);
+
+            if (isGuest)
+            {
+                logger.Debug("[KickPlayer] Player '{TargetUsername}' is identified as a guest in lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
+            }
 
 
             bool kickedFromMemory = tryKickPlayerFromMemory(lobbyState, hostUsername, playerToKickUsername); 
@@ -331,26 +307,7 @@ namespace MindWeaveServer.BusinessLogic
             if (kickedFromMemory)
             {
                 logger.Info("Player {TargetUsername} successfully kicked from memory state of lobby {LobbyCode} by {HostUsername}.", playerToKickUsername, lobbyCode, hostUsername);
-
-                if (isGuest)
-                {
-                    if (guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuestsAfterKick))
-                    {
-                        if (currentGuestsAfterKick.Remove(playerToKickUsername))
-                            logger.Debug("Removed kicked guest {TargetUsername} from guest tracking for lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
-
-                        if (currentGuestsAfterKick.Count == 0)
-                        {
-                            if (guestUsernamesInLobby.TryRemove(lobbyCode, out _))
-                                logger.Debug("Guest tracking list removed for lobby {LobbyCode} after kicking last guest.", lobbyCode);
-                        }
-                    }
-                }
-                else
-                {
-                    logger.Debug("Kicked player {TargetUsername} was not a guest. Synchronizing kick with DB for lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
-                    await synchronizeDbOnKickAsync(playerToKickUsername, lobbyCode); 
-                }
+                await handlePostKickCleanupAsync(isGuest, playerToKickUsername, lobbyCode);
                 notifyAllOnKick(lobbyState, playerToKickUsername); 
             }
             else
@@ -370,7 +327,7 @@ namespace MindWeaveServer.BusinessLogic
                 return Task.CompletedTask;
             }
 
-            if (invitedUsername != null && !SocialManagerService.connectedUsers.ContainsKey(invitedUsername))
+            if (invitedUsername != null && !SocialManagerService.isUserConnected(invitedUsername))
             {
                 logger.Warn("Invite failed: Target user {TargetUsername} is not online.", invitedUsername);
                 sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed($"{invitedUsername} {Lang.ErrorUserNotOnline}"));
@@ -424,7 +381,7 @@ namespace MindWeaveServer.BusinessLogic
             if (newDifficultyId < 1 || newDifficultyId > 3) 
             {
                 logger.Warn("Change difficulty failed: Invalid difficulty ID ({DifficultyId}) requested.", newDifficultyId);
-                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed("Invalid difficulty selected.")); // TODO: Lang key
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ValidationErrorDifficultyInvalid));
                 return;
             }
 
@@ -455,7 +412,6 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        // TODO: Refactor (Logging añadido)
         public async Task inviteGuestByEmailAsync(GuestInvitationDto invitationData)
         {
             if (invitationData == null || string.IsNullOrWhiteSpace(invitationData.inviterUsername)
@@ -472,38 +428,12 @@ namespace MindWeaveServer.BusinessLogic
 
             try
             {
-                logger.Debug("Fetching inviter player data: {InviterUsername}", inviterUsername);
-                var inviterPlayer = await playerRepository.getPlayerByUsernameAsync(inviterUsername);
-                if (inviterPlayer == null)
-                {
-                    logger.Warn("Invite guest failed: Inviter player {InviterUsername} not found.", inviterUsername);
-                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(Lang.ErrorPlayerNotFound));
-                    return;
-                }
+                var (isValid, inviterPlayer, match, errorKey) = await getInvitationPrerequisitesAsync(inviterUsername, lobbyCode);
 
-                logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
-                Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-                if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
+                if (!isValid)
                 {
-                    logger.Warn("Invite guest failed: Match for lobby {LobbyCode} not found or not in waiting state (Status: {StatusId}).", lobbyCode, match?.match_status_id);
-                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode)));
+                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(errorKey));
                     return;
-                }
-
-                if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
-                {
-                    logger.Error("Invite guest inconsistency: Match {MatchId} exists for lobby {LobbyCode}, but lobby state not found in activeLobbies.", match.matches_id, lobbyCode);
-                    sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode)));
-                    return;
-                }
-                lock (lobbyState)
-                {
-                    if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
-                    {
-                        logger.Warn("Invite guest failed: Lobby {LobbyCode} is full ({Count}/{Max}).", lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
-                        sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyIsFull, lobbyCode)));
-                        return;
-                    }
                 }
 
                 var invitation = new GuestInvitations
@@ -533,91 +463,37 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        // TODO: Refactor (Logging añadido)
         public async Task<GuestJoinResultDto> joinLobbyAsGuestAsync(GuestJoinRequestDto joinRequest, IMatchmakingCallback callback)
         {
             if (joinRequest == null || string.IsNullOrWhiteSpace(joinRequest.lobbyCode)
-               || string.IsNullOrWhiteSpace(joinRequest.guestEmail) || string.IsNullOrWhiteSpace(joinRequest.desiredGuestUsername))
+                || string.IsNullOrWhiteSpace(joinRequest.guestEmail) || string.IsNullOrWhiteSpace(joinRequest.desiredGuestUsername))
             {
-                logger.Warn("joinLobbyAsGuest failed: Invalid join request data (null or missing fields).");
+                logger.Warn("JoinLobbyAsGuest failed: Invalid join request data (null or missing fields).");
                 return new GuestJoinResultDto { success = false, message = Lang.ErrorAllFieldsRequired };
             }
+
             string lobbyCode = joinRequest.lobbyCode;
             string guestEmailLower = joinRequest.guestEmail.Trim().ToLowerInvariant();
             string desiredUsername = joinRequest.desiredGuestUsername;
-            logger.Info("joinLobbyAsGuestAsync called for Email: {GuestEmail}, Lobby: {LobbyCode}, Desired Username: {DesiredUsername}", guestEmailLower, lobbyCode, desiredUsername);
+            logger.Info("JoinLobbyAsGuestAsync called for Email: {GuestEmail}, Lobby: {LobbyCode}, Desired Username: {DesiredUsername}", guestEmailLower, lobbyCode, desiredUsername);
 
             try
             {
-                logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
-                Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-                if (match == null || match.lobby_code != joinRequest.lobbyCode || match.match_status_id != MATCH_STATUS_WAITING)
+                var (isValid, match, invitation, lobbyState, errorResult) = await validateGuestJoinPrerequisitesAsync(lobbyCode, guestEmailLower);
+                if (!isValid)
                 {
-                    logger.Warn("Join guest failed: Match for lobby {LobbyCode} not found or not in waiting state (Status: {StatusId}).", lobbyCode, match?.match_status_id);
-                    return new GuestJoinResultDto { success = false, message = string.Format(Lang.lobbyNotFoundOrInactive, joinRequest.lobbyCode) };
+                    return errorResult;
                 }
 
-                logger.Debug("Match record found (ID: {MatchId}) and is in waiting state.", match.matches_id);
+                (bool addedToMemory, string finalGuestUsername, GuestJoinResultDto memoryErrorResult) =
+                    tryAddGuestToLobbyState(lobbyState, lobbyCode, desiredUsername, callback);
 
-                logger.Debug("Searching for valid guest invitation for Match: {MatchId}, Email: {GuestEmail}", match.matches_id, guestEmailLower);
-                GuestInvitations validInvitation = await guestInvitationRepository.findValidInvitationAsync(match.matches_id, guestEmailLower);
-                if (validInvitation == null)
+                if (!addedToMemory)
                 {
-                    logger.Warn("Join guest failed: No valid (unused, non-expired) invitation found for Match: {MatchId}, Email: {GuestEmail}", match.matches_id, guestEmailLower);
-                    return new GuestJoinResultDto { success = false, message = Lang.ErrorInvalidOrExpiredGuestInvite };
-                }
-                logger.Info("Valid guest invitation (ID: {InvitationId}) found.", validInvitation.invitation_id);
-
-                if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
-                {
-                    logger.Error("Join guest inconsistency: Match {MatchId} and Invitation {InvitationId} exist, but lobby state {LobbyCode} not found in activeLobbies.", match.matches_id, validInvitation.invitation_id, lobbyCode);
-                    
-                    return new GuestJoinResultDto { success = false, message = string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode) };
-                }
-                logger.Debug("Active lobby state found for {LobbyCode}.", lobbyCode);
-
-                string finalGuestUsername;
-
-                lock (lobbyState)
-                {
-                    if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
-                    {
-                        logger.Warn("Join guest failed: Lobby {LobbyCode} is full ({Count}/{Max}).", lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
-                        return new GuestJoinResultDto { success = false, message = string.Format(Lang.LobbyIsFull, lobbyCode) };
-                    }
-
-                    finalGuestUsername = findAvailableGuestUsername(lobbyCode, desiredUsername); 
-                    if (finalGuestUsername == null)
-                    {
-                        logger.Error("Join guest failed: Could not generate a unique guest username for Lobby {LobbyCode}, Desired: {DesiredUsername}", lobbyCode, desiredUsername);
-                        return new GuestJoinResultDto { success = false, message = Lang.ErrorGuestUsernameGenerationFailed };
-                    }
-
-                    if (lobbyState.players.Any(p => p.Equals(finalGuestUsername, StringComparison.OrdinalIgnoreCase)))
-                    {
-                        logger.Error("Join guest race condition: Generated username '{FinalGuestUsername}' became occupied in lobby '{LobbyCode}' before adding.", finalGuestUsername, lobbyCode);
-                        return new GuestJoinResultDto { success = false, message = string.Format(Lang.ErrorGuestUsernameTaken, finalGuestUsername) };
-                    }
-
-                    lobbyState.players.Add(finalGuestUsername);
-                    registerCallback(finalGuestUsername, callback); 
-
-                    var guestsInThisLobby = guestUsernamesInLobby.GetOrAdd(lobbyCode, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-                    guestsInThisLobby.Add(finalGuestUsername);
-                    logger.Info("[JoinGuest MEMORY] Guest '{FinalGuestUsername}' added to lobby '{LobbyCode}' state and guest tracking.", finalGuestUsername, lobbyCode);
+                    return memoryErrorResult;
                 }
 
-                try
-                {
-                    logger.Debug("Attempting to mark invitation {InvitationId} as used in DB.", validInvitation.invitation_id);
-                    await guestInvitationRepository.markInvitationAsUsedAsync(validInvitation);
-                    await guestInvitationRepository.saveChangesAsync();
-                    logger.Info("[JoinGuest DB] Invitation ID {InvitationId} marked as used.", validInvitation.invitation_id);
-                }
-                catch (Exception dbEx)
-                {
-                    logger.Warn(dbEx, "[JoinGuest WARN] Failed to mark invitation {InvitationId} as used. User {FinalGuestUsername} is already in memory lobby.", validInvitation.invitation_id, finalGuestUsername);
-                }
+                await markInvitationAsUsedAsync(invitation, finalGuestUsername);
 
                 logger.Info("Guest {FinalGuestUsername} successfully joined lobby {LobbyCode}. Broadcasting update.", finalGuestUsername, lobbyCode);
                 notifyLobbyStateChanged(lobbyState);
@@ -632,50 +508,9 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception during joinLobbyAsGuestAsync for Email: {GuestEmail}, Lobby: {LobbyCode}", guestEmailLower, lobbyCode);
+                logger.Error(ex, "Exception during JoinLobbyAsGuestAsync for Email: {GuestEmail}, Lobby: {LobbyCode}", guestEmailLower, lobbyCode);
                 return new GuestJoinResultDto { success = false, message = Lang.GenericServerError };
             }
-        }
-
-        // TODO: Refactor (Logging añadido)
-        private string findAvailableGuestUsername(string lobbyCode, string desiredUsername)
-        {
-            string baseUsername = desiredUsername.Trim();
-            logger.Debug("Finding available guest username for Lobby: {LobbyCode}, Desired: {DesiredUsername}", lobbyCode, baseUsername);
-            if (baseUsername.Length > 16) baseUsername = baseUsername.Substring(0, 16);
-
-            string finalUsername = baseUsername;
-            int counter = 1;
-
-            var guestsInThisLobby = guestUsernamesInLobby.GetOrAdd(lobbyCode, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-            List<string> registeredPlayersInLobby = new List<string>();
-            if (activeLobbies.TryGetValue(lobbyCode, out var state))
-            {
-                lock (state) { registeredPlayersInLobby = state.players.ToList(); }
-            }
-
-            while (guestsInThisLobby.Contains(finalUsername) || registeredPlayersInLobby.Any(p => p.Equals(finalUsername, StringComparison.OrdinalIgnoreCase)))
-            {
-                logger.Debug("Username '{FinalUsername}' is already taken in lobby {LobbyCode}. Generating next.", finalUsername, lobbyCode);
-                string counterStr = counter.ToString();
-                int availableLength = 16 - counterStr.Length;
-                if (availableLength < 1)
-                {
-                    logger.Error("[FindGuestName ERROR] Cannot generate unique name for base '{BaseUsername}' in lobby '{LobbyCode}' within length limit (counter too high: {Counter}).", baseUsername, lobbyCode, counter);
-                    return null;
-                }
-                string currentBase = baseUsername.Length > availableLength ? baseUsername.Substring(0, availableLength) : baseUsername;
-                finalUsername = $"{currentBase}{counterStr}";
-
-                counter++;
-                if (counter > 99)
-                {
-                    logger.Error("[FindGuestName ERROR] Reached counter limit ({Counter}) trying to generate unique name for base '{BaseUsername}' in lobby '{LobbyCode}'.", counter - 1, baseUsername, lobbyCode);
-                    return null;
-                }
-            }
-            logger.Info("[FindGuestName] Assigned username '{FinalUsername}' for desired '{DesiredUsername}' in lobby '{LobbyCode}'.", finalUsername, desiredUsername, lobbyCode);
-            return finalUsername;
         }
 
         public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction)
@@ -787,7 +622,7 @@ namespace MindWeaveServer.BusinessLogic
                 }
                 catch (DbUpdateException dbEx) when (dbEx.InnerException?.InnerException?.Message.Contains("UNIQUE KEY constraint") ?? false)
                 {
-                    logger.Warn("DB unique key constraint violation for lobby code {LobbyCode} on attempt {Attempt}. Retrying.", lobbyCode, attempts);
+                    logger.Warn(dbEx, "DB unique key constraint violation for lobby code {LobbyCode} on attempt {Attempt}. Retrying.", lobbyCode, attempts);
                     newMatch = null;
                 }
                 catch (Exception ex)
@@ -860,37 +695,61 @@ namespace MindWeaveServer.BusinessLogic
             try
             {
                 logger.Debug("Attempting to add participant {Username} to DB for match corresponding to lobby {LobbyCode}", username, lobbyCode);
+
                 Player player = await playerRepository.getPlayerByUsernameAsync(username);
                 Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
 
                 if (player != null && match != null && match.match_status_id == MATCH_STATUS_WAITING)
                 {
-                    logger.Debug("Player (ID: {PlayerId}) and Match (ID: {MatchId}) found and match is waiting. Adding participant if not exists.", player.idPlayer, match.matches_id);
-                    await addParticipantIfNotExistsAsync(match, player); 
+                    logger.Debug("Player (ID: {PlayerId}) and Match (ID: {MatchId}) found and match is waiting. Adding participant if not exists.", 
+                        player.idPlayer, match.matches_id);
+                    await addParticipantIfNotExistsAsync(match, player);
                     return true;
                 }
                 else if (match?.match_status_id != MATCH_STATUS_WAITING)
                 {
-                    logger.Warn("Cannot add participant {Username} to DB: Match {MatchId} (Lobby {LobbyCode}) is no longer in waiting state (Status: {StatusId}). Removing from memory.", username, match?.matches_id, lobbyCode, match?.match_status_id);
-                    lock (lobbyState) { lobbyState.players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase)); }
-                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyNoLongerAvailable, lobbyCode)));
-                    bool isEmpty; lock (lobbyState) { isEmpty = lobbyState.players.Count == 0; }
-                    if (isEmpty) { logger.Info("Lobby {LobbyCode} became empty after failed DB sync. Removing from active lobbies.", lobbyCode); activeLobbies.TryRemove(lobbyCode, out _); }
+                    logger.Warn("Cannot add participant {Username} to DB: Match {MatchId} (Lobby {LobbyCode}) is no longer in waiting state (Status: " +
+                                "{StatusId}). Removing from memory.", username, match?.matches_id, lobbyCode, match?.match_status_id);
+                    string errorMsg = string.Format(Lang.LobbyNoLongerAvailable, lobbyCode);
+                    revertParticipantFromMemory(username, lobbyCode, lobbyState, errorMsg);
                     return false;
                 }
                 else
                 {
-                    logger.Error("Cannot add participant {Username} to DB: Player or Match not found (PlayerFound={PlayerFound}, MatchFound={MatchFound}). Lobby: {LobbyCode}", username, player != null, true, lobbyCode);
-                    lock (lobbyState) { lobbyState.players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase)); }
-                    throw new Exception(string.Format(Lang.PlayerOrMatchNotFoundInDb, username, lobbyCode)); // TODO: Lang key
+                    string error = $"Cannot add participant {username} to DB: Player or Match not found (PlayerFound={player != null}, MatchFound={match != null}). Lobby: {lobbyCode}";
+                    logger.Error(error);
+                    throw new InvalidOperationException(error);
                 }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception trying to add participant {Username} to DB for lobby {LobbyCode}. Removing from memory.", username, lobbyCode);
-                lock (lobbyState) { lobbyState.players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase)); }
-                sendCallbackToUser(username, cb => cb.lobbyCreationFailed(Lang.ErrorJoiningLobbyData));
+                revertParticipantFromMemory(username, lobbyCode, lobbyState, Lang.ErrorJoiningLobbyData);
                 return false;
+            }
+        }
+
+        private void revertParticipantFromMemory(string username, string lobbyCode, LobbyStateDto lobbyState, string errorMessageKey)
+        {
+            logger.Warn("Reverting user '{Username}' from memory lobby '{LobbyCode}'. Reason key: {ReasonKey}", username, lobbyCode, errorMessageKey);
+
+            lock (lobbyState)
+            {
+                lobbyState.players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase));
+            }
+
+            sendCallbackToUser(username, cb => cb.lobbyCreationFailed(errorMessageKey));
+
+            bool isEmpty;
+            lock (lobbyState)
+            {
+                isEmpty = lobbyState.players.Count == 0;
+            }
+
+            if (isEmpty)
+            {
+                logger.Info("Lobby {LobbyCode} became empty after failed DB sync. Removing from active lobbies.", lobbyCode);
+                activeLobbies.TryRemove(lobbyCode, out _);
             }
         }
 
@@ -1041,7 +900,7 @@ namespace MindWeaveServer.BusinessLogic
             foreach (var playerUsername in playersSnapshot)
             {
                 sendCallbackToUser(playerUsername, cb => cb.matchFound(lobbyCode, playersSnapshot)); 
-                /* TODO: removeCallback(playerUsername); */
+                removeCallback(playerUsername);
             }
 
             if (activeLobbies.TryRemove(lobbyCode, out _))
@@ -1173,6 +1032,251 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Error(ex, "Exception trying to synchronize difficulty change to DB for lobby {LobbyId}", lobbyId); 
                 sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ErrorSavingDifficultyChange)); 
                 return false;
+            }
+        }
+
+        private void processDisconnectForLobby(string username, string lobbyCode)
+        {
+            logger.Debug("[HandleDisconnect] Processing disconnect actions for User '{Username}' in Lobby '{LobbyCode}'", username, lobbyCode);
+
+            if (guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests))
+            {
+                bool removedFromGuests = currentGuests.Remove(username);
+                if (removedFromGuests)
+                {
+                    logger.Info("[HandleDisconnect] Removed '{Username}' from guest tracking for lobby '{LobbyCode}'.", username, lobbyCode);
+                }
+
+                if (currentGuests.Count == 0 && guestUsernamesInLobby.TryRemove(lobbyCode, out _))
+                {
+                    logger.Debug("[HandleDisconnect] Guest tracking list removed for empty lobby '{LobbyCode}'.", lobbyCode);
+                }
+            }
+
+            Task.Run(async () => {
+                logger.Info("[HandleDisconnect] Initiating LeaveLobbyAsync background task for '{Username}' from lobby '{LobbyCode}'.", username, lobbyCode);
+                try
+                {
+                    await leaveLobbyAsync(username, lobbyCode);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "[HandleDisconnect] Exception in background LeaveLobbyAsync task for User: {Username}, Lobby: {LobbyCode}", username, lobbyCode);
+                }
+            });
+        }
+
+        private async Task handlePostKickCleanupAsync(bool isGuest, string playerToKickUsername, string lobbyCode)
+        {
+            if (isGuest)
+            {
+                if (guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuestsAfterKick))
+                {
+                    if (currentGuestsAfterKick.Remove(playerToKickUsername))
+                    {
+                        logger.Debug("Removed kicked guest {TargetUsername} from guest tracking for lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
+                    }
+
+                    if (currentGuestsAfterKick.Count == 0 && guestUsernamesInLobby.TryRemove(lobbyCode, out _))
+                    {
+                        logger.Debug("Guest tracking list removed for lobby {LobbyCode} after kicking last guest.", lobbyCode);
+                    }
+                }
+            }
+            else
+            {
+                logger.Debug("Kicked player {TargetUsername} was not a guest. Synchronizing kick with DB for lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
+
+                await synchronizeDbOnKickAsync(playerToKickUsername, lobbyCode);
+            }
+        }
+
+        private async Task<(bool isValid, Player inviter, Matches match, string errorKey)> 
+            getInvitationPrerequisitesAsync(string inviterUsername, string lobbyCode) 
+        {
+            logger.Debug("Fetching inviter player data: {InviterUsername}", inviterUsername);
+            var inviterPlayer = await playerRepository.getPlayerByUsernameAsync(inviterUsername);
+
+            if (inviterPlayer == null)
+            {
+                logger.Warn("Invite guest failed: Inviter player {InviterUsername} not found.", inviterUsername);
+                return (false, null, null, Lang.ErrorPlayerNotFound);
+            }
+
+            logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
+            Matches? match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+
+            if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
+            {
+                logger.Warn("Invite guest failed: Match for lobby {LobbyCode} not found or not in waiting state (Status: {StatusId}).", lobbyCode, match?.match_status_id);
+                return (false, inviterPlayer, null, string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode));
+            }
+
+            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
+            {
+                logger.Error("Invite guest inconsistency: Match {MatchId} exists for lobby {LobbyCode}, but lobby state not found in activeLobbies.", match.matches_id, lobbyCode);
+                return (false, inviterPlayer, match, string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode));
+            }
+
+            lock (lobbyState)
+            {
+                if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
+                {
+                    logger.Warn("Invite guest failed: Lobby {LobbyCode} is full ({Count}/{Max}).", lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
+                    return (false, inviterPlayer, match, string.Format(Lang.LobbyIsFull, lobbyCode));
+                }
+            }
+
+            return (true, inviterPlayer, match, null);
+        }
+
+        private async Task<(bool isValid, Matches match, GuestInvitations invitation, LobbyStateDto lobbyState, GuestJoinResultDto errorResult)> 
+            validateGuestJoinPrerequisitesAsync(string lobbyCode, string guestEmailLower) 
+        {
+            logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
+            
+            Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+            if (match == null || match.lobby_code != lobbyCode || match.match_status_id != MATCH_STATUS_WAITING)
+            {
+                logger.Warn("Join guest failed: Match for lobby {LobbyCode} not found or not in waiting state (Status: {StatusId}).", lobbyCode, match?.match_status_id);
+                return (false, null, null, null, new GuestJoinResultDto { success = false, message = string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode) });
+            }
+
+            logger.Debug("Match record found (ID: {MatchId}) and is in waiting state.", match.matches_id);
+            logger.Debug("Searching for valid guest invitation for Match: {MatchId}, Email: {GuestEmail}", match.matches_id, guestEmailLower);
+            GuestInvitations validInvitation = await guestInvitationRepository.findValidInvitationAsync(match.matches_id, guestEmailLower);
+
+            if (validInvitation == null)
+            {
+                logger.Warn("Join guest failed: No valid (unused, non-expired) invitation found for Match: {MatchId}, Email: {GuestEmail}", match.matches_id, guestEmailLower);
+                return (false, match, null, null, new GuestJoinResultDto { success = false, message = Lang.ErrorInvalidOrExpiredGuestInvite });
+            }
+            logger.Info("Valid guest invitation (ID: {InvitationId}) found.", validInvitation.invitation_id);
+
+            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
+            {
+                logger.Error("Join guest inconsistency: Match {MatchId} and Invitation {InvitationId} exist, but lobby state {LobbyCode} not found in activeLobbies.", match.matches_id, validInvitation.invitation_id, lobbyCode);
+                return (false, match, validInvitation, null, new GuestJoinResultDto { success = false, message = string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode) });
+            }
+            logger.Debug("Active lobby state found for {LobbyCode}.", lobbyCode);
+
+            return (true, match, validInvitation, lobbyState, null);
+        }
+
+        private string findAvailableGuestUsername(string lobbyCode, string desiredUsername)
+        {
+            string baseUsername = desiredUsername.Trim();
+            logger.Debug("Finding available guest username for Lobby: {LobbyCode}, Desired: {DesiredUsername}", lobbyCode, baseUsername);
+
+            if (baseUsername.Length > MAX_GUEST_USERNAME_LENGTH)
+            {
+                baseUsername = baseUsername.Substring(0, MAX_GUEST_USERNAME_LENGTH);
+            }
+
+            var guestsInThisLobby = guestUsernamesInLobby.GetOrAdd(lobbyCode, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+            var occupiedNames = new HashSet<string>(guestsInThisLobby, StringComparer.OrdinalIgnoreCase);
+
+            if (activeLobbies.TryGetValue(lobbyCode, out var state))
+            {
+                lock (state)
+                {
+                    foreach (var player in state.players)
+                    {
+                        occupiedNames.Add(player);
+                    }
+                }
+            }
+
+            string finalUsername = baseUsername;
+            int counter = 1;
+
+            while (occupiedNames.Contains(finalUsername))
+            {
+                if (counter > MAX_GUEST_NAME_COUNTER)
+                {
+                    logger.Error("[FindGuestName ERROR] Reached counter limit ({Counter}) trying to generate unique name for base '{BaseUsername}' in lobby '{LobbyCode}'.", counter - 1, baseUsername, lobbyCode);
+                    return null;
+                }
+
+                finalUsername = generateSuffixedGuestUsername(baseUsername, counter);
+
+                if (finalUsername == null)
+                {
+                    logger.Error("[FindGuestName ERROR] Cannot generate unique name for base '{BaseUsername}' in lobby '{LobbyCode}' within length limit (counter too high: {Counter}).", baseUsername, lobbyCode, counter);
+                    return null;
+                }
+
+                counter++;
+            }
+
+            logger.Info("[FindGuestName] Assigned username '{FinalUsername}' for desired '{DesiredUsername}' in lobby '{LobbyCode}'.", finalUsername, desiredUsername, lobbyCode);
+            return finalUsername;
+        }
+
+        private string generateSuffixedGuestUsername(string baseUsername, int counter)
+        {
+            string counterStr = counter.ToString();
+            int availableLength = MAX_GUEST_USERNAME_LENGTH - counterStr.Length;
+
+            if (availableLength < 1)
+            {
+                return null;
+            }
+            string currentBase = baseUsername.Length > availableLength
+                ? baseUsername.Substring(0, availableLength)
+                : baseUsername;
+
+            return $"{currentBase}{counterStr}";
+        }
+
+        private (bool success, string finalUsername, GuestJoinResultDto errorResult) 
+            tryAddGuestToLobbyState(LobbyStateDto lobbyState, string lobbyCode, string desiredUsername, IMatchmakingCallback callback)
+        {
+            string finalGuestUsername;
+
+            lock (lobbyState)
+            {
+                if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
+                {
+                    logger.Warn("Join guest failed: Lobby {LobbyCode} is full ({Count}/{Max}).", lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
+                    return (false, null, new GuestJoinResultDto { success = false, message = string.Format(Lang.LobbyIsFull, lobbyCode) });
+                }
+
+                finalGuestUsername = findAvailableGuestUsername(lobbyCode, desiredUsername);
+                if (finalGuestUsername == null)
+                {
+                    logger.Error("Join guest failed: Could not generate a unique guest username for Lobby {LobbyCode}, Desired: {DesiredUsername}", lobbyCode, desiredUsername);
+                    return (false, null, new GuestJoinResultDto { success = false, message = Lang.ErrorGuestUsernameGenerationFailed });
+                }
+
+                if (lobbyState.players.Any(p => p.Equals(finalGuestUsername, StringComparison.OrdinalIgnoreCase)))
+                {
+                    logger.Error("Join guest race condition: Generated username '{FinalGuestUsername}' became occupied in lobby '{LobbyCode}' before adding.", finalGuestUsername, lobbyCode);
+                    return (false, finalGuestUsername, new GuestJoinResultDto { success = false, message = string.Format(Lang.ErrorGuestUsernameTaken, finalGuestUsername) });
+                }
+
+                lobbyState.players.Add(finalGuestUsername);
+                registerCallback(finalGuestUsername, callback);
+                var guestsInThisLobby = guestUsernamesInLobby.GetOrAdd(lobbyCode, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+                guestsInThisLobby.Add(finalGuestUsername);
+
+                logger.Info("[JoinGuest MEMORY] Guest '{FinalGuestUsername}' added to lobby '{LobbyCode}' state and guest tracking.", finalGuestUsername, lobbyCode);
+            }
+            return (true, finalGuestUsername, null);
+        }
+
+        private async Task markInvitationAsUsedAsync(GuestInvitations invitation, string finalGuestUsername)
+        {
+            try
+            {
+                logger.Debug("Attempting to mark invitation {InvitationId} as used in DB.", invitation.invitation_id);
+                await guestInvitationRepository.markInvitationAsUsedAsync(invitation);
+                await guestInvitationRepository.saveChangesAsync();
+                logger.Info("[JoinGuest DB] Invitation ID {InvitationId} marked as used.", invitation.invitation_id);
+            }
+            catch (Exception dbEx)
+            {
+                logger.Warn(dbEx, "[JoinGuest WARN] Failed to mark invitation {InvitationId} as used. User {FinalGuestUsername} is already in memory lobby.", invitation.invitation_id, finalGuestUsername);
             }
         }
     }

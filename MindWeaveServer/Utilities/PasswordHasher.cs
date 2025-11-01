@@ -3,7 +3,7 @@ using MindWeaveServer.Resources;
 
 namespace MindWeaveServer.Utilities
 {
-    internal class PasswordHasher
+    internal static class PasswordHasher
     {
         public static string hashPassword(string password)
         {

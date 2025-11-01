@@ -37,7 +37,7 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Friendships> findFriendshipAsync(int player1Id, int player2Id)
+        public async Task<Friendships?> findFriendshipAsync(int player1Id, int player2Id)
         {
             
             return await context.Friendships

@@ -15,7 +15,7 @@ namespace MindWeaveServer.Utilities.Validators
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").WithMessage(Lang.ValidationOnlyLetters);
 
             RuleFor(x => x.lastName)
-                .NotEmpty().WithMessage("El  eapellidos requerido.") //TODO: Lang
+                .NotEmpty().WithMessage(Lang.ValidationLastNameRequired)
                 .MaximumLength(45).WithMessage(Lang.ValidationLastNameLength)
                 .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationOnlyLetters);
@@ -26,19 +26,19 @@ namespace MindWeaveServer.Utilities.Validators
                 .Must(beARealisticAge).WithMessage(Lang.ValidationDateOfBirthRealistic);
         }
 
-        private bool notHaveLeadingOrTrailingWhitespace(string value)
+        private static bool notHaveLeadingOrTrailingWhitespace(string value)
         {
             if (string.IsNullOrEmpty(value)) return true;
             return value.Trim() == value;
         }
 
-        private bool beAValidAge(System.DateTime? dateOfBirth)
+        private static bool beAValidAge(System.DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue) return false;
             return dateOfBirth.Value.Date <= System.DateTime.Now.Date.AddYears(-13);
         }
 
-        private bool beARealisticAge(System.DateTime? dateOfBirth)
+        private static bool beARealisticAge(System.DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue) return false;
             return dateOfBirth.Value.Year > (System.DateTime.Now.Year - 100);

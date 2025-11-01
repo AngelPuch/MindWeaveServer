@@ -1,7 +1,6 @@
 ﻿using FluentValidation;
 using FluentValidation.Results; 
 using MindWeaveServer.BusinessLogic;
-using MindWeaveServer.Contracts.DataContracts;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.DataAccess; 
@@ -20,7 +19,6 @@ namespace MindWeaveServer.Tests.BusinessLogic
         private readonly Mock<IEmailService> mockEmailService;
         private readonly Mock<IPasswordService> mockPasswordService;
         private readonly Mock<IPasswordPolicyValidator> mockPasswordPolicyValidator;
-        private readonly Mock<IVerificationCodeService> mockVerificationCodeService;
         private readonly Mock<IValidator<UserProfileDto>> mockProfileValidator;
         private readonly Mock<IValidator<LoginDto>> mockLoginValidator;
 
@@ -39,15 +37,15 @@ namespace MindWeaveServer.Tests.BusinessLogic
             mockEmailService = new Mock<IEmailService>();
             mockPasswordService = new Mock<IPasswordService>();
             mockPasswordPolicyValidator = new Mock<IPasswordPolicyValidator>();
-            mockVerificationCodeService = new Mock<IVerificationCodeService>();
+            var mockVerificationCodeService1 = new Mock<IVerificationCodeService>();
             mockProfileValidator = new Mock<IValidator<UserProfileDto>>();
             mockLoginValidator = new Mock<IValidator<LoginDto>>();
 
             mockPasswordService.Setup(ps => ps.hashPassword(It.IsAny<string>())).Returns(hashedPassword);
             mockPasswordService.Setup(ps => ps.verifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
             mockPasswordPolicyValidator.Setup(v => v.validate(It.IsAny<string>())).Returns(new OperationResultDto { success = true });
-            mockVerificationCodeService.Setup(vcs => vcs.generateVerificationCode()).Returns(verificationCode);
-            mockVerificationCodeService.Setup(vcs => vcs.getVerificationExpiryTime()).Returns(futureExpiry);
+            mockVerificationCodeService1.Setup(vcs => vcs.generateVerificationCode()).Returns(verificationCode);
+            mockVerificationCodeService1.Setup(vcs => vcs.getVerificationExpiryTime()).Returns(futureExpiry);
 
             mockProfileValidator.Setup(v => v.ValidateAsync(It.IsAny<UserProfileDto>(), It.IsAny<CancellationToken>()))
                                  .ReturnsAsync(new ValidationResult());
@@ -59,7 +57,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
                 mockEmailService.Object,
                 mockPasswordService.Object,
                 mockPasswordPolicyValidator.Object,
-                mockVerificationCodeService.Object,
+                mockVerificationCodeService1.Object,
                 mockProfileValidator.Object,
                 mockLoginValidator.Object
             );
@@ -75,10 +73,10 @@ namespace MindWeaveServer.Tests.BusinessLogic
             };
         }
 
-        private ValidationResult CreateValidationFailure(string propertyName, string errorMessage)
+        private ValidationResult createValidationFailure(string propertyName, string errorMessage)
         {
             return new ValidationResult(new List<ValidationFailure> {
-                new ValidationFailure(propertyName, errorMessage)
+                new(propertyName, errorMessage)
             });
         }
 
@@ -86,8 +84,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task RegisterPlayerAsync_WithNewUserAndValidData_ShouldReturnSuccessAndAddPlayerAndSendEmail()
         {
-            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(validUserProfileDto.username)).ReturnsAsync((Player)null);
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(validUserProfileDto.email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(validUserProfileDto.username)).Returns(Task.FromResult<Player?>(null));
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(validUserProfileDto.email)).Returns(Task.FromResult<Player?>(null));
             mockPlayerRepository.Setup(repo => repo.saveChangesAsync()).ReturnsAsync(1);
 
             var result = await authenticationLogic.registerPlayerAsync(validUserProfileDto, validPassword);
@@ -108,7 +106,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             var existingVerifiedPlayer = new Player { username = validUserProfileDto.username, email = "other@example.com", is_verified = true };
             mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(validUserProfileDto.username)).ReturnsAsync(existingVerifiedPlayer);
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(validUserProfileDto.email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(validUserProfileDto.email)).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.registerPlayerAsync(validUserProfileDto, validPassword);
 
@@ -123,7 +121,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task RegisterPlayerAsync_WithExistingVerifiedUserByEmail_ShouldReturnFailure()
         {
             var existingVerifiedPlayer = new Player { username = "otheruser", email = validUserProfileDto.email, is_verified = true };
-            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(validUserProfileDto.username)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(validUserProfileDto.username)).Returns(Task.FromResult<Player?>(null));
             mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(validUserProfileDto.email)).ReturnsAsync(existingVerifiedPlayer);
 
             var result = await authenticationLogic.registerPlayerAsync(validUserProfileDto, validPassword);
@@ -141,9 +139,9 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string validationError = "Username is too short";
             mockProfileValidator.Setup(v => v.ValidateAsync(It.IsAny<UserProfileDto>(), It.IsAny<CancellationToken>()))
-                                 .ReturnsAsync(CreateValidationFailure("username", validationError));
-            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
+                                 .ReturnsAsync(createValidationFailure("username", validationError));
+            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(It.IsAny<string>())).Returns(Task.FromResult<Player?>(null));
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(It.IsAny<string>())).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.registerPlayerAsync(validUserProfileDto, validPassword);
 
@@ -160,8 +158,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string policyError = Lang.ValidationPasswordLength;
             mockPasswordPolicyValidator.Setup(v => v.validate(It.IsAny<string>()))
                                       .Returns(new OperationResultDto { success = false, message = policyError });
-            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByUsernameAsync(It.IsAny<string>())).Returns(Task.FromResult<Player?>(null));
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(It.IsAny<string>())).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.registerPlayerAsync(validUserProfileDto, "short");
 
@@ -194,7 +192,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task VerifyAccountAsync_WithInvalidEmail_ShouldReturnFailure()
         {
             string email = "nonexistent@example.com";
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.verifyAccountAsync(email, verificationCode);
 
@@ -286,7 +284,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task LoginAsync_WithInvalidEmail_ShouldReturnFailure()
         {
             var loginDto = new LoginDto { email = "wrong@example.com", password = validPassword };
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(loginDto.email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(loginDto.email)).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.loginAsync(loginDto);
 
@@ -312,12 +310,12 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task LoginAsync_WithNullLoginData_ShouldReturnFailure()
         {
-            LoginDto nullLoginData = null;
+            LoginDto nullLoginData = null!;
 
             var result = await authenticationLogic.loginAsync(nullLoginData);
 
             Assert.False(result.operationResult.success);
-            Assert.Equal(Lang.ErrorAllFieldsRequired, result.operationResult.message); // O un mensaje específico para DTO nulo
+            Assert.Equal(Lang.ErrorAllFieldsRequired, result.operationResult.message);
         }
 
         [Fact]
@@ -326,7 +324,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var loginDto = new LoginDto { email = "invalid-email", password = "" };
             string validationError = Lang.ValidationEmailFormat;
             mockLoginValidator.Setup(v => v.ValidateAsync(loginDto, It.IsAny<CancellationToken>()))
-                              .ReturnsAsync(CreateValidationFailure("email", validationError));
+                              .ReturnsAsync(createValidationFailure("email", validationError));
 
             var result = await authenticationLogic.loginAsync(loginDto);
 
@@ -357,7 +355,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task ResendVerificationCodeAsync_WithInvalidEmail_ShouldReturnFailure()
         {
             string email = "nonexistent@example.com";
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.resendVerificationCodeAsync(email);
 
@@ -404,7 +402,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task SendPasswordRecoveryCodeAsync_WithInvalidEmail_ShouldReturnFailure()
         {
             string email = "nonexistent@example.com";
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.sendPasswordRecoveryCodeAsync(email);
 
@@ -469,7 +467,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task ResetPasswordWithCodeAsync_WithInvalidEmail_ShouldReturnFailure()
         {
             string email = "nonexistent@example.com";
-            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(repo => repo.getPlayerByEmailAsync(email)).Returns(Task.FromResult<Player?>(null));
 
             var result = await authenticationLogic.resetPasswordWithCodeAsync(email, verificationCode, validPassword);
 

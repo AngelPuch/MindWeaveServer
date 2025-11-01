@@ -123,7 +123,7 @@ namespace MindWeaveServer.BusinessLogic
             var validationResult = await profileEditValidator.ValidateAsync(updatedProfileData);
             if (!validationResult.IsValid)
             {
-                string firstError = validationResult.Errors.First().ErrorMessage;
+                string firstError = validationResult.Errors[0].ErrorMessage;
                 logger.Warn("Update profile failed for {Username}: Validation failed. Reason: {Reason}", username ?? "NULL", firstError);
                 return new OperationResultDto { success = false, message = firstError };
             }
@@ -226,35 +226,25 @@ namespace MindWeaveServer.BusinessLogic
                     return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
                 }
 
-              
-                logger.Debug("Verifying current password for User: {Username}", username);
                 bool currentPasswordVerified = passwordService.verifyPassword(currentPassword, player.password_hash);
-                logger.Debug("Current password verification result for {Username}: {Result}", username, currentPasswordVerified);
 
                 if (!currentPasswordVerified)
                 {
                     logger.Warn("Change password failed for {Username}: Current password verification failed.", username);
-                    return new OperationResultDto { success = false, message = Lang.LoginPasswordNotEmpty };
+                    return new OperationResultDto { success = false, message = Lang.ErrorCurrentPasswordIncorrect };
                 }
 
-         
-                logger.Debug("Validating new password policy for User: {Username}", username);
                 var policyValidation = passwordPolicyValidator.validate(newPassword);
+
                 if (!policyValidation.success)
                 {
                     logger.Warn("Change password failed for {Username}: New password does not meet policy. Reason: {Reason}", username, policyValidation.message);
                     return policyValidation; 
                 }
-                logger.Debug("New password policy validation successful for User: {Username}", username);
-
 
                 logger.Debug("Hashing new password for User: {Username}", username);
                 string newPasswordHash = passwordService.hashPassword(newPassword);
                 player.password_hash = newPasswordHash;
-                logger.Debug("New password hash generated and assigned for User: {Username}", username);
-
-
-                logger.Debug("Saving password change for User: {Username}", username);
                 int changes = await playerRepository.saveChangesAsync();
                 logger.Debug("SaveChanges result for password change: {ChangesCount}", changes);
 
@@ -276,8 +266,6 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
             }
         }
-
-     
 
         private PlayerProfileViewDto mapToPlayerProfileViewDto(Player player)
         {

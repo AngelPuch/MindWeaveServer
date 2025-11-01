@@ -131,7 +131,6 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Debug("Both players found. ResponderID: {ResponderId}, RequesterID: {RequesterId}", responder.idPlayer, requester.idPlayer);
 
 
-                logger.Debug("Searching for PENDING friendship request from RequesterID {RequesterId} to ResponderID {ResponderId}", requester.idPlayer, responder.idPlayer);
                 var friendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, responder.idPlayer);
 
                 if (friendship == null || friendship.status_id != FriendshipStatusConstants.PENDING || friendship.addressee_id != responder.idPlayer)
@@ -145,7 +144,6 @@ namespace MindWeaveServer.BusinessLogic
                 friendship.status_id = accepted ? FriendshipStatusConstants.ACCEPTED : FriendshipStatusConstants.REJECTED;
                 friendshipRepository.updateFriendship(friendship);
 
-                logger.Debug("Saving friendship status change to DB."); 
                 await friendshipRepository.saveChangesAsync();
                 logger.Info("Friend request from {RequesterUsername} to {ResponderUsername} processed. Status set to: {Status}", requesterUsername, responderUsername, friendship.status_id);
                 return new OperationResultDto { success = true, message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
@@ -157,7 +155,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string> connectedUsernames)
+        public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string>? connectedUsernames)
         {
             logger.Info("getFriendsListAsync called for User: {Username}", username ?? "NULL");
             try
@@ -174,31 +172,18 @@ namespace MindWeaveServer.BusinessLogic
                 var friendships = await friendshipRepository.getAcceptedFriendshipsAsync(player.idPlayer);
                 logger.Debug("Found {Count} accepted friendship records.", friendships?.Count ?? 0);
 
-                var onlineUsersSet = connectedUsernames != null ? new HashSet<string>(connectedUsernames, StringComparer.OrdinalIgnoreCase)
-                                    : new HashSet<string>();
+                var onlineUsersSet = connectedUsernames != null 
+                    ? new HashSet<string>(connectedUsernames, StringComparer.OrdinalIgnoreCase)
+                    : new HashSet<string>();
                 var friendDtos = new List<FriendDto>();
 
                 if (friendships != null)
                     foreach (var f in friendships)
                     {
-                        int friendId = (f.requester_id == player.idPlayer) ? f.addressee_id : f.requester_id;
-                        Player friendEntity = (f.Player1?.idPlayer == friendId) ? f.Player1 : f.Player;
-
-                        if (friendEntity != null)
+                        var friendDto = mapFriendshipToDto(f, player.idPlayer, onlineUsersSet);
+                        if (friendDto != null)
                         {
-                            bool isOnline = onlineUsersSet.Contains(friendEntity.username);
-                            friendDtos.Add(new FriendDto
-                            {
-                                username = friendEntity.username,
-                                isOnline = isOnline,
-                                avatarPath = friendEntity.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
-                            });
-                        }
-                        else
-                        {
-                            logger.Warn(
-                                "Friend entity was null for FriendshipID: {FriendshipId}, FriendPlayerID: {FriendId}. Skipping.",
-                                (object)f.friendships_id, (object)friendId);
+                            friendDtos.Add(friendDto);
                         }
                     }
 
@@ -283,7 +268,6 @@ namespace MindWeaveServer.BusinessLogic
                 }
                 logger.Debug("Both players found. PlayerID: {PlayerId}, FriendID: {FriendId}", player.idPlayer, friendToRemove.idPlayer);
 
-                logger.Debug("Searching for ACCEPTED friendship between PlayerID {PlayerId} and FriendID {FriendId}", player.idPlayer, friendToRemove.idPlayer);
                 var friendship = await friendshipRepository.findFriendshipAsync(player.idPlayer, friendToRemove.idPlayer);
 
                 if (friendship == null || friendship.status_id != FriendshipStatusConstants.ACCEPTED)
@@ -295,7 +279,6 @@ namespace MindWeaveServer.BusinessLogic
 
                 friendshipRepository.removeFriendship(friendship);
 
-                logger.Debug("Saving friendship removal to DB.");
                 await friendshipRepository.saveChangesAsync();
                 logger.Info("Friendship between {Username} and {FriendToRemove} removed successfully.", username, friendToRemoveUsername);
                 return new OperationResultDto { success = true, message = Lang.FriendRemovedSuccessfully };
@@ -385,6 +368,30 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Error(ex, "Exception saving new friendship request from {RequesterUsername} to {TargetUsername}", requester.username, target.username);
                 return new OperationResultDto { success = false, message = Lang.GenericServerError };
+            }
+        }
+
+        private FriendDto? mapFriendshipToDto(Friendships f, int ownPlayerId, HashSet<string> onlineUsersSet) 
+        {
+            int friendId = (f.requester_id == ownPlayerId) ? f.addressee_id : f.requester_id;
+            Player friendEntity = (f.Player1?.idPlayer == friendId) ? f.Player1 : f.Player;
+
+            if (friendEntity != null)
+            {
+                bool isOnline = onlineUsersSet.Contains(friendEntity.username);
+                return new FriendDto
+                {
+                    username = friendEntity.username,
+                    isOnline = isOnline,
+                    avatarPath = friendEntity.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+                };
+            }
+            else
+            {
+                logger.Warn(
+                    "Friend entity was null for FriendshipID: {FriendshipId}, FriendPlayerID: {FriendId}. Skipping.",
+                    (object)f.friendships_id, (object)friendId);
+                return null;
             }
         }
     }

@@ -22,7 +22,7 @@ namespace MindWeaveServer.BusinessLogic
         private const int MAX_HISTORY_PER_LOBBY = 50;
         private const int MAX_MESSAGE_LENGTH = 200;
         
-        public async Task joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
+        public void joinLobbyChat(string username, string lobbyId, IChatCallback? userCallback)
         {
             logger.Info("joinLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
 
@@ -32,112 +32,37 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            var usersInLobby = lobbyChatUsers.GetOrAdd(lobbyId, id => {
-                logger.Debug("Creating new user list for lobby: {LobbyId}", id);
-                return new ConcurrentDictionary<string, IChatCallback>(StringComparer.OrdinalIgnoreCase);
-            });
-
-            usersInLobby.AddOrUpdate(username, userCallback, (key, existingVal) =>
-            {
-                var existingComm = existingVal as ICommunicationObject;
-                if (existingVal != userCallback && (existingComm == null || existingComm.State != CommunicationState.Opened))
-                {
-                    logger.Warn("Replacing existing non-opened chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
-                    return userCallback;
-                }
-                if (existingVal != userCallback)
-                    logger.Debug("Keeping existing OPEN chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
-                else
-                    logger.Debug("Updating existing chat callback (same instance) for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
-
-                return existingVal;
-            });
-            logger.Info("User {Username} added/updated in chat lobby {LobbyId}", username, lobbyId);
-
-
-            if (lobbyChatHistory.TryGetValue(lobbyId, out var history))
-            {
-                List<ChatMessageDto> historySnapshot;
-                lock (history)
-                {
-                    historySnapshot = history.ToList();
-                }
-                logger.Debug("Sending {Count} historical messages to User: {Username} for Lobby: {LobbyId}", historySnapshot.Count, username, lobbyId);
-
-                foreach (var msg in historySnapshot)
-                {
-                    try
-                    {
-                        var commObject = userCallback as ICommunicationObject;
-                        if (commObject != null && commObject.State == CommunicationState.Opened)
-                        {
-                            userCallback.receiveLobbyMessage(msg);
-                        }
-                        else
-                        {
-                            logger.Warn("[ChatLogic JOIN] Callback channel for {Username} not open while sending history. Aborting history send. State: {State}", username, commObject?.State);
-                            break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "[ChatLogic JOIN] Exception sending history message to {Username} for Lobby: {LobbyId}. Continuing...", username, lobbyId);
-                    }
-                }
-                logger.Debug("Finished sending history to User: {Username}", username);
-            }
-            else
-            {
-                logger.Debug("No chat history found for Lobby: {LobbyId} to send to User: {Username}", lobbyId, username);
-            }
-
-            await Task.CompletedTask;
+            registerUserCallback(username, lobbyId, userCallback); 
+            sendLobbyHistoryToUser(username, lobbyId, userCallback);
         }
 
         public void leaveLobbyChat(string username, string lobbyId)
         {
-            logger.Info("leaveLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+            logger.Info("LeaveLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
 
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(lobbyId))
             {
-                logger.Warn("leaveLobbyChat ignored: Username or LobbyId is null/whitespace.");
+                logger.Warn("LeaveLobbyChat ignored: Username or LobbyId is null/whitespace.");
                 return;
             }
 
-            if (lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
-            {
-                if (usersInLobby.TryRemove(username, out _))
-                {
-                    logger.Info("User {Username} successfully removed from chat lobby {LobbyId}", username, lobbyId);
-
-                    if (usersInLobby.IsEmpty)
-                    {
-                        logger.Info("Chat lobby {LobbyId} is now empty. Removing user list and history.", lobbyId);
-                        if (lobbyChatUsers.TryRemove(lobbyId, out _))
-                        {
-                            if (lobbyChatHistory.TryRemove(lobbyId, out _))
-                            {
-                                logger.Debug("Successfully removed history for empty lobby {LobbyId}", lobbyId);
-                            }
-                            else
-                            {
-                                logger.Warn("Could not remove history for empty lobby {LobbyId} (might have been removed already).", lobbyId);
-                            }
-                        }
-                        else
-                        {
-                            logger.Warn("Could not remove user list for empty lobby {LobbyId} (might have been removed already).", lobbyId);
-                        }
-                    }
-                }
-                else
-                {
-                    logger.Warn("[ChatLogic LEAVE] User '{Username}' was not found in lobby '{LobbyId}' during leave attempt.", username, lobbyId);
-                }
-            }
-            else
+            if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {
                 logger.Warn("[ChatLogic LEAVE] Lobby '{LobbyId}' not found during leave attempt for user '{Username}'.", lobbyId, username);
+                return;
+            }
+
+            if (!usersInLobby.TryRemove(username, out _))
+            {
+                logger.Warn("[ChatLogic LEAVE] User '{Username}' was not found in lobby '{LobbyId}' during leave attempt.", username, lobbyId);
+                return;
+            }
+
+            logger.Info("User {Username} successfully removed from chat lobby {LobbyId}", username, lobbyId);
+
+            if (usersInLobby.IsEmpty)
+            {
+                cleanUpEmptyLobby(lobbyId);
             }
         }
 
@@ -192,68 +117,163 @@ namespace MindWeaveServer.BusinessLogic
         {
             logger.Debug("Broadcasting message from {SenderUsername} to lobby {LobbyId}", messageDto.senderUsername, lobbyId);
 
-            if (lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
+            if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {
-                var currentUsersSnapshot = usersInLobby.ToList();
-                List<string> usersToRemove = new List<string>();
+                logger.Warn("[ChatLogic BROADCAST WARNING] Lobby '{LobbyId}' not found for broadcast (might have been cleaned up).", lobbyId);
+                return;
+            }
 
-                logger.Debug("Attempting to broadcast to {Count} users in lobby {LobbyId}", currentUsersSnapshot.Count, lobbyId);
+            var currentUsersSnapshot = usersInLobby.ToList();
+            logger.Debug("Attempting to broadcast to {Count} users in lobby {LobbyId}", currentUsersSnapshot.Count, lobbyId);
+            List<string> usersToRemove = sendMessagesToUsers(currentUsersSnapshot, messageDto, lobbyId);
 
-                foreach (var userEntry in currentUsersSnapshot)
+            if (usersToRemove.Any())
+            {
+                handleFailedBroadcastUsers(usersToRemove, usersInLobby, lobbyId);
+            }
+        }
+
+        private void registerUserCallback(string username, string lobbyId, IChatCallback userCallback)
+        {
+            var usersInLobby = lobbyChatUsers.GetOrAdd(lobbyId, id =>
+            {
+                logger.Debug("Creating new user list for lobby: {LobbyId}", id);
+                return new ConcurrentDictionary<string, IChatCallback>(StringComparer.OrdinalIgnoreCase);
+            });
+
+            usersInLobby.AddOrUpdate(username, userCallback, (key, existingVal) =>
+            {
+                var existingComm = existingVal as ICommunicationObject;
+
+                if (existingVal != userCallback && (existingComm == null || existingComm.State != CommunicationState.Opened))
                 {
-                    string recipientUsername = userEntry.Key;
-                    IChatCallback recipientCallback = userEntry.Value;
+                    logger.Warn("Replacing existing non-opened chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
+                    return userCallback;
+                }
 
+                if (existingVal != userCallback)
+                {
+                    logger.Debug("Keeping existing OPEN chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
+                }
+                else
+                {
+                    logger.Debug("Updating existing chat callback (same instance) for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
+                }
+
+                return existingVal;
+            });
+
+            logger.Info("User {Username} added/updated in chat lobby {LobbyId}", username, lobbyId);
+        }
+
+        private void sendLobbyHistoryToUser(string username, string lobbyId, IChatCallback userCallback)
+        {
+            if (lobbyChatHistory.TryGetValue(lobbyId, out var history))
+            {
+                List<ChatMessageDto> historySnapshot;
+                lock (history)
+                {
+                    historySnapshot = history.ToList();
+                }
+
+                logger.Debug("Sending {Count} historical messages to User: {Username} for Lobby: {LobbyId}", historySnapshot.Count, username, lobbyId);
+
+                foreach (var msg in historySnapshot)
+                {
                     try
                     {
-                        var commObject = recipientCallback as ICommunicationObject;
+                        var commObject = userCallback as ICommunicationObject;
                         if (commObject != null && commObject.State == CommunicationState.Opened)
                         {
-                            recipientCallback.receiveLobbyMessage(messageDto);
-                            logger.Debug("  -> Sent chat message to {RecipientUsername} in lobby {LobbyId}", recipientUsername, lobbyId);
+                            userCallback.receiveLobbyMessage(msg);
                         }
                         else
                         {
-                            logger.Warn("  -> FAILED sending chat message to {RecipientUsername} (Channel State: {State}). Marking for removal.", recipientUsername, commObject?.State);
-                            usersToRemove.Add(recipientUsername); 
+                            logger.Warn("[ChatLogic JOIN] Callback channel for {Username} not open while sending history. Aborting history send. State: {State}", username, commObject?.State);
+                            break;
                         }
                     }
                     catch (Exception ex)
                     {
-                        logger.Error(ex, "  -> EXCEPTION sending chat message to {RecipientUsername}. Marking for removal.", recipientUsername);
-                        usersToRemove.Add(recipientUsername);
+                        logger.Error(ex, "[ChatLogic JOIN] Exception sending history message to {Username} for Lobby: {LobbyId}. Continuing...", username, lobbyId);
                     }
                 }
-
-                if (usersToRemove.Any())
-                {
-                    logger.Warn("Found {Count} users with failed channels during broadcast in lobby {LobbyId}. Removing them...", usersToRemove.Count, lobbyId);
-                    foreach (var userToRemove in usersToRemove)
-                    {
-                        if (usersInLobby.TryRemove(userToRemove, out _))
-                        {
-                            logger.Info("[ChatLogic BROADCAST CLEANUP] Removed user {UserToRemove} from chat lobby {LobbyId} due to channel issue.", userToRemove, lobbyId);
-                        }
-                    }
-
-                    if (usersInLobby.IsEmpty)
-                    {
-                        logger.Info("Chat lobby {LobbyId} became empty after broadcast cleanup. Removing lobby resources.", lobbyId);
-                        if (lobbyChatUsers.TryRemove(lobbyId, out _))
-                        {
-                            if (lobbyChatHistory.TryRemove(lobbyId, out _))
-                            {
-                                logger.Debug("[ChatLogic CLEANUP] Lobby '{LobbyId}' chat resources released after broadcast cleanup (lobby empty).", lobbyId);
-                            }
-                            else { logger.Warn("Could not remove history for empty lobby {LobbyId} after broadcast cleanup.", lobbyId); }
-                        }
-                        else { logger.Warn("Could not remove user list for empty lobby {LobbyId} after broadcast cleanup.", lobbyId); }
-                    }
-                }
+                logger.Debug("Finished sending history to User: {Username}", username);
             }
             else
             {
-                logger.Warn("[ChatLogic BROADCAST WARNING] Lobby '{LobbyId}' not found for broadcast (might have been cleaned up).", lobbyId);
+                logger.Debug("No chat history found for Lobby: {LobbyId} to send to User: {Username}", lobbyId, username);
+            }
+        }
+
+        private void cleanUpEmptyLobby(string lobbyId)
+        {
+            logger.Info("Chat lobby {LobbyId} is now empty. Removing user list and history.", lobbyId);
+
+            if (!lobbyChatUsers.TryRemove(lobbyId, out _))
+            {
+                logger.Warn("Could not remove user list for empty lobby {LobbyId} (might have been removed already).", lobbyId);
+            }
+
+            if (lobbyChatHistory.TryRemove(lobbyId, out _))
+            {
+                logger.Debug("Successfully removed history for empty lobby {LobbyId}", lobbyId);
+            }
+            else
+            {
+                logger.Warn("Could not remove history for empty lobby {LobbyId} (might have been removed already).", lobbyId);
+            }
+        }
+
+        private List<string> sendMessagesToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto, string lobbyId)
+        {
+            var usersToRemove = new List<string>();
+
+            foreach (var userEntry in usersSnapshot)
+            {
+                string recipientUsername = userEntry.Key;
+                IChatCallback recipientCallback = userEntry.Value;
+
+                try
+                {
+                    var commObject = recipientCallback as ICommunicationObject;
+                    if (commObject != null && commObject.State == CommunicationState.Opened)
+                    {
+                        recipientCallback.receiveLobbyMessage(messageDto);
+                        logger.Debug("  -> Sent chat message to {RecipientUsername} in lobby {LobbyId}", recipientUsername, lobbyId);
+                    }
+                    else
+                    {
+                        logger.Warn("  -> FAILED sending chat message to {RecipientUsername} (Channel State: {State}). Marking for removal.", recipientUsername, commObject?.State);
+                        usersToRemove.Add(recipientUsername);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "  -> EXCEPTION sending chat message to {RecipientUsername}. Marking for removal.", recipientUsername);
+                    usersToRemove.Add(recipientUsername);
+                }
+            }
+
+            return usersToRemove;
+        }
+
+        private void handleFailedBroadcastUsers(List<string> usersToRemove, ConcurrentDictionary<string, IChatCallback> usersInLobby, string lobbyId)
+        {
+            logger.Warn("Found {Count} users with failed channels during broadcast in lobby {LobbyId}. Removing them...", usersToRemove.Count, lobbyId);
+
+            foreach (var userToRemove in usersToRemove)
+            {
+                if (usersInLobby.TryRemove(userToRemove, out _))
+                {
+                    logger.Info("[ChatLogic BROADCAST CLEANUP] Removed user {UserToRemove} from chat lobby {LobbyId} due to channel issue.", userToRemove, lobbyId);
+                }
+            }
+
+            if (usersInLobby.IsEmpty)
+            {
+                logger.Info("Chat lobby {LobbyId} became empty after broadcast cleanup. Removing lobby resources.", lobbyId);
+                cleanUpEmptyLobby(lobbyId);
             }
         }
     }

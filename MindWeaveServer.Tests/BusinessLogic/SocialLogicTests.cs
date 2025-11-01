@@ -35,7 +35,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(player2.username)).ReturnsAsync(player2);
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(player3.username)).ReturnsAsync(player3);
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(It.Is<string>(s => 
-                    s != player1.username && s != player2.username && s != player3.username))).ReturnsAsync((Player)null);
+                    s != player1.username && s != player2.username && s != player3.username))).Returns(Task.FromResult<Player?>(null));
         }
 
 
@@ -45,8 +45,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string requesterUsername = player1.username;
             string query = "User";
             var searchResultsFromRepo = new List<PlayerSearchResultDto> {
-                new PlayerSearchResultDto { username = player2.username, avatarPath = defaultAvatar },
-                new PlayerSearchResultDto { username = player3.username, avatarPath = player3.avatar_path }
+                new() { username = player2.username, avatarPath = defaultAvatar },
+                new() { username = player3.username, avatarPath = player3.avatar_path }
             };
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync(player1);
             mockPlayerRepository.Setup(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
@@ -66,13 +66,13 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string requesterUsername = "NonExistentUser";
             string query = "User";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).Returns(Task.FromResult<Player?>(null));
 
             var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
 
             Assert.NotNull(results);
             Assert.Empty(results);
-            mockPlayerRepository.Verify(r => r.searchPlayersAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never); // No busca si el requester no existe
+            mockPlayerRepository.Verify(r => r.searchPlayersAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never); 
         }
 
         [Fact]
@@ -96,7 +96,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string requesterUsername = player1.username;
             string targetUsername = player2.username;
 
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync((Friendships)null);
+            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).Returns(Task.FromResult<Friendships?>(null));
             mockFriendshipRepository.Setup(fr => fr.saveChangesAsync()).ReturnsAsync(1);
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
@@ -126,7 +126,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string requesterUsername = player1.username;
             string targetUsername = "NotFoundUser";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(targetUsername)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(targetUsername)).Returns(Task.FromResult<Player?>(null));
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
@@ -244,7 +244,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string responderUsername = player1.username;
             string requesterUsername = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).Returns(Task.FromResult<Player?>(null));
 
             var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, true);
 
@@ -259,8 +259,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string username = player1.username;
             var friendships = new List<Friendships>
             {
-                new Friendships { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player1, Player1 = player2 },
-                new Friendships { requester_id = player3.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player3, Player1 = player1 }
+                new() { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player1, Player1 = player2 },
+                new() { requester_id = player3.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player3, Player1 = player1 }
             };
             mockFriendshipRepository.Setup(fr => fr.getAcceptedFriendshipsAsync(player1.idPlayer)).ReturnsAsync(friendships);
             var connectedUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { player1.username, player3.username };
@@ -298,7 +298,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task GetFriendsListAsync_WhenPlayerNotFound_ShouldReturnEmptyList()
         {
             string username = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(username)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(username)).Returns(Task.FromResult<Player?>(null));
 
             var result = await socialLogic.getFriendsListAsync(username, new HashSet<string>());
 
@@ -313,10 +313,10 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string username = player1.username;
             var friendships = new List<Friendships> {
-                 new Friendships { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player1, Player1 = player2 }
+                 new() { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player1, Player1 = player2 }
             };
             mockFriendshipRepository.Setup(fr => fr.getAcceptedFriendshipsAsync(player1.idPlayer)).ReturnsAsync(friendships);
-            ICollection<string> connectedUsers = null;
+            ICollection<string>? connectedUsers = null;
 
             var result = await socialLogic.getFriendsListAsync(username, connectedUsers);
 
@@ -333,8 +333,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string username = player1.username;
             var requests = new List<Friendships>
             {
-                 new Friendships { requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING, request_date = DateTime.UtcNow.AddHours(-1), Player1 = player2 },
-                 new Friendships { requester_id = player3.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING, request_date = DateTime.UtcNow.AddMinutes(-30), Player1 = player3 }
+                 new() { requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING, request_date = DateTime.UtcNow.AddHours(-1), Player1 = player2 },
+                 new() { requester_id = player3.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING, request_date = DateTime.UtcNow.AddMinutes(-30), Player1 = player3 }
             };
             mockFriendshipRepository.Setup(fr => fr.getPendingFriendRequestsAsync(player1.idPlayer)).ReturnsAsync(requests);
             var result = await socialLogic.getFriendRequestsAsync(username);
@@ -354,7 +354,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task GetFriendRequestsAsync_WithNoPendingRequests_ShouldReturnEmptyList()
         {
             string username = player1.username;
-            mockFriendshipRepository.Setup(fr => fr.getPendingFriendRequestsAsync(player1.idPlayer)).ReturnsAsync(new List<Friendships>()); // Lista vacía
+            mockFriendshipRepository.Setup(fr => fr.getPendingFriendRequestsAsync(player1.idPlayer)).ReturnsAsync(new List<Friendships>());
 
             var result = await socialLogic.getFriendRequestsAsync(username);
 
@@ -366,7 +366,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task GetFriendRequestsAsync_WhenPlayerNotFound_ShouldReturnEmptyList()
         {
             string username = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(username)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(username)).Returns(Task.FromResult<Player?>(null));
 
             var result = await socialLogic.getFriendRequestsAsync(username);
 
@@ -375,8 +375,6 @@ namespace MindWeaveServer.Tests.BusinessLogic
             mockFriendshipRepository.Verify(fr => fr.getPendingFriendRequestsAsync(It.IsAny<int>()), Times.Never);
         }
 
-
-        // --- Pruebas para removeFriendAsync ---
 
         [Fact]
         public async Task RemoveFriendAsync_WithExistingFriendship_ShouldReturnSuccessAndRemoveFriendship()
@@ -400,7 +398,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string username = player1.username;
             string friendToRemove = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(friendToRemove)).ReturnsAsync((Player)null);
+            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(friendToRemove)).Returns(Task.FromResult<Player?>(null));
 
             var result = await socialLogic.removeFriendAsync(username, friendToRemove);
 
@@ -414,7 +412,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             string username = player1.username;
             string friendToRemove = player2.username;
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync((Friendships)null);
+            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).Returns(Task.FromResult<Friendships?>(null));
 
             var result = await socialLogic.removeFriendAsync(username, friendToRemove);
 

@@ -180,6 +180,12 @@
   <data name="ErrorCannotSelfFriend" xml:space="preserve">
     <value>No puedes enviarte una solicitud de amistad a ti mismo.</value>
   </data>
+  <data name="ErrorCommunicationChannelFailed" xml:space="preserve">
+    <value>Error al establecer el canal de comunicación.</value>
+  </data>
+  <data name="ErrorCurrentPasswordIncorrect" xml:space="preserve">
+    <value>La contraseña actual es incorrecta.</value>
+  </data>
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>No eres amigo de este jugador.</value>
   </data>
@@ -209,6 +215,15 @@
   </data>
   <data name="ErrorSendingGuestInvitation" xml:space="preserve">
     <value>No se pudo enviar la invitación de invitado. Inténtalo de nuevo.</value>
+  </data>
+  <data name="ErrorServiceConnectionClosing" xml:space="preserve">
+    <value>La conexión con el servicio se está cerrando.</value>
+  </data>
+  <data name="ErrorServiceInitializationFailed" xml:space="preserve">
+    <value>Error al inicializar el servicio.</value>
+  </data>
+  <data name="ErrorSessionMismatch" xml:space="preserve">
+    <value>La sesión no coincide.</value>
   </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>El Usuario no esta en línea</value>
@@ -336,6 +351,9 @@
   <data name="ValidationEmailRequired" xml:space="preserve">
     <value>El correo electrónico es obligatorio.</value>
   </data>
+  <data name="ValidationErrorDifficultyInvalid" xml:space="preserve">
+    <value>Dificultad seleccionada no válida</value>
+  </data>
   <data name="ValidationFirstNameLength" xml:space="preserve">
     <value>El nombre no puede exceder los 45 caracteres.</value>
   </data>
@@ -344,6 +362,9 @@
   </data>
   <data name="ValidationLastNameLength" xml:space="preserve">
     <value>El apellido no puede exceder los 45 caracteres.</value>
+  </data>
+  <data name="ValidationLastNameRequired" xml:space="preserve">
+    <value>Los apellidos son requeridos.</value>
   </data>
   <data name="ValidationNoLeadingOrTrailingWhitespace" xml:space="preserve">
     <value>El campo no puede comenzar ni terminar con espacios.</value>

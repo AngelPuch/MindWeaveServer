@@ -8,6 +8,7 @@ using System;
 using System.Collections.Concurrent;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.Resources;
 using NLog;
 
 namespace MindWeaveServer.Services
@@ -63,9 +64,9 @@ namespace MindWeaveServer.Services
             logger.Info("createLobby attempt by user: {Username}", hostUsername ?? "NULL");
             if (!ensureSessionIsRegistered(hostUsername))
             {
-                logger.Warn("createLobby failed for {Username}: Session could not be registered.", hostUsername ?? "NULL");
+                logger.Warn("createLobby failed for {Username}: Session could not be registered.", hostUsername);
                 return new LobbyCreationResultDto
-                { success = false, message = "Failed to establish communication channel." }; // TODO: Lang
+                { success = false, message = Lang.ErrorCommunicationChannelFailed };
             }
 
             try
@@ -96,7 +97,7 @@ namespace MindWeaveServer.Services
                 logger.Warn("joinLobby failed for {Username}: Session could not be registered.", username ?? "NULL");
                 try
                 {
-                    currentUserCallback?.lobbyCreationFailed("Failed to establish communication channel."); // TODO: Lang
+                    currentUserCallback?.lobbyCreationFailed(Lang.ErrorCommunicationChannelFailed);
                 }
                 catch (Exception cbEx)
                 {
@@ -268,14 +269,14 @@ namespace MindWeaveServer.Services
             if (matchmakingLogic == null)
             {
                 logger.Error("joinLobbyAsGuest failed: Service initialization failed.");
-                return new GuestJoinResultDto { success = false, message = "Service initialization failed." }; // TODO: Lang
+                return new GuestJoinResultDto { success = false, message = Lang.ErrorServiceInitializationFailed };
             }
 
             if (isDisconnected)
             {
                 logger.Warn("joinLobbyAsGuest rejected for code {LobbyCode}: Service instance is marked as disconnected.", codeForContext);
                 return new GuestJoinResultDto
-                { success = false, message = "Service connection closing." }; // TODO: Lang key
+                { success = false, message = Lang.ErrorServiceConnectionClosing };
             }
 
             IMatchmakingCallback guestCallback = null;
@@ -321,7 +322,7 @@ namespace MindWeaveServer.Services
 
         private async void channel_FaultedOrClosed(object sender, EventArgs e)
         {
-            logger.Warn("WCF channel Faulted or Closed for user: {Username}. Initiating disconnect.", currentUsername ?? "UNKNOWN");
+            logger.Warn("WCF channel Faulted or Closed for user: {Username}. Initiating disconnect.", currentUsername);
             await handleDisconnect();
         }
 
@@ -412,7 +413,7 @@ namespace MindWeaveServer.Services
 
             string userToDisconnect = currentUsername;
 
-            logger.Warn("Disconnect triggered for session. User: {Username}", userToDisconnect ?? "UNKNOWN");
+            logger.Warn("Disconnect triggered for session. User: {Username}", userToDisconnect);
 
             if (OperationContext.Current?.Channel != null)
             {
@@ -455,11 +456,11 @@ namespace MindWeaveServer.Services
                 commObject.Faulted += channel_FaultedOrClosed;
                 commObject.Closed += channel_FaultedOrClosed;
 
-                logger.Debug("Event handlers (Faulted/Closed) attached for user: {Username} callback. Channel State: {State}", currentUsername ?? "UNKNOWN", commObject.State);
+                logger.Debug("Event handlers (Faulted/Closed) attached for user: {Username} callback. Channel State: {State}", currentUsername);
             }
             else
             {
-                logger.Warn("Attempted to setup callback events, but communication object was null for user: {Username}.", currentUsername ?? "UNKNOWN");
+                logger.Warn("Attempted to setup callback events, but communication object was null for user: {Username}.", currentUsername);
             }
         }
     }

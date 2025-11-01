@@ -250,6 +250,24 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Error al establecer el canal de comunicación..
+        /// </summary>
+        public static string ErrorCommunicationChannelFailed {
+            get {
+                return ResourceManager.GetString("ErrorCommunicationChannelFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La contraseña actual es incorrecta..
+        /// </summary>
+        public static string ErrorCurrentPasswordIncorrect {
+            get {
+                return ResourceManager.GetString("ErrorCurrentPasswordIncorrect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a No eres amigo de este jugador..
         /// </summary>
         public static string ErrorFriendshipNotFound {
@@ -336,6 +354,33 @@ namespace MindWeaveServer.Resources {
         public static string ErrorSendingGuestInvitation {
             get {
                 return ResourceManager.GetString("ErrorSendingGuestInvitation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La conexión con el servicio se está cerrando..
+        /// </summary>
+        public static string ErrorServiceConnectionClosing {
+            get {
+                return ResourceManager.GetString("ErrorServiceConnectionClosing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Error al inicializar el servicio..
+        /// </summary>
+        public static string ErrorServiceInitializationFailed {
+            get {
+                return ResourceManager.GetString("ErrorServiceInitializationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a La sesión no coincide..
+        /// </summary>
+        public static string ErrorSessionMismatch {
+            get {
+                return ResourceManager.GetString("ErrorSessionMismatch", resourceCulture);
             }
         }
         
@@ -718,6 +763,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Dificultad seleccionada no válida.
+        /// </summary>
+        public static string ValidationErrorDifficultyInvalid {
+            get {
+                return ResourceManager.GetString("ValidationErrorDifficultyInvalid", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a El nombre no puede exceder los 45 caracteres..
         /// </summary>
         public static string ValidationFirstNameLength {
@@ -741,6 +795,15 @@ namespace MindWeaveServer.Resources {
         public static string ValidationLastNameLength {
             get {
                 return ResourceManager.GetString("ValidationLastNameLength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Los apellidos son requeridos..
+        /// </summary>
+        public static string ValidationLastNameRequired {
+            get {
+                return ResourceManager.GetString("ValidationLastNameRequired", resourceCulture);
             }
         }
         

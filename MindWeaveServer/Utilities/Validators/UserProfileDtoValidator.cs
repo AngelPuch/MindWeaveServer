@@ -35,18 +35,18 @@ namespace MindWeaveServer.Utilities.Validators
                 .Must(beARealisticAge).WithMessage(Lang.ValidationDateOfBirthRealistic);
         }
 
-        private bool notHaveLeadingOrTrailingWhitespace(string value)
+        private static bool notHaveLeadingOrTrailingWhitespace(string value)
         {
             if (string.IsNullOrEmpty(value)) return true;
             return value.Trim() == value;
         }
 
-        private bool beAValidAge(DateTime dateOfBirth)
+        private static bool beAValidAge(DateTime dateOfBirth)
         {
             return dateOfBirth.Date <= DateTime.Now.Date.AddYears(-13);
         }
 
-        private bool beARealisticAge(DateTime dateOfBirth)
+        private static bool beARealisticAge(DateTime dateOfBirth)
         {
             return dateOfBirth.Year > (DateTime.Now.Year - 100);
         }
