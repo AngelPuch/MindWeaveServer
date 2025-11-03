@@ -89,7 +89,7 @@ namespace MindWeaveServer.Services
             }
         }
 
-        public async Task joinLobby(string username, string lobbyId)
+        public void joinLobby(string username, string lobbyId)
         {
             logger.Info("joinLobby attempt by user: {Username} for lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(username))
@@ -106,28 +106,31 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.joinLobbyAsync(username, lobbyId, currentUserCallback);
-                logger.Info("joinLobby logic executed for {Username} and lobby {LobbyId}. Logic will handle callbacks.", username, lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in joinLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
                 try
                 {
-                    currentUserCallback?.lobbyCreationFailed(Resources.Lang.GenericServerError);
+                    await matchmakingLogic.joinLobbyAsync(username, lobbyId, currentUserCallback);
+                    logger.Info("JoinLobby logic executed for {Username} and lobby {LobbyId}. Logic will handle callbacks.", username, lobbyId);
                 }
-                catch (Exception cbEx)
+                catch (Exception ex)
                 {
-                    logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback after error in joinLobby for {Username}", username ?? "NULL");
-                }
+                    logger.Error(ex, "Service Exception in JoinLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+                    try
+                    {
+                        currentUserCallback?.lobbyCreationFailed(Resources.Lang.GenericServerError);
+                    }
+                    catch (Exception cbEx)
+                    {
+                        logger.Warn(cbEx, "Exception sending LobbyCreationFailed callback after error in JoinLobby for {Username}", username ?? "NULL");
+                    }
 
-                await handleDisconnect();
-            }
+                    await handleDisconnect();
+                }
+            });
         }
 
-        public async Task leaveLobby(string username, string lobbyId)
+        public void leaveLobby(string username, string lobbyId)
         {
             logger.Info("leaveLobby attempt by user: {Username} from lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(username))
@@ -136,18 +139,21 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.leaveLobbyAsync(username, lobbyId);
-                logger.Info("leaveLobby logic executed for {Username} from lobby {LobbyId}.", username, lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in leaveLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
-            }
+                try
+                {
+                    await matchmakingLogic.leaveLobbyAsync(username, lobbyId);
+                    logger.Info("LeaveLobby logic executed for {Username} from lobby {LobbyId}.", username, lobbyId);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Service Exception in LeaveLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+                }
+            });
         }
 
-        public async Task startGame(string hostUsername, string lobbyId)
+        public void startGame(string hostUsername, string lobbyId)
         {
             logger.Info("startGame attempt by host: {Username} for lobby: {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(hostUsername))
@@ -156,18 +162,21 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.startGameAsync(hostUsername, lobbyId);
-                logger.Info("startGame logic executed for {Username} and lobby {LobbyId}.", hostUsername, lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in startGame by {Username}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
-            }
+                try
+                {
+                    await matchmakingLogic.startGameAsync(hostUsername, lobbyId);
+                    logger.Info("StartGame logic executed for {Username} and lobby {LobbyId}.", hostUsername, lobbyId);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Service Exception in StartGame by {Username}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
+                }
+            });
         }
 
-        public async Task kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId)
+        public void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId)
         {
             logger.Info("kickPlayer attempt by host: {HostUsername} to kick {PlayerToKick} from lobby: {LobbyId}", hostUsername ?? "NULL", playerToKickUsername ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(hostUsername))
@@ -176,18 +185,21 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.kickPlayerAsync(hostUsername, playerToKickUsername, lobbyId);
-                logger.Info("kickPlayer logic executed by {HostUsername} for {PlayerToKick}, lobby {LobbyId}.", hostUsername, playerToKickUsername, lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in kickPlayer by {HostUsername}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
-            }
+                try
+                {
+                    await matchmakingLogic.kickPlayerAsync(hostUsername, playerToKickUsername, lobbyId);
+                    logger.Info("KickPlayer logic executed by {HostUsername} for {PlayerToKick}, lobby {LobbyId}.", hostUsername, playerToKickUsername, lobbyId);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Service Exception in KickPlayer by {HostUsername}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
+                }
+            });
         }
 
-        public async Task inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId)
+        public void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId)
         {
             logger.Info("inviteToLobby attempt by: {InviterUsername} to {InvitedUsername} for lobby: {LobbyId}", inviterUsername ?? "NULL", invitedUsername ?? "NULL", lobbyId ?? "NULL");
             if (!ensureSessionIsRegistered(inviterUsername))
@@ -196,18 +208,21 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.inviteToLobbyAsync(inviterUsername, invitedUsername, lobbyId);
-                logger.Info("inviteToLobby logic executed by {InviterUsername} to {InvitedUsername}, lobby {LobbyId}.", inviterUsername, invitedUsername, lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in inviteToLobby from {InviterUsername}, lobby {LobbyId}", inviterUsername ?? "NULL", lobbyId ?? "NULL");
-            }
+                try
+                {
+                    await matchmakingLogic.inviteToLobbyAsync(inviterUsername, invitedUsername, lobbyId);
+                    logger.Info("InviteToLobby logic executed by {InviterUsername} to {InvitedUsername}, lobby {LobbyId}.", inviterUsername, invitedUsername, lobbyId);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Service Exception in InviteToLobby from {InviterUsername}, lobby {LobbyId}", inviterUsername ?? "NULL", lobbyId ?? "NULL");
+                }
+            });
         }
 
-        public async Task changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
+        public void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
         {
             logger.Info("changeDifficulty attempt by host: {Username} for lobby: {LobbyId}, new difficulty: {DifficultyId}", hostUsername ?? "NULL", lobbyId ?? "NULL", newDifficultyId);
             if (!ensureSessionIsRegistered(hostUsername))
@@ -216,19 +231,22 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.changeDifficultyAsync(hostUsername, lobbyId, newDifficultyId);
-                logger.Info("changeDifficulty logic executed for lobby {LobbyId}.", lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in changeDifficulty by {Username}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
-            }
+                try
+                {
+                    await matchmakingLogic.changeDifficultyAsync(hostUsername, lobbyId, newDifficultyId);
+                    logger.Info("ChangeDifficulty logic executed for lobby {LobbyId}.", lobbyId);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Service Exception in ChangeDifficulty by {Username}, lobby {LobbyId}", hostUsername ?? "NULL", lobbyId ?? "NULL");
+                }
+            });
         }
 
 
-        public async Task inviteGuestByEmail(GuestInvitationDto invitationData)
+        public void inviteGuestByEmail(GuestInvitationDto invitationData)
         {
             if (matchmakingLogic == null)
             {
@@ -250,15 +268,18 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                await matchmakingLogic.inviteGuestByEmailAsync(invitationData);
-                logger.Info("inviteGuestByEmail logic executed for {GuestEmail}, lobby {LobbyId}.", invitationData.guestEmail, invitationData.lobbyCode);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Service Exception in inviteGuestByEmail from {InviterUsername} for {GuestEmail}, lobby {LobbyId}", inviter, invitationData.guestEmail ?? "NULL", invitationData.lobbyCode ?? "NULL");
-            }
+                try
+                {
+                    await matchmakingLogic.inviteGuestByEmailAsync(invitationData);
+                    logger.Info("InviteGuestByEmail logic executed for {GuestEmail}, lobby {LobbyId}.", invitationData.guestEmail, invitationData.lobbyCode);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Service Exception in InviteGuestByEmail from {InviterUsername} for {GuestEmail}, lobby {LobbyId}", inviter, invitationData.guestEmail ?? "NULL", invitationData.lobbyCode ?? "NULL");
+                }
+            });
         }
 
         public async Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest)

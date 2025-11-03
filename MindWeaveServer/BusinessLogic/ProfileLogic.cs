@@ -303,7 +303,7 @@ namespace MindWeaveServer.BusinessLogic
                 availableGenders = allGendersDto 
             };
         }
-        private void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
+        private static void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
         {
           
             player.first_name = updatedProfileData.firstName.Trim();

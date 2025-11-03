@@ -62,86 +62,107 @@ namespace MindWeaveServer.Services
             return connectedUsers.Keys.ToList();
         }
 
-        public async Task connect(string username)
+        public void connect(string username)
         {
-            string userForContext = username ?? "NULL";
-            logger.Info("Connect attempt started for user: {Username}", userForContext);
-
-            if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
+            Task.Run(async () =>
             {
-                logger.Warn("Connect failed: Username is empty or OperationContext is null. User: {Username}", userForContext);
-                return;
-            }
+                string userForContext = username ?? "NULL";
+                logger.Info("Connect attempt started for user: {Username}", userForContext);
 
-            ISocialCallback callbackChannel;
-            try
-            {
-                callbackChannel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
-                if (callbackChannel == null)
+                if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
                 {
-                    logger.Error("Connect failed: GetCallbackChannel returned null for user: {Username}", userForContext);
+                    logger.Warn("Connect failed: Username is empty or OperationContext is null. User: {Username}",
+                        userForContext);
                     return;
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Connect failed: Exception getting callback channel for user: {Username}", userForContext);
-                return;
-            }
 
-            currentUserCallback = callbackChannel;
-            currentUsername = username;
-
-            logger.Debug("Attempting to add or update user in ConnectedUsers dictionary: {Username}", userForContext);
-
-            ISocialCallback addedOrUpdatedCallback = connectedUsers.AddOrUpdate(
-                currentUsername,
-                currentUserCallback,
-                (key, existingCallback) =>
+                ISocialCallback callbackChannel;
+                try
                 {
-                    var existingComm = existingCallback as ICommunicationObject;
-                    if (existingCallback != currentUserCallback && (existingComm == null || existingComm.State != CommunicationState.Opened))
+                    callbackChannel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
+                    if (callbackChannel == null)
                     {
-                        logger.Warn("Replacing existing non-opened callback channel for user: {Username}", key);
-                        if (existingComm != null) cleanupCallbackEvents(existingComm);
-                        return currentUserCallback;
+                        logger.Error("Connect failed: GetCallbackChannel returned null for user: {Username}",
+                            userForContext);
+                        return;
                     }
-                    logger.Debug("Keeping existing callback channel for user: {Username} (State: {State})", key, existingComm?.State);
-                    if (existingCallback != currentUserCallback)
-                    {
-                        logger.Debug("Discarding newly obtained callback channel for {Username} as a valid one already exists.", key);
-                        currentUserCallback = existingCallback;
-                    }
-                    return existingCallback;
-                });
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Connect failed: Exception getting callback channel for user: {Username}",
+                        userForContext);
+                    return;
+                }
 
-            if (addedOrUpdatedCallback == currentUserCallback)
-            {
-                logger.Info("User connected and callback registered/updated: {Username}", userForContext);
-                setupCallbackEvents(currentUserCallback as ICommunicationObject);
-                await notifyFriendsStatusChange(currentUsername, true);
-            }
-            else
-            {
-                logger.Warn("User {Username} attempted to connect, but an existing active session was found. The new connection might replace the old one implicitly by WCF session management, or might coexist depending on configuration.", userForContext);
-                currentUserCallback = addedOrUpdatedCallback;
+                currentUserCallback = callbackChannel;
                 currentUsername = username;
-                setupCallbackEvents(currentUserCallback as ICommunicationObject);
-            }
+
+                logger.Debug("Attempting to add or update user in ConnectedUsers dictionary: {Username}",
+                    userForContext);
+
+                ISocialCallback addedOrUpdatedCallback = connectedUsers.AddOrUpdate(
+                    currentUsername,
+                    currentUserCallback,
+                    (key, existingCallback) =>
+                    {
+                        var existingComm = existingCallback as ICommunicationObject;
+                        if (existingCallback != currentUserCallback &&
+                            (existingComm == null || existingComm.State != CommunicationState.Opened))
+                        {
+                            logger.Warn("Replacing existing non-opened callback channel for user: {Username}", key);
+                            if (existingComm != null) cleanupCallbackEvents(existingComm);
+                            return currentUserCallback;
+                        }
+
+                        logger.Debug("Keeping existing callback channel for user: {Username} (State: {State})", key,
+                            existingComm?.State);
+                        if (existingCallback != currentUserCallback)
+                        {
+                            logger.Debug(
+                                "Discarding newly obtained callback channel for {Username} as a valid one already exists.",
+                                key);
+                            currentUserCallback = existingCallback;
+                        }
+
+                        return existingCallback;
+                    });
+
+                if (addedOrUpdatedCallback == currentUserCallback)
+                {
+                    logger.Info("User connected and callback registered/updated: {Username}", userForContext);
+                    setupCallbackEvents(currentUserCallback as ICommunicationObject);
+                    await notifyFriendsStatusChange(currentUsername, true);
+                }
+                else
+                {
+                    logger.Warn(
+                        "User {Username} attempted to connect, but an existing active session was found. The new connection might replace the old one implicitly by WCF session management, or might coexist depending on configuration.",
+                        userForContext);
+                    currentUserCallback = addedOrUpdatedCallback;
+                    currentUsername = username;
+                    setupCallbackEvents(currentUserCallback as ICommunicationObject);
+                }
+            });
         }
 
-        public async Task disconnect(string username)
+        public void disconnect(string username)
         {
-            string userForContext = username ?? "NULL";
-            if (!string.IsNullOrEmpty(currentUsername) && currentUsername.Equals(userForContext, StringComparison.OrdinalIgnoreCase))
+            Task.Run(async () =>
             {
-                logger.Info("Disconnect requested by user: {Username}", userForContext);
-                await cleanupAndNotifyDisconnect(currentUsername);
-            }
-            else
-            {
-                logger.Warn("Disconnect called with username '{Username}' which does not match the current session user '{CurrentUsername}' or session is already cleaned up.", userForContext, currentUsername ?? "N/A");
-            }
+                string userForContext = username ?? "NULL";
+                if (!string.IsNullOrEmpty(currentUsername) &&
+                    currentUsername.Equals(userForContext, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.Info("Disconnect requested by user: {Username}", userForContext);
+                    await cleanupAndNotifyDisconnect(currentUsername);
+                }
+                else
+                {
+                    logger.Warn(
+                        "Disconnect called with username '{Username}' which does not match the current session user '{CurrentUsername}' or session is already cleaned up.",
+                        userForContext, currentUsername ?? "N/A");
+                }
+            });
         }
 
         public async Task<List<PlayerSearchResultDto>> searchPlayers(string requesterUsername, string query)

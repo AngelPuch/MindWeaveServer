@@ -35,19 +35,19 @@ namespace MindWeaveServer.Services
             logger.Info("ChatManagerService instance created (PerSession).");
         }
 
-        public Task joinLobbyChat(string username, string lobbyId)
+        public void joinLobbyChat(string username, string lobbyId)
         {
             logger.Info("joinLobbyChat attempt by user: {Username} for lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             if (isDisconnected)
             {
                 logger.Warn("joinLobbyChat ignored: Session is marked as disconnected. User: {Username}", username ?? "NULL");
-                return Task.CompletedTask;
+                return;
             }
 
             if (!registerSessionDetails(username, lobbyId))
             {
                 logger.Warn("joinLobbyChat failed: Session could not be registered. User: {Username}", username ?? "NULL");
-                return Task.CompletedTask;
+                return;
             }
 
             try
@@ -60,11 +60,9 @@ namespace MindWeaveServer.Services
                 logger.Error(ex, "Exception in joinLobbyChat for {Username}, lobby {LobbyId}. Triggering disconnect.", currentUsername ?? "NULL", currentLobbyId ?? "NULL");
                 Task.Run(() => handleDisconnect());
             }
-
-            return Task.CompletedTask;
         }
 
-        public Task leaveLobbyChat(string username, string lobbyId)
+        public void leaveLobbyChat(string username, string lobbyId)
         {
             logger.Info("leaveLobbyChat attempt by user: {Username} from lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
             if (string.IsNullOrEmpty(currentUsername) ||
@@ -72,13 +70,13 @@ namespace MindWeaveServer.Services
                 !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
             {
                 logger.Warn("leaveLobbyChat ignored: Session validation failed or mismatch. Request: User={Username}, Lobby={LobbyId}. Session: User={CurrentUsername}, Lobby={CurrentLobbyId}", username, lobbyId, currentUsername, currentLobbyId);
-                return Task.CompletedTask;
+                return;
             }
 
             if (isDisconnected)
             {
                 logger.Warn("leaveLobbyChat ignored: Session is marked as disconnected. User: {Username}", username ?? "NULL");
-                return Task.CompletedTask;
+                return;
             }
 
             try
@@ -90,11 +88,9 @@ namespace MindWeaveServer.Services
             {
                 logger.Error(ex, "[ChatService LEAVE EXCEPTION] User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
             }
-
-            return Task.CompletedTask;
         }
 
-        public Task sendLobbyMessage(string senderUsername, string lobbyId, string messageContent)
+        public void sendLobbyMessage(string senderUsername, string lobbyId, string messageContent)
         {
             logger.Info("sendLobbyMessage attempt by user: {Username} in lobby: {LobbyId}", senderUsername ?? "NULL", lobbyId ?? "NULL");
 
@@ -105,7 +101,7 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("ChatService SEND Denied due to invalid state or mismatch. Request: Sender={SenderUsername}, Lobby={LobbyId}. Session: User={CurrentUsername}, Lobby={CurrentLobbyId}, Disconnected={IsDisconnected}, CallbackNull={CallbackNull}.",
                     senderUsername, lobbyId, currentUsername, currentLobbyId, isDisconnected, currentUserCallback == null);
-                return Task.CompletedTask;
+                return;
             }
 
             try
@@ -117,8 +113,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Error(ex, "[ChatService SEND EXCEPTION] Sender: {SenderUsername}, Lobby: {LobbyId}.", senderUsername, lobbyId);
             }
-
-            return Task.CompletedTask;
         }
 
 

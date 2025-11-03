@@ -10,10 +10,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface ISocialManager
     {
         [OperationContract(IsOneWay = true)] 
-        Task connect(string username);
+        void connect(string username);
 
         [OperationContract(IsOneWay = true)] 
-        Task disconnect(string username);
+        void disconnect(string username);
 
         [OperationContract]
         Task<List<PlayerSearchResultDto>> searchPlayers(string requesterUsername, string query);

@@ -1,5 +1,4 @@
 ﻿using System.ServiceModel;
-using System.Threading.Tasks;
 using MindWeaveServer.Contracts.DataContracts.Chat; 
 
 namespace MindWeaveServer.Contracts.ServiceContracts
@@ -8,13 +7,13 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IChatManager
     {
         [OperationContract(IsOneWay = true)]
-        Task joinLobbyChat(string username, string lobbyId);
+        void joinLobbyChat(string username, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        Task leaveLobbyChat(string username, string lobbyId);
+        void leaveLobbyChat(string username, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        Task sendLobbyMessage(string senderUsername, string lobbyId, string messageContent);
+        void sendLobbyMessage(string senderUsername, string lobbyId, string messageContent);
 
     }
 

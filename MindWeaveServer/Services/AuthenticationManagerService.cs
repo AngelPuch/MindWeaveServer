@@ -199,11 +199,10 @@ namespace MindWeaveServer.Services
             }
         }
 
-        public Task logOut(string username)
+        public void logOut(string username)
         {
             string userForContext = username ?? "NULL";
             logger.Info("Logout requested for user: {Username}", userForContext);
-            return Task.CompletedTask;
         }
 
 

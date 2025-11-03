@@ -12,25 +12,25 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto);
 
         [OperationContract(IsOneWay = true)]
-        Task inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId);
+        void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        Task joinLobby(string username, string lobbyId);
+        void joinLobby(string username, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        Task leaveLobby(string username, string lobbyId);
+        void leaveLobby(string username, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        Task startGame(string hostUsername, string lobbyId);
+        void startGame(string hostUsername, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
-        Task kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId);
+        void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId);
 
         [OperationContract(IsOneWay = true)] 
-        Task changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId);
+        void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId);
 
         [OperationContract(IsOneWay = true)]
-        Task inviteGuestByEmail(GuestInvitationDto invitationData);
+        void inviteGuestByEmail(GuestInvitationDto invitationData);
 
         [OperationContract]
         Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest);

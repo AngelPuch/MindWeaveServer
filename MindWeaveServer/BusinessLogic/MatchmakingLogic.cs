@@ -479,7 +479,7 @@ namespace MindWeaveServer.BusinessLogic
 
             try
             {
-                var (isValid, match, invitation, lobbyState, errorResult) = await validateGuestJoinPrerequisitesAsync(lobbyCode, guestEmailLower);
+                var (isValid, _, invitation, lobbyState, errorResult) = await validateGuestJoinPrerequisitesAsync(lobbyCode, guestEmailLower);
                 if (!isValid)
                 {
                     return errorResult;
@@ -767,7 +767,7 @@ namespace MindWeaveServer.BusinessLogic
             else { logger.Debug("Participant PlayerID: {PlayerId} already exists for MatchID: {MatchId}. No action needed.", player.idPlayer, match.matches_id); }
         }
 
-        private (bool didHostLeave, bool isLobbyClosed, List<string> remainingPlayers) tryRemovePlayerFromMemory(LobbyStateDto lobbyState, string username)
+        private static (bool didHostLeave, bool isLobbyClosed, List<string> remainingPlayers) tryRemovePlayerFromMemory(LobbyStateDto lobbyState, string username)
         {
             bool didHostLeave; bool isLobbyClosed; List<string> remainingPlayers; bool removed;
             lock (lobbyState)
@@ -918,7 +918,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private bool tryKickPlayerFromMemory(LobbyStateDto lobbyState, string hostUsername, string playerToKickUsername)
+        private static bool tryKickPlayerFromMemory(LobbyStateDto lobbyState, string hostUsername, string playerToKickUsername)
         {
             lock (lobbyState)
             {
@@ -1213,7 +1213,7 @@ namespace MindWeaveServer.BusinessLogic
             return finalUsername;
         }
 
-        private string generateSuffixedGuestUsername(string baseUsername, int counter)
+        private static string generateSuffixedGuestUsername(string baseUsername, int counter)
         {
             string counterStr = counter.ToString();
             int availableLength = MAX_GUEST_USERNAME_LENGTH - counterStr.Length;
