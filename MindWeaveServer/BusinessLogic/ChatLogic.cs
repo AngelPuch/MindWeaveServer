@@ -232,7 +232,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private List<string> sendMessagesToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto, string lobbyId)
+        private static List<string> sendMessagesToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto, string lobbyId)
         {
             var usersToRemove = new List<string>();
 

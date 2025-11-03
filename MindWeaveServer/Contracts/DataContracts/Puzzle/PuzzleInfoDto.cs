@@ -1,6 +1,6 @@
 ﻿using System.Runtime.Serialization;
 
-namespace MindWeaveServer.Contracts.DataContracts 
+namespace MindWeaveServer.Contracts.DataContracts.Puzzle 
 {
     [DataContract]
     public class PuzzleInfoDto

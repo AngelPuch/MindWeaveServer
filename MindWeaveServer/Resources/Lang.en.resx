@@ -210,6 +210,15 @@
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Player not found</value>
   </data>
+  <data name="ErrorPuzzleUploadFailed" xml:space="preserve">
+    <value>Server error during upload.</value>
+  </data>
+  <data name="ErrorPuzzleUploadInvalidData" xml:space="preserve">
+    <value>Invalid data provided for upload.</value>
+  </data>
+  <data name="ErrorPuzzleUploadPlayerNotFound" xml:space="preserve">
+    <value>Uploading player not found.</value>
+  </data>
   <data name="ErrorSavingDifficultyChange" xml:space="preserve">
     <value>Error saving difficulty change.</value>
   </data>
@@ -335,6 +344,12 @@
   </data>
   <data name="SuccessGuestJoinedLobby" xml:space="preserve">
     <value>Successfully joined the lobby as a guest.</value>
+  </data>
+  <data name="SuccessPuzzleUpload" xml:space="preserve">
+    <value>Image uploaded successfully!</value>
+  </data>
+  <data name="SuccessPuzzleUploaded" xml:space="preserve">
+    <value>Puzzle uploaded successfully.</value>
   </data>
   <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
     <value>You must be at least 13 years old to register.</value>

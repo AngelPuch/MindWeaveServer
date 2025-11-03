@@ -210,6 +210,15 @@
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Jugador no encontrado.</value>
   </data>
+  <data name="ErrorPuzzleUploadFailed" xml:space="preserve">
+    <value>Error del servidor durante la subida.</value>
+  </data>
+  <data name="ErrorPuzzleUploadInvalidData" xml:space="preserve">
+    <value>Datos inválidos para la subida.</value>
+  </data>
+  <data name="ErrorPuzzleUploadPlayerNotFound" xml:space="preserve">
+    <value>No se encontró el jugador que está subiendo la imagen.</value>
+  </data>
   <data name="ErrorSavingDifficultyChange" xml:space="preserve">
     <value>Error al guardar el cambio de dificultad.</value>
   </data>
@@ -335,6 +344,12 @@
   </data>
   <data name="SuccessGuestJoinedLobby" xml:space="preserve">
     <value>Te has unido a la sala como invitado.</value>
+  </data>
+  <data name="SuccessPuzzleUpload" xml:space="preserve">
+    <value>¡Imagen subida con éxito!</value>
+  </data>
+  <data name="SuccessPuzzleUploaded" xml:space="preserve">
+    <value>Rompecabezas subido exitosamente.</value>
   </data>
   <data name="ValidationDateOfBirthMinimumAge" xml:space="preserve">
     <value>Debes tener al menos 13 años para registrarte.</value>

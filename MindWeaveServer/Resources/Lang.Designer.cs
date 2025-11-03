@@ -340,6 +340,33 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Error del servidor durante la subida..
+        /// </summary>
+        public static string ErrorPuzzleUploadFailed {
+            get {
+                return ResourceManager.GetString("ErrorPuzzleUploadFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Datos inválidos para la subida..
+        /// </summary>
+        public static string ErrorPuzzleUploadInvalidData {
+            get {
+                return ResourceManager.GetString("ErrorPuzzleUploadInvalidData", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a No se encontró el jugador que está subiendo la imagen..
+        /// </summary>
+        public static string ErrorPuzzleUploadPlayerNotFound {
+            get {
+                return ResourceManager.GetString("ErrorPuzzleUploadPlayerNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Error al guardar el cambio de dificultad..
         /// </summary>
         public static string ErrorSavingDifficultyChange {
@@ -714,6 +741,24 @@ namespace MindWeaveServer.Resources {
         public static string SuccessGuestJoinedLobby {
             get {
                 return ResourceManager.GetString("SuccessGuestJoinedLobby", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a ¡Imagen subida con éxito!.
+        /// </summary>
+        public static string SuccessPuzzleUpload {
+            get {
+                return ResourceManager.GetString("SuccessPuzzleUpload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Rompecabezas subido exitosamente..
+        /// </summary>
+        public static string SuccessPuzzleUploaded {
+            get {
+                return ResourceManager.GetString("SuccessPuzzleUploaded", resourceCulture);
             }
         }
         

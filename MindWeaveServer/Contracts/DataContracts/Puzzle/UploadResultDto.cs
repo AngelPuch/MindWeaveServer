@@ -1,7 +1,7 @@
 ﻿using System.Runtime.Serialization;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 
-namespace MindWeaveServer.Contracts.ServiceContracts
+namespace MindWeaveServer.Contracts.DataContracts.Puzzle
 {
     [DataContract]
     public class UploadResultDto : OperationResultDto
