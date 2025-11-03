@@ -273,7 +273,7 @@ namespace MindWeaveServer.Services
             cleanupCallbackEvents(sender as ICommunicationObject);
         }
 
-        private ISocialCallback tryGetCallbackChannel(string username)
+        private static ISocialCallback tryGetCallbackChannel(string username)
         {
             string userForContext = username ?? "NULL";
             if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)

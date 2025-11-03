@@ -20,12 +20,7 @@ namespace MindWeaveServer.Services
         private static readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory =
             new ConcurrentDictionary<string, List<ChatMessageDto>>(StringComparer.OrdinalIgnoreCase);
 
-        private static readonly ChatLogic chatLogicSingleton;
-        static ChatManagerService()
-        {
-            chatLogicSingleton = new ChatLogic(lobbyChatUsers, lobbyChatHistory);
-            logger.Info("ChatLogic Singleton instance created and injected with state.");
-        }
+        private static readonly ChatLogic chatLogicSingleton = new ChatLogic(lobbyChatUsers, lobbyChatHistory);
 
         private readonly ChatLogic chatLogic;
         private string currentUsername;
