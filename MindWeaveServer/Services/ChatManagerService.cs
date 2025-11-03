@@ -1,8 +1,11 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Chat;
 using NLog;
 
 namespace MindWeaveServer.Services
@@ -12,6 +15,18 @@ namespace MindWeaveServer.Services
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
+        private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers =
+            new ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>>(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory =
+            new ConcurrentDictionary<string, List<ChatMessageDto>>(StringComparer.OrdinalIgnoreCase);
+
+        private static readonly ChatLogic chatLogicSingleton;
+        static ChatManagerService()
+        {
+            chatLogicSingleton = new ChatLogic(lobbyChatUsers, lobbyChatHistory);
+            logger.Info("ChatLogic Singleton instance created and injected with state.");
+        }
+
         private readonly ChatLogic chatLogic;
         private string currentUsername;
         private string currentLobbyId;
@@ -20,7 +35,7 @@ namespace MindWeaveServer.Services
 
         public ChatManagerService()
         {
-            this.chatLogic = new ChatLogic();
+            this.chatLogic = chatLogicSingleton;
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {

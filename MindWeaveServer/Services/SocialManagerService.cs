@@ -62,89 +62,32 @@ namespace MindWeaveServer.Services
             return connectedUsers.Keys.ToList();
         }
 
+
         public void connect(string username)
         {
+            ISocialCallback callbackChannel = tryGetCallbackChannel(username);
+            if (callbackChannel == null)
+            {
+                return;
+            }
+
+            this.currentUserCallback = callbackChannel;
+            this.currentUsername = username;
+            string userForContext = username ?? "NULL";
+
             Task.Run(async () =>
             {
-                string userForContext = username ?? "NULL";
-                logger.Info("Connect attempt started for user: {Username}", userForContext);
-
-                if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
-                {
-                    logger.Warn("Connect failed: Username is empty or OperationContext is null. User: {Username}",
-                        userForContext);
-                    return;
-                }
-
-                ISocialCallback callbackChannel;
-                try
-                {
-                    callbackChannel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
-                    if (callbackChannel == null)
-                    {
-                        logger.Error("Connect failed: GetCallbackChannel returned null for user: {Username}",
-                            userForContext);
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Connect failed: Exception getting callback channel for user: {Username}",
-                        userForContext);
-                    return;
-                }
-
-                currentUserCallback = callbackChannel;
-                currentUsername = username;
-
-                logger.Debug("Attempting to add or update user in ConnectedUsers dictionary: {Username}",
-                    userForContext);
-
+                logger.Info("Connect task started for user: {Username}", userForContext);
                 ISocialCallback addedOrUpdatedCallback = connectedUsers.AddOrUpdate(
                     currentUsername,
                     currentUserCallback,
-                    (key, existingCallback) =>
-                    {
-                        var existingComm = existingCallback as ICommunicationObject;
-                        if (existingCallback != currentUserCallback &&
-                            (existingComm == null || existingComm.State != CommunicationState.Opened))
-                        {
-                            logger.Warn("Replacing existing non-opened callback channel for user: {Username}", key);
-                            if (existingComm != null) cleanupCallbackEvents(existingComm);
-                            return currentUserCallback;
-                        }
+                    updateCallbackFactory
+                );
 
-                        logger.Debug("Keeping existing callback channel for user: {Username} (State: {State})", key,
-                            existingComm?.State);
-                        if (existingCallback != currentUserCallback)
-                        {
-                            logger.Debug(
-                                "Discarding newly obtained callback channel for {Username} as a valid one already exists.",
-                                key);
-                            currentUserCallback = existingCallback;
-                        }
-
-                        return existingCallback;
-                    });
-
-                if (addedOrUpdatedCallback == currentUserCallback)
-                {
-                    logger.Info("User connected and callback registered/updated: {Username}", userForContext);
-                    setupCallbackEvents(currentUserCallback as ICommunicationObject);
-                    await notifyFriendsStatusChange(currentUsername, true);
-                }
-                else
-                {
-                    logger.Warn(
-                        "User {Username} attempted to connect, but an existing active session was found. The new connection might replace the old one implicitly by WCF session management, or might coexist depending on configuration.",
-                        userForContext);
-                    currentUserCallback = addedOrUpdatedCallback;
-                    currentUsername = username;
-                    setupCallbackEvents(currentUserCallback as ICommunicationObject);
-                }
+                await handleConnectionResult(addedOrUpdatedCallback, userForContext);
             });
         }
-
+        
         public void disconnect(string username)
         {
             Task.Run(async () =>
@@ -328,6 +271,74 @@ namespace MindWeaveServer.Services
                 await cleanupAndNotifyDisconnect(currentUsername);
             }
             cleanupCallbackEvents(sender as ICommunicationObject);
+        }
+
+        private ISocialCallback tryGetCallbackChannel(string username)
+        {
+            string userForContext = username ?? "NULL";
+            if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
+            {
+                logger.Warn("Connect failed: Username is empty or OperationContext is null. User: {Username}", userForContext);
+                return null;
+            }
+
+            try
+            {
+                ISocialCallback callbackChannel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
+                if (callbackChannel == null)
+                {
+                    logger.Error("Connect failed: GetCallbackChannel returned null for user: {Username}", userForContext);
+                    return null;
+                }
+                return callbackChannel;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Connect failed: Exception getting callback channel for user: {Username}", userForContext);
+                return null;
+            }
+        }
+
+        private ISocialCallback updateCallbackFactory(string key, ISocialCallback existingCallback)
+        {
+            var existingComm = existingCallback as ICommunicationObject;
+
+            if (existingCallback != currentUserCallback &&
+                (existingComm == null || existingComm.State != CommunicationState.Opened))
+            {
+                logger.Warn("Replacing existing non-opened callback channel for user: {Username}", key);
+                if (existingComm != null) cleanupCallbackEvents(existingComm);
+                return currentUserCallback;
+            }
+
+            logger.Debug("Keeping existing callback channel for user: {Username} (State: {State})", key, existingComm?.State);
+
+            if (existingCallback != currentUserCallback)
+            {
+                logger.Debug("Discarding newly obtained callback channel for {Username} as a valid one already exists.", key);
+                currentUserCallback = existingCallback;
+            }
+
+            return existingCallback;
+        }
+
+        private async Task handleConnectionResult(ISocialCallback addedOrUpdatedCallback, string userForContext)
+        {
+            if (addedOrUpdatedCallback == currentUserCallback)
+            {
+                logger.Info("User connected and callback registered/updated: {Username}", userForContext);
+                setupCallbackEvents(currentUserCallback as ICommunicationObject);
+                await notifyFriendsStatusChange(currentUsername, true);
+            }
+            else
+            {
+                logger.Warn(
+                    "User {Username} attempted to connect, but an existing active session was found. The new connection might replace the old one implicitly by WCF session management, or might coexist depending on configuration.",
+                    userForContext);
+
+                currentUserCallback = addedOrUpdatedCallback;
+                setupCallbackEvents(currentUserCallback as ICommunicationObject);
+            }
         }
 
         private async Task cleanupAndNotifyDisconnect(string username)

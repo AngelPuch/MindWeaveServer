@@ -12,16 +12,23 @@ namespace MindWeaveServer.BusinessLogic
 {
     public class ChatLogic
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); 
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers =
-            new ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>>(StringComparer.OrdinalIgnoreCase);
-        private static readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory =
-            new ConcurrentDictionary<string, List<ChatMessageDto>>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers;
+        private readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory;
 
         private const int MAX_HISTORY_PER_LOBBY = 50;
         private const int MAX_MESSAGE_LENGTH = 200;
-        
+
+
+        public ChatLogic(
+            ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyUsers,
+            ConcurrentDictionary<string, List<ChatMessageDto>> lobbyHistory)
+        {
+            this.lobbyChatUsers = lobbyUsers;
+            this.lobbyChatHistory = lobbyHistory;
+        }
+
         public void joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
         {
             logger.Info("joinLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
@@ -93,7 +100,7 @@ namespace MindWeaveServer.BusinessLogic
             broadcastMessage(lobbyId, messageDto);
         }
 
-        private static void addMessageToHistory(string lobbyId, ChatMessageDto messageDto)
+        private void addMessageToHistory(string lobbyId, ChatMessageDto messageDto)
         {
             var history = lobbyChatHistory.GetOrAdd(lobbyId, id => {
                 logger.Debug("Creating new chat history list for lobby: {LobbyId}", id);
@@ -133,7 +140,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private static void registerUserCallback(string username, string lobbyId, IChatCallback userCallback)
+        private void registerUserCallback(string username, string lobbyId, IChatCallback userCallback)
         {
             var usersInLobby = lobbyChatUsers.GetOrAdd(lobbyId, id =>
             {
@@ -166,7 +173,7 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("User {Username} added/updated in chat lobby {LobbyId}", username, lobbyId);
         }
 
-        private static void sendLobbyHistoryToUser(string username, string lobbyId, IChatCallback userCallback)
+        private void sendLobbyHistoryToUser(string username, string lobbyId, IChatCallback userCallback)
         {
             if (lobbyChatHistory.TryGetValue(lobbyId, out var history))
             {
@@ -206,7 +213,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private static void cleanUpEmptyLobby(string lobbyId)
+        private void cleanUpEmptyLobby(string lobbyId)
         {
             logger.Info("Chat lobby {LobbyId} is now empty. Removing user list and history.", lobbyId);
 
@@ -225,7 +232,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private static List<string> sendMessagesToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto, string lobbyId)
+        private List<string> sendMessagesToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto, string lobbyId)
         {
             var usersToRemove = new List<string>();
 
