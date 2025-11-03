@@ -22,7 +22,7 @@ namespace MindWeaveServer.BusinessLogic
         private const int MAX_HISTORY_PER_LOBBY = 50;
         private const int MAX_MESSAGE_LENGTH = 200;
         
-        public void joinLobbyChat(string username, string lobbyId, IChatCallback? userCallback)
+        public void joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
         {
             logger.Info("joinLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
 

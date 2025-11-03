@@ -155,7 +155,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string>? connectedUsernames)
+        public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string> connectedUsernames)
         {
             logger.Info("getFriendsListAsync called for User: {Username}", username ?? "NULL");
             try
@@ -371,7 +371,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private FriendDto? mapFriendshipToDto(Friendships f, int ownPlayerId, HashSet<string> onlineUsersSet) 
+        private FriendDto mapFriendshipToDto(Friendships f, int ownPlayerId, HashSet<string> onlineUsersSet) 
         {
             int friendId = (f.requester_id == ownPlayerId) ? f.addressee_id : f.requester_id;
             Player friendEntity = (f.Player1?.idPlayer == friendId) ? f.Player1 : f.Player;

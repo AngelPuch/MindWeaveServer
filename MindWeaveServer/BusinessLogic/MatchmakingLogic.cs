@@ -1104,7 +1104,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
-            Matches? match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+            Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
 
             if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
             {

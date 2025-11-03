@@ -33,13 +33,13 @@ namespace MindWeaveServer.DataAccess.Repositories
             return participant;
         }
 
-        public async Task<Matches?> getMatchByLobbyCodeAsync(string lobbyCode)
+        public async Task<Matches> getMatchByLobbyCodeAsync(string lobbyCode)
         {
             return await context.Matches
                 .FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
         }
 
-        public async Task<MatchParticipants?> getParticipantAsync(int matchId, int playerId)
+        public async Task<MatchParticipants> getParticipantAsync(int matchId, int playerId)
         {
             return await context.MatchParticipants
                 .FirstOrDefaultAsync(mp => mp.match_id == matchId && mp.player_id == playerId);

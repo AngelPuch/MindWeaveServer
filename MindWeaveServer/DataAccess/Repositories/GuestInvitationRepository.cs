@@ -24,7 +24,7 @@ namespace MindWeaveServer.DataAccess.Repositories
             return Task.CompletedTask;
         }
 
-        public async Task<GuestInvitations?> findValidInvitationAsync(int matchId, string guestEmail)
+        public async Task<GuestInvitations> findValidInvitationAsync(int matchId, string guestEmail)
         {
             DateTime now = DateTime.UtcNow;
             return await context.GuestInvitations
