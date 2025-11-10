@@ -130,6 +130,14 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
+            if (lobbyState.lobbyId != lobbyCode)
+            {
+                logger.Warn("Join lobby failed for {Username}: Provided lobby code {UserCode} did not match the required case for {ActualCode}.",
+                    username, lobbyCode, lobbyState.lobbyId);
+                sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.lobbyNotFoundOrInactive, lobbyCode)));
+                return;
+            }
+
             var (needsDbUpdate, proceed) = tryAddPlayerToMemory(lobbyState, username, lobbyCode);
 
             if (!proceed)
