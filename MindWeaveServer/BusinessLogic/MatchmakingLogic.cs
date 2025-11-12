@@ -8,6 +8,7 @@ using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Email.Templates;
 using System;
+using System.IO;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Entity.Infrastructure;
@@ -31,6 +32,8 @@ namespace MindWeaveServer.BusinessLogic
         private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
         private static readonly ConcurrentDictionary<string, HashSet<string>> guestUsernamesInLobby =
             new ConcurrentDictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        private readonly IPuzzleRepository puzzleRepository;
+
 
         private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
         private const int MAX_PLAYERS_PER_LOBBY = 4;
@@ -49,7 +52,9 @@ namespace MindWeaveServer.BusinessLogic
             IGuestInvitationRepository guestInvitationRepository,
             IEmailService emailService,
             ConcurrentDictionary<string, LobbyStateDto> lobbies,
-            ConcurrentDictionary<string, IMatchmakingCallback> callbacks)
+            ConcurrentDictionary<string, IMatchmakingCallback> callbacks,
+            IPuzzleRepository puzzleRepository
+)
         {
             this.matchmakingRepository = matchmakingRepository ?? throw new ArgumentNullException(nameof(matchmakingRepository));
             this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
@@ -57,6 +62,7 @@ namespace MindWeaveServer.BusinessLogic
             this.emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
             this.activeLobbies = lobbies ?? throw new ArgumentNullException(nameof(lobbies));
             this.userCallbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
+            this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
             logger.Info("MatchmakingLogic instance created."); 
         }
 
@@ -91,7 +97,44 @@ namespace MindWeaveServer.BusinessLogic
                 }
                 logger.Info("Match record created successfully (ID: {MatchId}, Code: {LobbyCode}) for host {Username}", newMatch.matches_id, newMatch.lobby_code, hostUsername);
 
-                var initialState = buildInitialLobbyState(newMatch, hostUsername, settings); 
+                string puzzleImagePath = null;
+                byte[] puzzleBytes = settings.customPuzzleImage;
+                if (puzzleBytes == null || puzzleBytes.Length == 0)
+                {
+                    var puzzle = await puzzleRepository.getPuzzleByIdAsync(newMatch.puzzle_id);
+                    if (puzzle != null)
+                    {
+                        if (puzzle.image_path.StartsWith("puzzleDefault"))
+                        {
+                            puzzleImagePath = puzzle.image_path; 
+
+                        }
+                        else
+                        {
+                            string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UploadedPuzzles", puzzle.image_path);
+                            if (File.Exists(filePath))
+                            {
+                                puzzleBytes = File.ReadAllBytes(filePath);
+                                logger.Debug("Loaded {Bytes} bytes for custom puzzle file: {Path}", puzzleBytes.Length, filePath);
+                            }
+                            else
+                            {
+                                logger.Warn("Uploaded puzzle file not found at: {Path}. Lobby will fallback.", filePath);
+                            }
+                        }
+                    }
+                }
+
+                if (puzzleImagePath == null && (puzzleBytes == null || puzzleBytes.Length == 0))
+                {
+                    var defaultPuzzle = await puzzleRepository.getPuzzleByIdAsync(DEFAULT_PUZZLE_ID);
+                    puzzleImagePath = defaultPuzzle?.image_path ?? "puzzleDefault.png";
+                    logger.Warn("Using fallback puzzle path '{PuzzlePath}'", puzzleImagePath);
+                }
+
+                settings.customPuzzleImage = puzzleBytes;
+
+                var initialState = buildInitialLobbyState(newMatch, hostUsername, settings, puzzleImagePath); 
 
                 if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
                 {
@@ -115,6 +158,7 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Error(ex, "Exception during createLobbyAsync for User: {Username}", hostUsername);
                 return new LobbyCreationResultDto { success = false, message = Lang.GenericServerError };
             }
+
         }
 
         public async Task joinLobbyAsync(string username, string lobbyCode, IMatchmakingCallback callback)
@@ -649,7 +693,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 creation_time = DateTime.UtcNow,
                 match_status_id = MATCH_STATUS_WAITING,
-                puzzle_id = settings.preloadedPuzzleId ?? DEFAULT_PUZZLE_ID,
+                puzzle_id = settings.preloadedPuzzleId.HasValue ? settings.preloadedPuzzleId.Value : DEFAULT_PUZZLE_ID,
                 difficulty_id = settings.difficultyId > 0 ? settings.difficultyId : DEFAULT_DIFFICULTY_ID,
                 lobby_code = code
             };
@@ -666,14 +710,15 @@ namespace MindWeaveServer.BusinessLogic
             await matchmakingRepository.addParticipantAsync(hostParticipant);
         }
 
-        private LobbyStateDto buildInitialLobbyState(Matches match, string hostUsername, LobbySettingsDto settings)
+        private LobbyStateDto buildInitialLobbyState(Matches match, string hostUsername, LobbySettingsDto settings, string puzzleImagePath)
         {
             return new LobbyStateDto
             {
                 lobbyId = match.lobby_code,
                 hostUsername = hostUsername,
                 players = new List<string> { hostUsername },
-                currentSettingsDto = settings
+                currentSettingsDto = settings,
+                puzzleImagePath = puzzleImagePath 
             };
         }
 

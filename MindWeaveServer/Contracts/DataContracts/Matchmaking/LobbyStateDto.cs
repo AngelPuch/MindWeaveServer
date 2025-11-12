@@ -15,7 +15,8 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
         [DataMember]
         public List<string> players { get; set; }
 
-
+        [DataMember]
+        public string puzzleImagePath { get; set; }
 
         [DataMember]
         public LobbySettingsDto currentSettingsDto { get; set; }

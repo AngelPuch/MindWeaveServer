@@ -37,6 +37,8 @@ namespace MindWeaveServer.Services
             var playerRepository = new PlayerRepository(dbContext);
             var guestInvitationRepository = new GuestInvitationRepository(dbContext);
             var emailService = new SmtpEmailService();
+            var puzzleRepository = new PuzzleRepository(dbContext);
+
 
             matchmakingLogic = new MatchmakingLogic(
                 matchmakingRepository,
@@ -44,7 +46,8 @@ namespace MindWeaveServer.Services
                 guestInvitationRepository,
                 emailService,
                 activeLobbies,
-                userCallbacks);
+                userCallbacks,
+                puzzleRepository);
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {

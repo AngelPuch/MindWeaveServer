@@ -10,6 +10,8 @@ namespace MindWeaveServer.DataAccess.Abstractions
 
         void addPuzzle(Puzzles puzzle);
 
+        Task<Puzzles> getPuzzleByIdAsync(int puzzleId);
+
         Task<int> saveChangesAsync();
     }
 }

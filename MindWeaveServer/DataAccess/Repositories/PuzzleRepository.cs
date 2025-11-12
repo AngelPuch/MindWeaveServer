@@ -37,5 +37,12 @@ namespace MindWeaveServer.DataAccess.Repositories
         {
             return await context.SaveChangesAsync();
         }
+
+        public async Task<Puzzles> getPuzzleByIdAsync(int puzzleId)
+        {
+            return await context.Puzzles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.puzzle_id == puzzleId);
+        }
     }
 }
