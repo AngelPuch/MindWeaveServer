@@ -30,18 +30,44 @@ namespace MindWeaveServer.BusinessLogic
         {
             logger.Info("getAvailablePuzzlesAsync logic started.");
             var puzzlesFromDb = await puzzleRepository.getAvailablePuzzlesAsync();
+            var puzzles = new List<PuzzleInfoDto>();
+            string uploadPath = getUploadFolderPath();
 
-            var puzzles = puzzlesFromDb.Select(p => new PuzzleInfoDto
+            foreach (var p in puzzlesFromDb)
             {
-                puzzleId = p.puzzle_id,
-                imagePath = p.image_path,
-                name = Path.GetFileNameWithoutExtension(p.image_path ?? "Puzzle")
-            }).ToList();
+                var dto = new PuzzleInfoDto
+                {
+                    puzzleId = p.puzzle_id,
+                    name = Path.GetFileNameWithoutExtension(p.image_path ?? "Puzzle"),
+                    imagePath = p.image_path,
+                    isUploaded = !p.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase)
+                };
+
+                if (dto.isUploaded)
+                {
+                    try
+                    {
+                        string filePath = Path.Combine(uploadPath, p.image_path);
+                        if (File.Exists(filePath))
+                        {
+                            dto.imageBytes = File.ReadAllBytes(filePath);
+                        }
+                        else
+                        {
+                            logger.Warn("Uploaded puzzle file not found, will not be sent to client: {Path}", filePath);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Failed to read bytes for uploaded puzzle: {Path}", p.image_path);
+                    }
+                }
+                puzzles.Add(dto);
+            }
 
             logger.Info("getAvailablePuzzlesAsync logic: Found {Count} puzzles.", puzzles.Count);
             return puzzles;
         }
-
         public async Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName)
         {
             logger.Info("uploadPuzzleImageAsync logic started for user: {Username}, fileName: {FileName}", username ?? "NULL", fileName ?? "NULL");

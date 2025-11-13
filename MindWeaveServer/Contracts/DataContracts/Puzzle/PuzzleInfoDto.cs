@@ -12,6 +12,11 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
         public string name { get; set; }
 
         [DataMember]
-        public string imagePath { get; set; } 
+        public string imagePath { get; set; }
+        [DataMember]
+        public bool isUploaded { get; set; }
+
+        [DataMember]
+        public byte[] imageBytes { get; set; }
     }
 }
