@@ -327,12 +327,12 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Debug("Lobby state validation successful for starting game. Lobby: {LobbyCode}, Player count: {Count}", lobbyCode, playersSnapshot.Count);
 
-            bool dbUpdateSuccess = await tryStartMatchInDatabaseAsync(lobbyCode, hostUsername); 
+            bool dbUpdateSuccess = await tryStartMatchInDatabaseAsync(lobbyCode, hostUsername);
 
             if (dbUpdateSuccess)
             {
                 logger.Info("Match {LobbyCode} successfully marked as started in DB. Notifying players and cleaning up lobby.", lobbyCode);
-                notifyAllAndCleanupLobby(lobbyCode, playersSnapshot); 
+                notifyAllAndCleanupLobby(lobbyState, playersSnapshot); 
             }
             else
             {
@@ -731,12 +731,17 @@ namespace MindWeaveServer.BusinessLogic
         {
             lock (lobbyState)
             {
-                if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
-                {
-                    logger.Warn("Cannot add User {Username} to Lobby {LobbyCode}: Lobby is full ({Count}/{Max}).", username, lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
-                    sendCallbackToUser(username, cb => cb.lobbyCreationFailed(string.Format(Lang.LobbyIsFull, lobbyCode)));
-                    return (needsDbUpdate: false, proceed: false);
-                }
+                /* --- INICIO DE PRUEBA TEMPORAL ---
+            Comentamos esta validación para forzar el inicio con 1 jugador
+            y confirmar que el problema es una build antigua.
+         */
+                // if (lobbyState.players.Count != MAX_PLAYERS_PER_LOBBY) 
+                // {
+                //     logger.Warn("Start game validation failed: Lobby {LobbyId} does not have exactly {RequiredCount} players (Current: {CurrentCount}).", lobbyState.lobbyId, MAX_PLAYERS_PER_LOBBY, lobbyState.players.Count);
+                //     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.NotEnoughPlayersToStart));
+                //     return (false, null);
+                // }
+                /* --- FIN DE PRUEBA TEMPORAL --- */
                 if (lobbyState.players.Contains(username, StringComparer.OrdinalIgnoreCase))
                 {
                     logger.Debug("User {Username} is already in the memory list for lobby {LobbyCode}. No add needed.", username, lobbyCode);
@@ -952,28 +957,22 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private void notifyAllAndCleanupLobby(string lobbyCode, List<string> playersSnapshot)
+        private void notifyAllAndCleanupLobby(LobbyStateDto lobbyState, List<string> playersSnapshot)
         {
-            logger.Info("Notifying {Count} players in lobby {LobbyCode} that the match has started.", playersSnapshot.Count, lobbyCode);
+            logger.Info("Notifying {Count} players in lobby {LobbyCode} that the match has started.", playersSnapshot.Count, lobbyState.lobbyId);
             foreach (var playerUsername in playersSnapshot)
             {
-                sendCallbackToUser(playerUsername, cb => cb.matchFound(lobbyCode, playersSnapshot)); 
+
+                sendCallbackToUser(playerUsername, cb => cb.matchFound(
+                    lobbyState.lobbyId,
+                    playersSnapshot,
+                    lobbyState.currentSettingsDto,
+                    lobbyState.puzzleImagePath
+                ));
                 removeCallback(playerUsername);
             }
 
-            if (activeLobbies.TryRemove(lobbyCode, out _))
-            {
-                logger.Info("Lobby {LobbyCode} removed from active lobbies as game started.", lobbyCode);
-            }
-            else
-            {
-                logger.Warn("Lobby {LobbyCode} was already removed when trying to clean up after game start.", lobbyCode);
-            }
-
-            if (guestUsernamesInLobby.TryRemove(lobbyCode, out _))
-            {
-                logger.Debug("Guest tracking list removed for started lobby {LobbyCode}.", lobbyCode);
-            }
+            
         }
 
         private static bool tryKickPlayerFromMemory(LobbyStateDto lobbyState, string hostUsername, string playerToKickUsername)

@@ -48,7 +48,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void updateLobbyState(LobbyStateDto lobbyStateDto);
 
         [OperationContract(IsOneWay = true)]
-        void matchFound(string matchId, List<string> players);
+        void matchFound(string lobbyCode, List<string> players, LobbySettingsDto settings, string puzzleImagePath);
 
         [OperationContract(IsOneWay = true)]
         void lobbyCreationFailed(string reason);
