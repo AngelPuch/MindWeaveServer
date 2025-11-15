@@ -42,6 +42,11 @@ namespace MindWeaveServer.Services
             }
         }
 
+        public PuzzleDefinitionDto GetPuzzleDefinition(int puzzleId)
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName)
         {
             logger.Info("uploadPuzzleImageAsync service attempt by user: {Username}, fileName: {FileName}", username ?? "NULL", fileName ?? "NULL");

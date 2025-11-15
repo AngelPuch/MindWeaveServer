@@ -169,7 +169,7 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("joinLobbyAsync called for User: {Username}, Lobby: {LobbyCode}", username ?? "NULL", lobbyCode ?? "NULL");
 
             registerCallback(username, callback);
-
+            
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
                 logger.Warn("Join lobby failed for {Username}: Lobby {LobbyCode} not found in active lobbies.", username, lobbyCode);
@@ -944,7 +944,7 @@ namespace MindWeaveServer.BusinessLogic
                     match.matches_id);
                 Task statusUpdateTask = matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_IN_PROGRESS);
                 Task timeUpdateTask = matchmakingRepository.updateMatchStartTimeAsync(match);
-                await Task.WhenAll(statusUpdateTask, timeUpdateTask);
+
                 logger.Info("Successfully updated match status and start time for MatchID: {MatchId}",
                     match.matches_id);
                 return true;

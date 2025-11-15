@@ -16,6 +16,7 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private readonly IPuzzleRepository puzzleRepository;
         private readonly IPlayerRepository playerRepository;
+        private readonly PuzzleGenerator puzzleGenerator;
 
         private readonly string uploadFolderName = "UploadedPuzzles";
 
@@ -23,6 +24,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
             this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
+            this.puzzleGenerator = new PuzzleGenerator();
             logger.Info("PuzzleLogic instance created.");
         }
 
@@ -153,5 +155,65 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn(ex, "Failed to clean up orphaned puzzle file: {FilePath}", filePath);
             }
         }
+
+        public async Task<PuzzleDefinitionDto> getPuzzleDefinitionAsync(int puzzleId, int difficultyId)
+        {
+            try
+            {
+                var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
+                if (puzzleData == null)
+                {
+                    logger.Warn("Puzzle definition requested for non-existent puzzleId: {puzzleId}", puzzleId);
+                    return null;
+                }
+
+                byte[] imageBytes = null;
+                if (!puzzleData.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase))
+                {
+                    string uploadPath = getUploadFolderPath();
+                    string filePath = Path.Combine(uploadPath, puzzleData.image_path);
+                    if (File.Exists(filePath))
+                    {
+                        imageBytes = File.ReadAllBytes(filePath);
+                    }
+                    else
+                    {
+                        logger.Error("Puzzle file not found for {puzzleId} at path: {filePath}", puzzleId, filePath);
+                        return null;
+                    }
+                }
+                else
+                {
+                    string defaultPuzzlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DefaultPuzzles");
+                    string filePath = Path.Combine(defaultPuzzlePath, puzzleData.image_path);
+                    if (File.Exists(filePath))
+                    {
+                        imageBytes = File.ReadAllBytes(filePath);
+                    }
+                    else
+                    {
+                        logger.Error("DEFAULT PUZZLE FILE NOT FOUND at path: {filePath}", filePath);
+                        return null;
+                    }
+                }
+
+                var difficulty = await puzzleRepository.getDifficultyByIdAsync(difficultyId);
+                if (difficulty == null)
+                {
+                    logger.Warn("Invalid difficultyId {DifficultyId} requested.", difficultyId);
+                    return null;
+                }
+                int pieceCount = difficulty.piece_count;
+
+                PuzzleDefinitionDto puzzleDefinition = puzzleGenerator.generatePuzzle(imageBytes, difficulty);
+                return puzzleDefinition;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to generate puzzle definition for puzzleId {PuzzleId}", puzzleId);
+                return null;
+            }
+        }
+
     }
 }

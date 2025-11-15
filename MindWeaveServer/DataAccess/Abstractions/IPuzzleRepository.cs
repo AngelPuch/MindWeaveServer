@@ -7,11 +7,9 @@ namespace MindWeaveServer.DataAccess.Abstractions
     public interface IPuzzleRepository
     {
         Task<List<Puzzles>> getAvailablePuzzlesAsync();
-
         void addPuzzle(Puzzles puzzle);
-
-        Task<Puzzles> getPuzzleByIdAsync(int puzzleId);
-
+        Task<DifficultyLevels> getDifficultyByIdAsync(int difficultyId);
         Task<int> saveChangesAsync();
+        Task<Puzzles> getPuzzleByIdAsync(int puzzleId);
     }
 }

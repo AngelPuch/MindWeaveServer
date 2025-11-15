@@ -14,5 +14,8 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract]
         Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName);
+
+        [OperationContract]
+        PuzzleDefinitionDto GetPuzzleDefinition(int puzzleId);
     }
 }

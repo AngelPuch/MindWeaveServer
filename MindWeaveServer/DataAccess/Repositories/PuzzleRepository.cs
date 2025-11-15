@@ -44,5 +44,13 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.puzzle_id == puzzleId);
         }
+    
+
+        public async Task<DifficultyLevels> getDifficultyByIdAsync(int difficultyId)
+        {
+            return await context.DifficultyLevels.FindAsync(difficultyId);
+        }
+       
     }
 }
+
