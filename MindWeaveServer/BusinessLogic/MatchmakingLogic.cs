@@ -37,7 +37,7 @@ namespace MindWeaveServer.BusinessLogic
 
 
         private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
-        private const int MAX_PLAYERS_PER_LOBBY = 4;
+        private const int MAX_PLAYERS_PER_LOBBY = 1;
         private const int MATCH_STATUS_WAITING = 1;
         private const int MATCH_STATUS_IN_PROGRESS = 3;
         private const int MATCH_STATUS_CANCELED = 4;
@@ -374,7 +374,7 @@ namespace MindWeaveServer.BusinessLogic
 
         public Task inviteToLobbyAsync(string inviterUsername, string invitedUsername, string lobbyCode)
         {
-            logger.Info("inviteToLobbyAsync called by Inviter: {InviterUsername}, Target: {TargetUsername}, Lobby: {LobbyCode}", inviterUsername ?? "NULL", invitedUsername ?? "NULL", lobbyCode ?? "NULL");
+            logger.Info("inviteToLobbyAsync called by Inviter: {7Whv5lInviterUsername}, Target: {TargetUsername}, Lobby: {LobbyCode}", inviterUsername ?? "NULL", invitedUsername ?? "NULL", lobbyCode ?? "NULL");
 
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
@@ -392,6 +392,7 @@ namespace MindWeaveServer.BusinessLogic
 
             lock (lobbyState)
             {
+
                 if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
                 {
                     logger.Warn("Invite failed: Lobby {LobbyCode} is full ({Count}/{Max}).", lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
