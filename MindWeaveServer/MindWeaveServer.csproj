@@ -83,6 +83,10 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Drawing.Common, Version=10.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.Drawing.Common.10.0.0\lib\net462\System.Drawing.Common.dll</HintPath>
+    </Reference>
     <Reference Include="System.Formats.Asn1, Version=8.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Formats.Asn1.8.0.1\lib\net462\System.Formats.Asn1.dll</HintPath>
     </Reference>
@@ -116,8 +120,11 @@
   <ItemGroup>
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ChatLogic.cs" />
+    <Compile Include="BusinessLogic\GameLogic.cs" />
+    <Compile Include="BusinessLogic\GameSessionManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
+    <Compile Include="BusinessLogic\PuzzleGenerator.cs" />
     <Compile Include="BusinessLogic\PuzzleLogic.cs" />
     <Compile Include="BusinessLogic\SocialLogic.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
@@ -130,7 +137,9 @@
     <Compile Include="Contracts\DataContracts\Profile\AvatarUpdateResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\GenderDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\UserProfileEditDto.cs" />
+    <Compile Include="Contracts\DataContracts\Puzzle\PuzzleDefinitionDto.cs" />
     <Compile Include="Contracts\DataContracts\Puzzle\PuzzleInfoDto.cs" />
+    <Compile Include="Contracts\DataContracts\Puzzle\PuzzlePieceDefinitionDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />

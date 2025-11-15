@@ -33,6 +33,7 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly ConcurrentDictionary<string, HashSet<string>> guestUsernamesInLobby =
             new ConcurrentDictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly IPuzzleRepository puzzleRepository;
+        private readonly GameSessionManager gameSessionManager;
 
 
         private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
@@ -53,8 +54,9 @@ namespace MindWeaveServer.BusinessLogic
             IEmailService emailService,
             ConcurrentDictionary<string, LobbyStateDto> lobbies,
             ConcurrentDictionary<string, IMatchmakingCallback> callbacks,
-            IPuzzleRepository puzzleRepository
-)
+            IPuzzleRepository puzzleRepository,
+            GameSessionManager gameSessionManager) 
+
         {
             this.matchmakingRepository = matchmakingRepository ?? throw new ArgumentNullException(nameof(matchmakingRepository));
             this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
@@ -62,6 +64,7 @@ namespace MindWeaveServer.BusinessLogic
             this.emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
             this.activeLobbies = lobbies ?? throw new ArgumentNullException(nameof(lobbies));
             this.userCallbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
+            this.gameSessionManager = gameSessionManager;
             this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
             logger.Info("MatchmakingLogic instance created."); 
         }
@@ -302,6 +305,7 @@ namespace MindWeaveServer.BusinessLogic
                 processDisconnectForLobby(username, lobbyCode);
             }
             removeCallback(username);
+            gameSessionManager.handlePlayerDisconnect(username);
         }
 
         public async Task startGameAsync(string hostUsername, string lobbyCode)

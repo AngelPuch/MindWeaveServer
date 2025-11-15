@@ -19,6 +19,7 @@ namespace MindWeaveServer.Services
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly MatchmakingLogic matchmakingLogic;
+        private readonly GameSessionManager gameSessionManager;
 
         private static readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies =
             new ConcurrentDictionary<string, LobbyStateDto>(StringComparer.OrdinalIgnoreCase);
@@ -37,7 +38,10 @@ namespace MindWeaveServer.Services
             var playerRepository = new PlayerRepository(dbContext);
             var guestInvitationRepository = new GuestInvitationRepository(dbContext);
             var emailService = new SmtpEmailService();
+
             var puzzleRepository = new PuzzleRepository(dbContext);
+
+            this.gameSessionManager = new GameSessionManager(puzzleRepository);
 
 
             matchmakingLogic = new MatchmakingLogic(
@@ -46,8 +50,11 @@ namespace MindWeaveServer.Services
                 guestInvitationRepository,
                 emailService,
                 activeLobbies,
-                userCallbacks,
-                puzzleRepository);
+                userCallbacks,     
+                puzzleRepository,
+                this.gameSessionManager     
+                                            
+                );
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {
@@ -486,6 +493,22 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("Attempted to setup callback events, but communication object was null for user: {Username}.", currentUsername);
             }
+        }
+
+        public Task sendPiecePlacedAsync(int pieceId)
+        {
+            if (!ensureSessionIsRegistered(this.currentUsername))
+            {
+                logger.Warn("Player (unknown or mismatched) tried to place piece, but session is not registered.");
+                throw new FaultException(Lang.ErrorCommunicationChannelFailed);
+            }
+
+            string username = this.currentUsername; 
+            logger.Debug("Received sendPiecePlacedAsync from {Username} for piece {PieceId}", username, pieceId);
+
+            gameSessionManager.handlePlayerAction_PlacePiece(username, pieceId);
+
+            return Task.CompletedTask;
         }
     }
 }

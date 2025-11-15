@@ -1,4 +1,5 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -35,6 +36,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract]
         Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest);
 
+        [OperationContract]
+        Task sendPiecePlacedAsync(int pieceId);
+
     }
 
     [ServiceContract]
@@ -52,6 +56,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void kickedFromLobby(string reason);
 
-       
+        [OperationContract(IsOneWay = true)]
+        void onGameStarted(PuzzleDefinitionDto puzzleDefinition);
+
+
     }
 }
