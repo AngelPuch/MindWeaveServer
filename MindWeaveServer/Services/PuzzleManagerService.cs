@@ -42,9 +42,18 @@ namespace MindWeaveServer.Services
             }
         }
 
-        public PuzzleDefinitionDto GetPuzzleDefinition(int puzzleId)
+        public async Task<PuzzleDefinitionDto> getPuzzleDefinitionAsync(int puzzleId, int difficultyId)
         {
-            throw new NotImplementedException();
+            logger.Info("GetPuzzleDefinitionAsync request received for puzzleId: {PuzzleId}, difficultyId: {DifficultyId}", puzzleId, difficultyId);
+            try
+            {
+                return await puzzleLogic.getPuzzleDefinitionAsync(puzzleId, difficultyId);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error in GetPuzzleDefinitionAsync service call for puzzleId: {PuzzleId}", puzzleId);
+                return null;
+            }
         }
 
         public async Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName)
