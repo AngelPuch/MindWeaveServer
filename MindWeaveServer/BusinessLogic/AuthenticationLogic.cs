@@ -296,7 +296,8 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     operationResult = new OperationResultDto { success = true, message = Lang.LoginSuccessful },
                     username = player.username,
-                    avatarPath = player.avatar_path
+                    avatarPath = player.avatar_path,
+                    playerId = player.idPlayer
                 };
             }
             catch (Exception ex)

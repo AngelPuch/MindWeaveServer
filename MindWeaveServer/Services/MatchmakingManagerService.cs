@@ -2,14 +2,15 @@
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
+using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.DataAccess.Repositories;
+using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Email;
+using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Resources;
-using NLog;
 
 namespace MindWeaveServer.Services
 {
@@ -17,6 +18,8 @@ namespace MindWeaveServer.Services
     public class MatchmakingManagerService : IMatchmakingManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private readonly IPlayerRepository playerRepository;
+        private int? currentPlayerId;
 
         private readonly MatchmakingLogic matchmakingLogic;
         private readonly GameSessionManager gameSessionManager;
@@ -35,13 +38,14 @@ namespace MindWeaveServer.Services
         {
             var dbContext = new MindWeaveDBEntities1();
             var matchmakingRepository = new MatchmakingRepository(dbContext);
-            var playerRepository = new PlayerRepository(dbContext);
+            var playerRepositoryDb = new PlayerRepository(dbContext);
+            this.playerRepository = playerRepositoryDb;
             var guestInvitationRepository = new GuestInvitationRepository(dbContext);
             var emailService = new SmtpEmailService();
 
             var puzzleRepository = new PuzzleRepository(dbContext);
 
-            this.gameSessionManager = new GameSessionManager(puzzleRepository);
+            this.gameSessionManager = new GameSessionManager(puzzleRepository, matchmakingRepository);
 
 
             matchmakingLogic = new MatchmakingLogic(
@@ -350,6 +354,103 @@ namespace MindWeaveServer.Services
                 return new GuestJoinResultDto { success = false, message = Resources.Lang.GenericServerError };
             }
         }
+        private int getPlayerIdFromContext()
+        {
+            if (currentPlayerId.HasValue)
+            {
+                return currentPlayerId.Value;
+            }
+
+            if (string.IsNullOrEmpty(currentUsername))
+            {
+                logger.Error("GetPlayerIdFromContext: Cannot get PlayerId because currentUsername is null.");
+                throw new InvalidOperationException("User session is not registered.");
+            }
+
+            try
+            {
+                var player = playerRepository.getPlayerByUsernameAsync(currentUsername);
+                if (player == null)
+                {
+                    logger.Error("GetPlayerIdFromContext: No player found with username {Username}", currentUsername);
+                    throw new InvalidOperationException("Player not found in database.");
+                }
+
+                currentPlayerId = player.Id;
+                return currentPlayerId.Value;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception getting PlayerId for {Username}", currentUsername);
+                throw;
+            }
+        }
+
+        public void requestPieceDrag(string lobbyCode, int pieceId)
+        {
+            if (!ensureSessionIsRegistered(this.currentUsername))
+            {
+                logger.Warn("RequestPieceDrag: Session not registered for {Username}", this.currentUsername);
+                return;
+            }
+
+            try
+            {
+                var playerId = getPlayerIdFromContext();
+                logger.Info("Player {Username} (ID: {PlayerId}) requested drag for piece {PieceId} in lobby {LobbyCode}",
+                    currentUsername, playerId, pieceId, lobbyCode);
+
+                gameSessionManager.handlePieceDrag(lobbyCode, playerId, pieceId);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception in RequestPieceDrag for player {Username}", this.currentUsername);
+            }
+        }
+
+        public void requestPieceDrop(string lobbyCode, int pieceId, double newX, double newY)
+        {
+            if (!ensureSessionIsRegistered(this.currentUsername))
+            {
+                logger.Warn("RequestPieceDrop: Session not registered for {Username}", this.currentUsername);
+                return;
+            }
+
+            try
+            {
+                var playerId = getPlayerIdFromContext();
+                logger.Info("Player {Username} (ID: {PlayerId}) requested drop for piece {PieceId} at ({X},{Y}) in lobby {LobbyCode}",
+                    currentUsername, playerId, pieceId, newX, newY, lobbyCode);
+
+                Task.Run(async () => await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, newX, newY));
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception in RequestPieceDrop for player {Username}", this.currentUsername);
+            }
+        }
+
+        public void requestPieceRelease(string lobbyCode, int pieceId)
+        {
+            if (!ensureSessionIsRegistered(this.currentUsername))
+            {
+                logger.Warn("RequestPieceRelease: Session not registered for {Username}", this.currentUsername);
+                return;
+            }
+
+            try
+            {
+                var playerId = getPlayerIdFromContext();
+                logger.Info("Player {Username} (ID: {PlayerId}) requested release for piece {PieceId} in lobby {LobbyCode}",
+                    currentUsername, playerId, pieceId, lobbyCode);
+
+                gameSessionManager.handlePieceRelease(lobbyCode, playerId, pieceId);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception in RequestPieceRelease for player {Username}", this.currentUsername);
+            }
+        }
 
         private async void channel_FaultedOrClosed(object sender, EventArgs e)
         {
@@ -443,6 +544,7 @@ namespace MindWeaveServer.Services
             isDisconnected = true;
 
             string userToDisconnect = currentUsername;
+            int? idToDisconnect = currentPlayerId;
 
             logger.Warn("Disconnect triggered for session. User: {Username}", userToDisconnect);
 
@@ -461,6 +563,10 @@ namespace MindWeaveServer.Services
             {
                 try
                 {
+                    if (idToDisconnect.HasValue)
+                    {
+                        gameSessionManager.handlePlayerDisconnect(userToDisconnect, idToDisconnect.Value);
+                    }
                     await Task.Run(() => matchmakingLogic.handleUserDisconnect(userToDisconnect));
                     logger.Info("Logic layer disconnect notification sent for {Username}", userToDisconnect);
                 }
@@ -476,6 +582,7 @@ namespace MindWeaveServer.Services
 
             currentUsername = null;
             currentUserCallback = null;
+            currentPlayerId = null;
         }
 
         private void setupCallbackEvents(ICommunicationObject commObject)
@@ -493,22 +600,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("Attempted to setup callback events, but communication object was null for user: {Username}.", currentUsername);
             }
-        }
-
-        public Task sendPiecePlacedAsync(int pieceId)
-        {
-            if (!ensureSessionIsRegistered(this.currentUsername))
-            {
-                logger.Warn("Player (unknown or mismatched) tried to place piece, but session is not registered.");
-                throw new FaultException(Lang.ErrorCommunicationChannelFailed);
-            }
-
-            string username = this.currentUsername; 
-            logger.Debug("Received sendPiecePlacedAsync from {Username} for piece {PieceId}", username, pieceId);
-
-            gameSessionManager.handlePlayerAction_PlacePiece(username, pieceId);
-
-            return Task.CompletedTask;
         }
     }
 }

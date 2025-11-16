@@ -10,9 +10,10 @@ namespace MindWeaveServer.DataAccess.Abstractions
         Task<Matches> getMatchByLobbyCodeAsync(string lobbyCode);
         Task<MatchParticipants> getParticipantAsync(int matchId, int playerId);
         Task<bool> removeParticipantAsync(MatchParticipants participant);
-        Task<int> updateMatchStatusAsync(Matches match, int newStatusId);
-        Task<int> updateMatchStartTimeAsync(Matches match);
-        Task<int> updateMatchDifficultyAsync(Matches match, int newDifficultyId);
+        void updateMatchStatus(Matches match, int newStatusId);
+        void updateMatchStartTime(Matches match);
+        void updateMatchDifficulty(Matches match, int newDifficultyId);
+        Task updatePlayerScoreAsync(int matchId, int playerId, int newScore);
         Task<int> saveChangesAsync();
     }
 }

@@ -1,6 +1,7 @@
 ﻿using MindWeaveServer.DataAccess.Abstractions;
 using System;
 using System.Data.Entity;
+using System.Runtime.Remoting.Contexts;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.DataAccess.Repositories
@@ -36,6 +37,7 @@ namespace MindWeaveServer.DataAccess.Repositories
         public async Task<Matches> getMatchByLobbyCodeAsync(string lobbyCode)
         {
             return await context.Matches
+                .Include(m => m.DifficultyLevels)
                 .FirstOrDefaultAsync(m => m.lobby_code == lobbyCode);
         }
 
@@ -51,25 +53,40 @@ namespace MindWeaveServer.DataAccess.Repositories
             return await saveChangesAsync() > 0;
         }
 
-        public async Task<int> updateMatchStatusAsync(Matches match, int newStatusId)
+        public void updateMatchStatus(Matches match, int newStatusId)
         {
-            match.match_status_id = newStatusId;
-            context.Entry(match).State = EntityState.Modified;
-            return await saveChangesAsync();
+            if (match != null)
+            {
+                match.match_status_id = newStatusId;
+            }
         }
 
-        public async Task<int> updateMatchStartTimeAsync(Matches match)
+        public void updateMatchStartTime(Matches match)
         {
-            match.start_time = DateTime.UtcNow;
-            context.Entry(match).State = EntityState.Modified;
-            return await saveChangesAsync();
+            if (match != null)
+            {
+                match.start_time = DateTime.UtcNow;
+            }
         }
 
-        public async Task<int> updateMatchDifficultyAsync(Matches match, int newDifficultyId)
+        public void updateMatchDifficulty(Matches match, int newDifficultyId)
         {
-            match.difficulty_id = newDifficultyId;
-            context.Entry(match).State = EntityState.Modified;
-            return await saveChangesAsync();
+            if (match != null)
+            {
+                match.difficulty_id = newDifficultyId;
+            }
+        }
+
+        public async Task updatePlayerScoreAsync(int matchId, int playerId, int newScore)
+        {
+            var participant = await context.MatchParticipants
+                .FirstOrDefaultAsync(mp => mp.match_id == matchId && mp.player_id == playerId);
+
+            if (participant != null)
+            {
+                participant.score = newScore;
+                await saveChangesAsync();
+            }
         }
 
         public async Task<int> saveChangesAsync()

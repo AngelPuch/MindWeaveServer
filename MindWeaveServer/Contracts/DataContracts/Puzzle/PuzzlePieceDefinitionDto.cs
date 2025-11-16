@@ -6,25 +6,31 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
     public class PuzzlePieceDefinitionDto
     {
         [DataMember]
-        public int pieceId { get; set; }
+        public int PieceId { get; set; }
 
   
         [DataMember]
-        public int sourceX { get; set; }
+        public int SourceX { get; set; }
 
         [DataMember]
-        public int sourceY { get; set; }
+        public int SourceY { get; set; }
 
         [DataMember]
-        public double correctX { get; set; }
+        public double CorrectX { get; set; }
 
         [DataMember]
-        public double correctY { get; set; }
+        public double CorrectY { get; set; }
 
         [DataMember]
-        public int width { get; set; }
+        public int Width { get; set; }
 
         [DataMember]
-        public int height { get; set; }
+        public int Height { get; set; }
+
+        [DataMember]
+        public double InitialX { get; set; }
+
+        [DataMember]
+        public double InitialY { get; set; }
     }
 }

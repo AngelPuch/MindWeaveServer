@@ -1,11 +1,9 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.DataAccess.Repositories;
 using NLog;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,22 +14,22 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private readonly ConcurrentDictionary<string, GameLogic> activeGames = new ConcurrentDictionary<string, GameLogic>();
+        private readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
+        private readonly IMatchmakingRepository matchmakingRepository;
 
         private readonly IPuzzleRepository puzzleRepository;
         private readonly PuzzleGenerator puzzleGenerator;
 
-        public GameSessionManager(IPuzzleRepository puzzleRepository)
+        public GameSessionManager(IPuzzleRepository puzzleRepository, IMatchmakingRepository matchmakingRepository)
         {
             this.puzzleRepository = puzzleRepository;
+            this.matchmakingRepository = matchmakingRepository;
             this.puzzleGenerator = new PuzzleGenerator();
-            logger.Info("GameSessionManager initialized.");
         }
 
-        public async Task<PuzzleDefinitionDto> createAndStartGame(string lobbyId, int puzzleId, DifficultyLevels difficulty, List<string> players)
+        public async Task<GameSession> createGameSession(string lobbyId, int matchId, int puzzleId, 
+            DifficultyLevels difficulty, ConcurrentDictionary<int, PlayerSessionData> players)
         {
-            logger.Info("Attempting to create game for lobby {LobbyId}", lobbyId);
-
             var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
             if (puzzleData == null)
             {
@@ -46,23 +44,62 @@ namespace MindWeaveServer.BusinessLogic
                 difficulty
             );
 
-            var gameLogic = new GameLogic(lobbyId, puzzleDto, players);
-            activeGames[lobbyId] = gameLogic;
+            var gameSession = new GameSession(lobbyId, matchId, puzzleDto, matchmakingRepository);
 
-            logger.Info("Game created and ready for lobby {LobbyId}", lobbyId);
-            return puzzleDto; 
+            foreach (var player in players.Values)
+            {
+                gameSession.addPlayer(player.PlayerId, player.Username, player.Callback);
+            }
+
+            activeSessions[lobbyId] = gameSession;
+
+            logger.Info("Game session created and ready for lobby {LobbyId}", lobbyId);
+
+            return gameSession;
         }
 
-        public void handlePlayerAction_PlacePiece(string username, string lobbyId, int pieceId)
+        public GameSession getSession(string lobbyCode)
         {
-            if (activeGames.TryGetValue(lobbyId, out var gameLogic))
+            activeSessions.TryGetValue(lobbyCode, out var session);
+            return session;
+        }
+
+        public void handlePieceDrag(string lobbyCode, int playerId, int pieceId)
+        {
+            var session = getSession(lobbyCode);
+            if (session != null)
             {
-                gameLogic.playerPlacedPiece(username, pieceId);
-             
+                session.handlePieceDrag(playerId, pieceId);
             }
             else
             {
-                logger.Warn("Player {Username} sent PlacePiece for non-existent game {LobbyId}", username, lobbyId);
+                logger.Warn("HandlePieceDrag: No active session found for lobby {LobbyCode}", lobbyCode);
+            }
+        }
+
+        public async Task handlePieceDrop(string lobbyCode, int playerId, int pieceId, double newX, double newY)
+        {
+            var session = getSession(lobbyCode);
+            if (session != null)
+            {
+                await session.handlePieceDrop(playerId, pieceId, newX, newY);
+            }
+            else
+            {
+                logger.Warn("HandlePieceDrop: No active session found for lobby {LobbyCode}", lobbyCode);
+            }
+        }
+
+        public void handlePieceRelease(string lobbyCode, int playerId, int pieceId)
+        {
+            var session = getSession(lobbyCode);
+            if (session != null)
+            {
+                session.handlePieceRelease(playerId, pieceId);
+            }
+            else
+            {
+                logger.Warn("HandlePieceRelease: No active session found for lobby {LobbyCode}", lobbyCode);
             }
         }
 
@@ -88,52 +125,33 @@ namespace MindWeaveServer.BusinessLogic
             return File.ReadAllBytes(fullPath);
         }
 
-        public void handlePlayerAction_PlacePiece(string username, int pieceId)
+        private GameSession findGameForPlayer(string username)
         {
-            GameLogic game = findGameForPlayer(username);
-
-            if (game != null)
+            foreach (var game in activeSessions.Values)
             {
-                game.playerPlacedPiece(username, pieceId);
-
-                // TODO: Aquí es donde, después de que 'playerPlacedPiece'
-                // calcule el puntaje, usaremos los callbacks para notificar
-                // a TODOS los jugadores de la nueva puntuación.
-            }
-            else
-            {
-                logger.Warn("Player {Username} sent PlacePiece but is not in any active game.", username);
-            }
-        }
-
-        private GameLogic findGameForPlayer(string username)
-        {
-            foreach (var game in activeGames.Values)
-            {
-                if (game.HasPlayer(username))
+                if (game.Players.Values.Any(p => p.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
                 {
                     return game;
                 }
             }
-            return null; 
+            return null;
         }
 
-        public void handlePlayerDisconnect(string username)
+        public void handlePlayerDisconnect(string username, int playerId)
         {
-            GameLogic game = findGameForPlayer(username);
-            if (game != null)
+            foreach (var session in activeSessions.Values)
             {
-                logger.Info("Manejando desconexión para {Username} en la partida {LobbyId}", username, game.LobbyId);
-
-               
-                bool isGameEmpty = game.handlePlayerDisconnect(username);
-
-                // (TODO: Notificar a los otros jugadores que 'username' se fue)
-
-                if (isGameEmpty)
+                var player = session.removePlayer(playerId);
+                if (player != null)
                 {
-                    activeGames.TryRemove(game.LobbyId, out _);
-                    logger.Info("Se eliminó la partida vacía {LobbyId} del gestor de sesiones.", game.LobbyId);
+                    logger.Info("Handling disconnect for {Username} in GameSession {LobbyId}", username, session.LobbyCode);
+
+                    if (!session.Players.Any())
+                    {
+                        activeSessions.TryRemove(session.LobbyCode, out _);
+                        logger.Info("Removed empty GameSession {LobbyId} from session manager.", session.LobbyCode);
+                    }
+                    break;
                 }
             }
         }

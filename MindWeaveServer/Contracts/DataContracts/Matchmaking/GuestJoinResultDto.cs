@@ -7,6 +7,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
     public class GuestJoinResultDto : OperationResultDto
     {
         [DataMember]
+        public int playerId { get; set; }
+
+        [DataMember]
         public string assignedGuestUsername { get; set; }
 
         [DataMember]

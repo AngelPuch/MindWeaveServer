@@ -7,15 +7,16 @@ using MindWeaveServer.Services;
 using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Email.Templates;
+using NLog;
 using System;
-using System.IO;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Data.Entity.Infrastructure;
+using System.IO;
 using System.Linq;
 using System.ServiceModel;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using NLog;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -305,7 +306,6 @@ namespace MindWeaveServer.BusinessLogic
                 processDisconnectForLobby(username, lobbyCode);
             }
             removeCallback(username);
-            gameSessionManager.handlePlayerDisconnect(username);
         }
 
         public async Task startGameAsync(string hostUsername, string lobbyCode)
@@ -327,12 +327,12 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Debug("Lobby state validation successful for starting game. Lobby: {LobbyCode}, Player count: {Count}", lobbyCode, playersSnapshot.Count);
 
-            bool dbUpdateSuccess = await tryStartMatchInDatabaseAsync(lobbyCode, hostUsername);
+            Matches startedMatch = await tryStartMatchInDatabaseAsync(lobbyCode, hostUsername);
 
-            if (dbUpdateSuccess)
+            if (startedMatch != null)
             {
                 logger.Info("Match {LobbyCode} successfully marked as started in DB. Notifying players and cleaning up lobby.", lobbyCode);
-                notifyAllAndCleanupLobby(lobbyState, playersSnapshot); 
+                await notifyAllAndCreateGameSessionAsync(lobbyState, playersSnapshot, startedMatch);
             }
             else
             {
@@ -542,7 +542,7 @@ namespace MindWeaveServer.BusinessLogic
                     return errorResult;
                 }
 
-                (bool addedToMemory, string finalGuestUsername, GuestJoinResultDto memoryErrorResult) =
+                (bool addedToMemory, string finalGuestUsername, int guestPlayerId, GuestJoinResultDto memoryErrorResult) =
                     tryAddGuestToLobbyState(lobbyState, lobbyCode, desiredUsername, callback);
 
                 if (!addedToMemory)
@@ -560,7 +560,8 @@ namespace MindWeaveServer.BusinessLogic
                     success = true,
                     message = Lang.SuccessGuestJoinedLobby,
                     assignedGuestUsername = finalGuestUsername,
-                    initialLobbyState = lobbyState
+                    initialLobbyState = lobbyState,
+                    playerId = guestPlayerId
                 };
             }
             catch (Exception ex)
@@ -875,7 +876,8 @@ namespace MindWeaveServer.BusinessLogic
                 if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
                 {
                     logger.Info("Lobby {LobbyCode} closed while match was waiting. Updating match status to Canceled (ID: {MatchId}).", lobbyCode, match.matches_id);
-                    await matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_CANCELED);
+                    matchmakingRepository.updateMatchStatus(match, MATCH_STATUS_CANCELED);
+                    await matchmakingRepository.saveChangesAsync();
                     logger.Info("Match status updated to Canceled for MatchID: {MatchId}", match.matches_id);
                 }
             }
@@ -916,7 +918,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private async Task<bool> tryStartMatchInDatabaseAsync(string lobbyCode, string hostUsername)
+        private async Task<Matches> tryStartMatchInDatabaseAsync(string lobbyCode, string hostUsername)
         {
             try
             {
@@ -927,7 +929,7 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Error("Cannot start match in DB: Match not found for lobby {LobbyCode}.", lobbyCode);
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyDataNotFound));
-                    return false;
+                    return null;
                 }
 
                 if (match.match_status_id != MATCH_STATUS_WAITING)
@@ -936,43 +938,147 @@ namespace MindWeaveServer.BusinessLogic
                         "Cannot start match in DB: Match {MatchId} (Lobby {LobbyCode}) is not in waiting state (Status: {StatusId}).",
                         match.matches_id, lobbyCode, match.match_status_id);
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.LobbyNotInWaitingState));
-                    return false;
+                    return null;
 
                 }
 
                 logger.Debug("Updating match status to InProgress and setting start time for MatchID: {MatchId}",
                     match.matches_id);
-                Task statusUpdateTask = matchmakingRepository.updateMatchStatusAsync(match, MATCH_STATUS_IN_PROGRESS);
-                Task timeUpdateTask = matchmakingRepository.updateMatchStartTimeAsync(match);
+              
+                matchmakingRepository.updateMatchStatus(match, MATCH_STATUS_IN_PROGRESS);
+                matchmakingRepository.updateMatchStartTime(match);
+
+                // 2. Guardar todos los cambios en la base de datos UNA SOLA VEZ
+                await matchmakingRepository.saveChangesAsync();
+
 
                 logger.Info("Successfully updated match status and start time for MatchID: {MatchId}",
                     match.matches_id);
-                return true;
+                return match;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception trying to start match in DB for lobby {LobbyCode}", lobbyCode); 
                 sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.DatabaseErrorStartingMatch)); 
-                return false;
+                return null;
             }
         }
 
-        private void notifyAllAndCleanupLobby(LobbyStateDto lobbyState, List<string> playersSnapshot)
+        private async Task notifyAllAndCreateGameSessionAsync(LobbyStateDto lobbyState, List<string> playersSnapshot, Matches startedMatch)
         {
-            logger.Info("Notifying {Count} players in lobby {LobbyCode} that the match has started.", playersSnapshot.Count, lobbyState.lobbyId);
-            foreach (var playerUsername in playersSnapshot)
-            {
+            logger.Info("Attempting to create game session and notify {Count} players in lobby {LobbyCode}.", playersSnapshot.Count, lobbyState.lobbyId);
 
-                sendCallbackToUser(playerUsername, cb => cb.matchFound(
+            var playerSessionDataDict = new ConcurrentDictionary<int, PlayerSessionData>();
+            var guestUsernames = guestUsernamesInLobby.TryGetValue(lobbyState.lobbyId, out var guests)
+                ? guests
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var username in playersSnapshot)
+            {
+                if (!userCallbacks.TryGetValue(username, out var callback))
+                {
+                    logger.Warn("Player {Username} has no callback. Skipping.", username);
+                    continue;
+                }
+
+                int playerId;
+                bool isGuest = guestUsernames.Contains(username);
+
+                if (!isGuest)
+                {
+                    var player = await playerRepository.getPlayerByUsernameAsync(username);
+                    if (player != null)
+                    {
+                        playerId = player.idPlayer;
+                    }
+                    else
+                    {
+                        logger.Error("Could not find registered player ID for '{Username}' during game start. Skipping player.", username);
+                        sendCallbackToUser(username, cb => cb.kickedFromLobby(Lang.ErrorPlayerNotFound));
+                        removeCallback(username);
+                        continue;
+                    }
+                }
+                else
+                {
+                    playerId = -Math.Abs(username.GetHashCode() % 1000000);
+                    logger.Info("Assigning temporary guest ID {PlayerId} to {Username}", playerId, username);
+                }
+
+                var sessionData = new PlayerSessionData
+                {
+                    PlayerId = playerId,
+                    Username = username,
+                    Callback = callback,
+                    Score = 0
+                };
+
+                if (!playerSessionDataDict.TryAdd(playerId, sessionData))
+                {
+                    logger.Error("Failed to add player {Username} (ID {PlayerId}) to session data. Duplicate ID?", username, playerId);
+                }
+            }
+
+            if (playerSessionDataDict.IsEmpty)
+            {
+                logger.Error("No valid players found to start game session for lobby {LobbyCode}.", lobbyState.lobbyId);
+                matchmakingRepository.updateMatchStatus(startedMatch, MATCH_STATUS_CANCELED);
+                // 2. Guardar todos los cambios en la base de datos UNA SOLA VEZ
+                await matchmakingRepository.saveChangesAsync();
+                return;
+            }
+
+            GameSession newGameSession;
+            try
+            {
+                var difficulty = startedMatch.DifficultyLevels;
+
+                if (difficulty == null)
+                {
+                    logger.Error("Critical: DifficultyLevels navigation property was null for MatchID {MatchId}. Cannot start game.", startedMatch.matches_id);
+                    throw new InvalidOperationException("Match data is missing difficulty information.");
+                }
+
+                newGameSession = await gameSessionManager.createGameSession(
                     lobbyState.lobbyId,
-                    playersSnapshot,
-                    lobbyState.currentSettingsDto,
-                    lobbyState.puzzleImagePath
-                ));
-                removeCallback(playerUsername);
+                    startedMatch.matches_id,
+                    startedMatch.puzzle_id,
+                    difficulty,
+                    playerSessionDataDict
+                );
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to create GameSession for lobby {LobbyCode}. Kicking players.", lobbyState.lobbyId);
+                
+                foreach (var playerUsername in playersSnapshot)
+                {
+                    sendCallbackToUser(playerUsername, cb => cb.kickedFromLobby(Lang.GenericServerError));
+                    removeCallback(playerUsername);
+                }
+                
+                activeLobbies.TryRemove(lobbyState.lobbyId, out _);
+                guestUsernamesInLobby.TryRemove(lobbyState.lobbyId, out _);
+                return;
             }
 
             
+            logger.Info("GameSession created. Notifying all players with OnGameStarted callback.");
+            foreach (var player in newGameSession.Players.Values)
+            {
+                
+                sendCallbackToUser(player.Username, cb => cb.onGameStarted(newGameSession.PuzzleDefinition));
+                removeCallback(player.Username);
+            }
+
+            if (activeLobbies.TryRemove(lobbyState.lobbyId, out _))
+            {
+                logger.Info("Lobby {LobbyCode} removed from active lobbies; game has started.", lobbyState.lobbyId);
+            }
+            if (guestUsernamesInLobby.TryRemove(lobbyState.lobbyId, out _))
+            {
+                logger.Debug("Guest tracking list removed for started lobby {LobbyCode}.", lobbyState.lobbyId);
+            }
         }
 
         private static bool tryKickPlayerFromMemory(LobbyStateDto lobbyState, string hostUsername, string playerToKickUsername)
@@ -1068,7 +1174,8 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Debug("Match {MatchId} found and is waiting. Updating difficulty to {DifficultyId}",
                         match.matches_id, newDifficultyId);
-                    await matchmakingRepository.updateMatchDifficultyAsync(match, newDifficultyId);
+                    matchmakingRepository.updateMatchDifficulty(match, newDifficultyId);
+                    await matchmakingRepository.saveChangesAsync();
                     logger.Info("Successfully updated difficulty in DB for MatchID: {MatchId}", match.matches_id);
                 }
                 else if (match == null)
@@ -1286,32 +1393,33 @@ namespace MindWeaveServer.BusinessLogic
             return $"{currentBase}{counterStr}";
         }
 
-        private (bool success, string finalUsername, GuestJoinResultDto errorResult) 
+        private (bool success, string finalUsername, int playerId, GuestJoinResultDto errorResult) 
             tryAddGuestToLobbyState(LobbyStateDto lobbyState, string lobbyCode, string desiredUsername, IMatchmakingCallback callback)
         {
             string finalGuestUsername;
+            int guestPlayerId = 0;
 
             lock (lobbyState)
             {
                 if (lobbyState.players.Count >= MAX_PLAYERS_PER_LOBBY)
                 {
                     logger.Warn("Join guest failed: Lobby {LobbyCode} is full ({Count}/{Max}).", lobbyCode, lobbyState.players.Count, MAX_PLAYERS_PER_LOBBY);
-                    return (false, null, new GuestJoinResultDto { success = false, message = string.Format(Lang.LobbyIsFull, lobbyCode) });
+                    return (false, null, 0, new GuestJoinResultDto { success = false, message = string.Format(Lang.LobbyIsFull, lobbyCode) });
                 }
 
                 finalGuestUsername = findAvailableGuestUsername(lobbyCode, desiredUsername);
                 if (finalGuestUsername == null)
                 {
                     logger.Error("Join guest failed: Could not generate a unique guest username for Lobby {LobbyCode}, Desired: {DesiredUsername}", lobbyCode, desiredUsername);
-                    return (false, null, new GuestJoinResultDto { success = false, message = Lang.ErrorGuestUsernameGenerationFailed });
+                    return (false, null, 0, new GuestJoinResultDto { success = false, message = Lang.ErrorGuestUsernameGenerationFailed });
                 }
 
                 if (lobbyState.players.Any(p => p.Equals(finalGuestUsername, StringComparison.OrdinalIgnoreCase)))
                 {
                     logger.Error("Join guest race condition: Generated username '{FinalGuestUsername}' became occupied in lobby '{LobbyCode}' before adding.", finalGuestUsername, lobbyCode);
-                    return (false, finalGuestUsername, new GuestJoinResultDto { success = false, message = string.Format(Lang.ErrorGuestUsernameTaken, finalGuestUsername) });
+                    return (false, finalGuestUsername, 0, new GuestJoinResultDto { success = false, message = string.Format(Lang.ErrorGuestUsernameTaken, finalGuestUsername) });
                 }
-
+                guestPlayerId = -Math.Abs(finalGuestUsername.GetHashCode() % 1000000);
                 lobbyState.players.Add(finalGuestUsername);
                 registerCallback(finalGuestUsername, callback);
                 var guestsInThisLobby = guestUsernamesInLobby.GetOrAdd(lobbyCode, _ => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
@@ -1319,7 +1427,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 logger.Info("[JoinGuest MEMORY] Guest '{FinalGuestUsername}' added to lobby '{LobbyCode}' state and guest tracking.", finalGuestUsername, lobbyCode);
             }
-            return (true, finalGuestUsername, null);
+            return (true, finalGuestUsername, guestPlayerId, null);
         }
 
         private async Task markInvitationAsUsedAsync(GuestInvitations invitation, string finalGuestUsername)

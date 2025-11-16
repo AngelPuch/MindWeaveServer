@@ -51,15 +51,15 @@ namespace MindWeaveServer.BusinessLogic
                     {
                         var piece = new PuzzlePieceDefinitionDto
                         {
-                            pieceId = pieceId,
-                            width = pieceWidth,
-                            height = pieceHeight,
+                            PieceId = pieceId,
+                            Width = pieceWidth,
+                            Height = pieceHeight,
 
-                            sourceX = c * pieceWidth,
-                            sourceY = r * pieceHeight,
+                            SourceX = c * pieceWidth,
+                            SourceY = r * pieceHeight,
 
-                            correctX = c * pieceWidth,
-                            correctY = r * pieceHeight
+                            CorrectX = c * pieceWidth,
+                            CorrectY = r * pieceHeight
                         };
 
                         puzzleDef.pieces.Add(piece);

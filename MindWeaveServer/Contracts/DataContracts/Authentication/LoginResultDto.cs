@@ -10,6 +10,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Authentication
         public OperationResultDto operationResult { get; set; }
 
         [DataMember]
+        public int playerId { get; set; }
+
+        [DataMember]
         public string username { get; set; }
 
         [DataMember]
