@@ -32,5 +32,17 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
 
         [DataMember]
         public double InitialY { get; set; }
+
+        [DataMember]
+        public int? TopNeighborId { get; set; }
+
+        [DataMember]
+        public int? BottomNeighborId { get; set; }
+
+        [DataMember]
+        public int? LeftNeighborId { get; set; }
+
+        [DataMember]
+        public int? RightNeighborId { get; set; }
     }
 }
