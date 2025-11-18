@@ -1,5 +1,6 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.DataAccess;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -9,6 +10,7 @@ namespace MindWeaveServer.BusinessLogic
 {
     public class PuzzleGenerator
     {
+        private static readonly Random random = new Random();
         public PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
         {
             int columns, rows;
@@ -45,6 +47,9 @@ namespace MindWeaveServer.BusinessLogic
                 int pieceWidth = img.Width / columns;
                 int pieceHeight = img.Height / rows;
 
+                int scatterAreaWidth = (int)(img.Width * 1.5);
+                int scatterAreaHeight = (int)(img.Height * 1.5);
+
                 int pieceId = 0;
 
                 for (int r = 0; r < rows; r++)
@@ -61,7 +66,10 @@ namespace MindWeaveServer.BusinessLogic
                             SourceY = r * pieceHeight,
 
                             CorrectX = c * pieceWidth,
-                            CorrectY = r * pieceHeight
+                            CorrectY = r * pieceHeight,
+
+                            InitialX = random.Next(0, scatterAreaWidth - pieceWidth),
+                            InitialY = random.Next(0, scatterAreaHeight - pieceHeight)
 
                         };
 
