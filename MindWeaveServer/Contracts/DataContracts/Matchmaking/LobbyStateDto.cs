@@ -7,18 +7,18 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
     public class LobbyStateDto
     {
         [DataMember]
-        public string lobbyId { get; set; }
+        public string LobbyId { get; set; }
 
         [DataMember]
-        public string hostUsername { get; set; }
+        public string HostUsername { get; set; }
 
         [DataMember]
-        public List<string> players { get; set; }
+        public List<string> Players { get; set; }
 
         [DataMember]
-        public string puzzleImagePath { get; set; }
+        public string PuzzleImagePath { get; set; }
 
         [DataMember]
-        public LobbySettingsDto currentSettingsDto { get; set; }
+        public LobbySettingsDto CurrentSettingsDto { get; set; }
     }
 }

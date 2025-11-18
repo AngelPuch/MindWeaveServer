@@ -7,12 +7,12 @@ namespace MindWeaveServer.Contracts.DataContracts.Stats
     public class MatchHistoryDto
     {
         [DataMember]
-        public string matchId { get; set; }
+        public string MatchId { get; set; }
         [DataMember]
-        public bool wasWinner { get; set; }
+        public bool WasWinner { get; set; }
         [DataMember]
-        public int score { get; set; }
+        public int Score { get; set; }
         [DataMember]
-        public DateTime matchDate { get; set; }
+        public DateTime MatchDate { get; set; }
     }
 }

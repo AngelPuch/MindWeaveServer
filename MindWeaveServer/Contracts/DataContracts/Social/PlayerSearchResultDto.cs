@@ -6,9 +6,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Social
     public class PlayerSearchResultDto
     {
         [DataMember]
-        public string username { get; set; }
+        public string Username { get; set; }
 
         [DataMember]
-        public string avatarPath { get; set; }
+        public string AvatarPath { get; set; }
     }
 }

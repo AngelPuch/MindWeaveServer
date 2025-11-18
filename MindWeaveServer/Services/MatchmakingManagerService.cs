@@ -80,26 +80,26 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("createLobby failed for {Username}: Session could not be registered.", hostUsername);
                 return new LobbyCreationResultDto
-                { success = false, message = Lang.ErrorCommunicationChannelFailed };
+                { Success = false, Message = Lang.ErrorCommunicationChannelFailed };
             }
 
             try
             {
                 var result = await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
-                if (result.success)
+                if (result.Success)
                 {
-                    logger.Info("Lobby created successfully by {Username} with code: {LobbyCode}", hostUsername, result.lobbyCode);
+                    logger.Info("Lobby created successfully by {Username} with code: {LobbyCode}", hostUsername, result.LobbyCode);
                 }
                 else
                 {
-                    logger.Warn("Lobby creation failed for {Username}. Reason: {Reason}", hostUsername, result.message);
+                    logger.Warn("Lobby creation failed for {Username}. Reason: {Reason}", hostUsername, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Service Exception in createLobby for {Username}", hostUsername ?? "NULL");
-                return new LobbyCreationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new LobbyCreationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -132,7 +132,7 @@ namespace MindWeaveServer.Services
                     logger.Error(ex, "Service Exception in JoinLobby for {Username}, lobby {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
                     try
                     {
-                        currentUserCallback?.lobbyCreationFailed(Resources.Lang.GenericServerError);
+                        currentUserCallback?.lobbyCreationFailed(Lang.GenericServerError);
                     }
                     catch (Exception cbEx)
                     {
@@ -267,14 +267,14 @@ namespace MindWeaveServer.Services
                 logger.Error("inviteGuestByEmail failed: matchmakingLogic is null.");
                 return;
             }
-            if (invitationData == null || string.IsNullOrWhiteSpace(invitationData.inviterUsername))
+            if (invitationData == null || string.IsNullOrWhiteSpace(invitationData.InviterUsername))
             {
                 logger.Warn("inviteGuestByEmail called with invalid invitation data.");
                 return;
             }
 
-            string inviter = invitationData.inviterUsername;
-            logger.Info("inviteGuestByEmail attempt by: {InviterUsername} for email {GuestEmail}, lobby: {LobbyId}", inviter, invitationData.guestEmail ?? "NULL", invitationData.lobbyCode ?? "NULL");
+            string inviter = invitationData.InviterUsername;
+            logger.Info("inviteGuestByEmail attempt by: {InviterUsername} for email {GuestEmail}, lobby: {LobbyId}", inviter, invitationData.GuestEmail ?? "NULL", invitationData.LobbyCode ?? "NULL");
 
             if (!ensureSessionIsRegistered(inviter))
             {
@@ -287,31 +287,31 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.inviteGuestByEmailAsync(invitationData);
-                    logger.Info("InviteGuestByEmail logic executed for {GuestEmail}, lobby {LobbyId}.", invitationData.guestEmail, invitationData.lobbyCode);
+                    logger.Info("InviteGuestByEmail logic executed for {GuestEmail}, lobby {LobbyId}.", invitationData.GuestEmail, invitationData.LobbyCode);
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex, "Service Exception in InviteGuestByEmail from {InviterUsername} for {GuestEmail}, lobby {LobbyId}", inviter, invitationData.guestEmail ?? "NULL", invitationData.lobbyCode ?? "NULL");
+                    logger.Error(ex, "Service Exception in InviteGuestByEmail from {InviterUsername} for {GuestEmail}, lobby {LobbyId}", inviter, invitationData.GuestEmail ?? "NULL", invitationData.LobbyCode ?? "NULL");
                 }
             });
         }
 
         public async Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest)
         {
-            string codeForContext = joinRequest?.lobbyCode ?? "NULL";
+            string codeForContext = joinRequest?.LobbyCode ?? "NULL";
             logger.Info("joinLobbyAsGuest attempt with code: {LobbyCode}", codeForContext);
 
             if (matchmakingLogic == null)
             {
                 logger.Error("joinLobbyAsGuest failed: Service initialization failed.");
-                return new GuestJoinResultDto { success = false, message = Lang.ErrorServiceInitializationFailed };
+                return new GuestJoinResultDto { Success = false, Message = Lang.ErrorServiceInitializationFailed };
             }
 
             if (isDisconnected)
             {
                 logger.Warn("joinLobbyAsGuest rejected for code {LobbyCode}: Service instance is marked as disconnected.", codeForContext);
                 return new GuestJoinResultDto
-                { success = false, message = Lang.ErrorServiceConnectionClosing };
+                { Success = false, Message = Lang.ErrorServiceConnectionClosing };
             }
 
             IMatchmakingCallback guestCallback = null;
@@ -326,17 +326,17 @@ namespace MindWeaveServer.Services
 
                 GuestJoinResultDto result = await matchmakingLogic.joinLobbyAsGuestAsync(joinRequest, guestCallback);
 
-                if (result.success && !string.IsNullOrWhiteSpace(result.assignedGuestUsername))
+                if (result.Success && !string.IsNullOrWhiteSpace(result.AssignedGuestUsername))
                 {
-                    currentUsername = result.assignedGuestUsername;
+                    currentUsername = result.AssignedGuestUsername;
                     currentUserCallback = guestCallback;
                     setupCallbackEvents(guestCallback as ICommunicationObject); 
-                    logger.Info("joinLobbyAsGuest successful for code {LobbyCode}. Assigned username: {GuestUsername}", codeForContext, result.assignedGuestUsername);
+                    logger.Info("joinLobbyAsGuest successful for code {LobbyCode}. Assigned username: {GuestUsername}", codeForContext, result.AssignedGuestUsername);
 
                 }
                 else
                 {
-                    logger.Warn("joinLobbyAsGuest failed for code {LobbyCode}. Reason: {Reason}", codeForContext, result.message);
+                    logger.Warn("joinLobbyAsGuest failed for code {LobbyCode}. Reason: {Reason}", codeForContext, result.Message);
                 }
                 return result;
             }
@@ -345,13 +345,13 @@ namespace MindWeaveServer.Services
                 logger.Error(ex, "Service Exception in joinLobbyAsGuest for code {LobbyCode}", codeForContext);
                 try
                 {
-                    guestCallback?.lobbyCreationFailed(Resources.Lang.GenericServerError);
+                    guestCallback?.lobbyCreationFailed(Lang.GenericServerError);
                 }
                 catch (Exception cbEx)
                 {
                     logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback after error in joinLobbyAsGuest for code {LobbyCode}", codeForContext);
                 }
-                return new GuestJoinResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new GuestJoinResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
         private int getPlayerIdFromContext()

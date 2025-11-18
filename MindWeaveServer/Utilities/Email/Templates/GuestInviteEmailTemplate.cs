@@ -4,8 +4,8 @@ namespace MindWeaveServer.Utilities.Email.Templates
 {
     public class GuestInviteEmailTemplate : IEmailTemplate
     {
-        public string subject => Lang.EmailSubjectGuestInvite;
-        public string htmlBody { get; }
+        public string Subject => Lang.EmailSubjectGuestInvite;
+        public string HtmlBody { get; }
 
         public GuestInviteEmailTemplate(string inviterUsername, string lobbyCode)
         {
@@ -14,7 +14,7 @@ namespace MindWeaveServer.Utilities.Email.Templates
             string codeInfo = Lang.EmailCodeInfoGuestInvite;
             string howToJoin = Lang.EmailHowToJoinGuest;
 
-            htmlBody = $@"
+            HtmlBody = $@"
                 <div style='font-family: Arial, sans-serif; text-align: center; color: #333;'>
                     <div style='max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px;'>
                         <h2>{greeting}</h2>

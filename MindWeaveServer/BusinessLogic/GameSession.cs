@@ -24,8 +24,8 @@ namespace MindWeaveServer.BusinessLogic
         public double FinalY { get; set; }
         public double CurrentX { get; set; }
         public double CurrentY { get; set; }
-        public bool IsPlaced { get; set; } = false;
-        public int? HeldByPlayerId { get; set; } = null;
+        public bool IsPlaced { get; set; }
+        public int? HeldByPlayerId { get; set; }
     }
 
     public class GameSession
@@ -51,7 +51,7 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Info("Initializing GameSession for Lobby {LobbyCode}", LobbyCode);
 
-            foreach (var pieceDef in this.PuzzleDefinition.pieces)
+            foreach (var pieceDef in this.PuzzleDefinition.Pieces)
             {
                 var pieceState = new PuzzlePieceState
                 {
@@ -132,7 +132,7 @@ namespace MindWeaveServer.BusinessLogic
             if (pieceState.HeldByPlayerId != playerId)
             {
                 logger.Warn("Player {PlayerId} tried to drop piece {PieceId} but it's held by {HeldBy}",
-                    playerId, pieceId, pieceState.HeldByPlayerId ?? null);
+                    playerId, pieceId, pieceState.HeldByPlayerId);
                 return; 
             }
 

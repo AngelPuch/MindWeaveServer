@@ -120,7 +120,6 @@
   <ItemGroup>
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ChatLogic.cs" />
-    <Compile Include="BusinessLogic\GameLogic.cs" />
     <Compile Include="BusinessLogic\GameSession.cs" />
     <Compile Include="BusinessLogic\GameSessionManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />

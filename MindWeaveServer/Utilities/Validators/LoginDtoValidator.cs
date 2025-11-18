@@ -8,10 +8,10 @@ namespace MindWeaveServer.Utilities.Validators
     {
         public LoginDtoValidator()
         {
-            RuleFor(x => x.email)
+            RuleFor(x => x.Email)
                 .NotEmpty().WithMessage(x => Lang.ValidationEmailRequired);
 
-            RuleFor(x => x.password)
+            RuleFor(x => x.Password)
                 .NotEmpty().WithMessage(x => Lang.ValidationPasswordRequired);
         }
     }

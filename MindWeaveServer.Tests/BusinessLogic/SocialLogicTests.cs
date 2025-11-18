@@ -45,8 +45,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
             string requesterUsername = player1.username;
             string query = "User";
             var searchResultsFromRepo = new List<PlayerSearchResultDto> {
-                new() { username = player2.username, avatarPath = defaultAvatar },
-                new() { username = player3.username, avatarPath = player3.avatar_path }
+                new() { Username = player2.username, AvatarPath = defaultAvatar },
+                new() { Username = player3.username, AvatarPath = player3.avatar_path }
             };
             mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync(player1);
             mockPlayerRepository.Setup(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
@@ -56,8 +56,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             Assert.NotNull(results);
             Assert.Equal(2, results.Count);
-            Assert.Contains(results, r => r.username == player2.username && r.avatarPath == defaultAvatar);
-            Assert.Contains(results, r => r.username == player3.username && r.avatarPath == player3.avatar_path);
+            Assert.Contains(results, r => r.Username == player2.username && r.AvatarPath == defaultAvatar);
+            Assert.Contains(results, r => r.Username == player3.username && r.AvatarPath == player3.avatar_path);
             mockPlayerRepository.Verify(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()), Times.Once);
         }
 
@@ -101,8 +101,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.True(result.success);
-            Assert.Equal(Lang.FriendRequestSent, result.message);
+            Assert.True(result.Success);
+            Assert.Equal(Lang.FriendRequestSent, result.Message);
             mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
         }
 
@@ -114,8 +114,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.ErrorCannotSelfFriend, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.ErrorCannotSelfFriend, result.Message);
             mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
             mockFriendshipRepository.Verify(fr => fr.addFriendship(It.IsAny<Friendships>()), Times.Never);
             mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Never);
@@ -130,8 +130,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.ErrorPlayerNotFound, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.ErrorPlayerNotFound, result.Message);
             mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
@@ -145,8 +145,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.FriendshipAlreadyExists, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.FriendshipAlreadyExists, result.Message);
             mockFriendshipRepository.Verify(fr => fr.addFriendship(It.IsAny<Friendships>()), Times.Never);
             mockFriendshipRepository.Verify(fr => fr.updateFriendship(It.IsAny<Friendships>()), Times.Never);
         }
@@ -161,8 +161,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.FriendRequestAlreadySent, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.FriendRequestAlreadySent, result.Message);
         }
 
         [Fact]
@@ -175,8 +175,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.FriendRequestReceivedFromUser, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.FriendRequestReceivedFromUser, result.Message);
         }
 
         [Fact]
@@ -191,8 +191,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
-            Assert.True(result.success);
-            Assert.Equal(Lang.FriendRequestSent, result.message);
+            Assert.True(result.Success);
+            Assert.Equal(Lang.FriendRequestSent, result.Message);
             mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
             mockFriendshipRepository.Verify(fr => fr.addFriendship(It.IsAny<Friendships>()), Times.Never);
         }
@@ -208,8 +208,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, true);
 
-            Assert.True(result.success);
-            Assert.Equal(Lang.FriendRequestAccepted, result.message);
+            Assert.True(result.Success);
+            Assert.Equal(Lang.FriendRequestAccepted, result.Message);
             
             mockFriendshipRepository.Verify(fr => fr.updateFriendship(It.Is<Friendships>(
                 f => f == pendingFriendship && f.status_id == FriendshipStatusConstants.ACCEPTED
@@ -229,8 +229,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, false);
 
-            Assert.True(result.success);
-            Assert.Equal(Lang.FriendRequestRejected, result.message);
+            Assert.True(result.Success);
+            Assert.Equal(Lang.FriendRequestRejected, result.Message);
 
             mockFriendshipRepository.Verify(fr => fr.updateFriendship(It.Is<Friendships>(
                 f => f == pendingFriendship && f.status_id == FriendshipStatusConstants.REJECTED
@@ -248,8 +248,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, true);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.ErrorPlayerNotFound, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.ErrorPlayerNotFound, result.Message);
             mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
@@ -270,15 +270,15 @@ namespace MindWeaveServer.Tests.BusinessLogic
             Assert.NotNull(result);
             Assert.Equal(2, result.Count);
 
-            var friend2 = result.FirstOrDefault(f => f.username == player2.username);
+            var friend2 = result.FirstOrDefault(f => f.Username == player2.username);
             Assert.NotNull(friend2);
-            Assert.False(friend2.isOnline);
-            Assert.Equal(defaultAvatar, friend2.avatarPath);
+            Assert.False(friend2.IsOnline);
+            Assert.Equal(defaultAvatar, friend2.AvatarPath);
 
-            var friend3 = result.FirstOrDefault(f => f.username == player3.username);
+            var friend3 = result.FirstOrDefault(f => f.Username == player3.username);
             Assert.NotNull(friend3);
-            Assert.True(friend3.isOnline);
-            Assert.Equal(player3.avatar_path, friend3.avatarPath);
+            Assert.True(friend3.IsOnline);
+            Assert.Equal(player3.avatar_path, friend3.AvatarPath);
         }
 
         [Fact]
@@ -323,8 +323,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
             Assert.NotNull(result);
             Assert.Single(result);
             var friend2 = result.First();
-            Assert.Equal(player2.username, friend2.username);
-            Assert.False(friend2.isOnline);
+            Assert.Equal(player2.username, friend2.Username);
+            Assert.False(friend2.IsOnline);
         }
 
         [Fact]
@@ -341,13 +341,13 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             Assert.NotNull(result);
             Assert.Equal(2, result.Count);
-            Assert.Equal(player3.username, result[0].requesterUsername);
-            Assert.Equal(player2.username, result[1].requesterUsername);
+            Assert.Equal(player3.username, result[0].RequesterUsername);
+            Assert.Equal(player2.username, result[1].RequesterUsername);
           
-            Assert.Equal(requests[1].request_date, result[0].requestDate);
-            Assert.Equal(player3.avatar_path, result[0].avatarPath);
-            Assert.Equal(requests[0].request_date, result[1].requestDate);
-            Assert.Equal(defaultAvatar, result[1].avatarPath);
+            Assert.Equal(requests[1].request_date, result[0].RequestDate);
+            Assert.Equal(player3.avatar_path, result[0].AvatarPath);
+            Assert.Equal(requests[0].request_date, result[1].RequestDate);
+            Assert.Equal(defaultAvatar, result[1].AvatarPath);
         }
 
         [Fact]
@@ -387,8 +387,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.removeFriendAsync(username, friendToRemove);
 
-            Assert.True(result.success);
-            Assert.Equal(Lang.FriendRemovedSuccessfully, result.message);
+            Assert.True(result.Success);
+            Assert.Equal(Lang.FriendRemovedSuccessfully, result.Message);
             mockFriendshipRepository.Verify(fr => fr.removeFriendship(friendship), Times.Once);
             mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
         }
@@ -402,8 +402,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.removeFriendAsync(username, friendToRemove);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.ErrorPlayerNotFound, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.ErrorPlayerNotFound, result.Message);
             mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
@@ -416,8 +416,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await socialLogic.removeFriendAsync(username, friendToRemove);
 
-            Assert.False(result.success);
-            Assert.Equal(Lang.ErrorFriendshipNotFound, result.message);
+            Assert.False(result.Success);
+            Assert.Equal(Lang.ErrorFriendshipNotFound, result.Message);
             mockFriendshipRepository.Verify(fr => fr.removeFriendship(It.IsAny<Friendships>()), Times.Never);
         }
     }

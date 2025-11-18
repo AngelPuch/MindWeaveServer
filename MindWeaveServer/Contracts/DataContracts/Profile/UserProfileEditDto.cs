@@ -9,19 +9,19 @@ namespace MindWeaveServer.Contracts.DataContracts.Profile
     public class UserProfileForEditDto
     {
         [DataMember]
-        public string firstName { get; set; }
+        public string FirstName { get; set; }
 
         [DataMember]
-        public string lastName { get; set; }
+        public string LastName { get; set; }
 
         [DataMember]
-        public DateTime? dateOfBirth { get; set; }
+        public DateTime? DateOfBirth { get; set; }
 
         [DataMember]
-        public int idGender { get; set; }
+        public int IdGender { get; set; }
 
         [DataMember]
-        public List<GenderDto> availableGenders { get; set; }
+        public List<GenderDto> AvailableGenders { get; set; }
     }
 
    

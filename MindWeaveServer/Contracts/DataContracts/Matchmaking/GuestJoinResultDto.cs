@@ -7,12 +7,12 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
     public class GuestJoinResultDto : OperationResultDto
     {
         [DataMember]
-        public int playerId { get; set; }
+        public int PlayerId { get; set; }
 
         [DataMember]
-        public string assignedGuestUsername { get; set; }
+        public string AssignedGuestUsername { get; set; }
 
         [DataMember]
-        public LobbyStateDto initialLobbyState { get; set; }
+        public LobbyStateDto InitialLobbyState { get; set; }
     }
 }

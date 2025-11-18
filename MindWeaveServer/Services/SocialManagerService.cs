@@ -134,27 +134,27 @@ namespace MindWeaveServer.Services
             if (!isCurrentUser(requesterUsername))
             {
                 logger.Warn("sendFriendRequest called by {RequesterUsername}, but current session is for {CurrentUsername}. Aborting.", requesterUsername, currentUsername ?? "N/A");
-                return new OperationResultDto { success = false, message = Lang.ErrorSessionMismatch };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorSessionMismatch };
             }
             logger.Info("sendFriendRequest attempt from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername ?? "NULL");
             try
             {
                 var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Friend request sent successfully from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername);
                     sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
                 }
                 else
                 {
-                    logger.Warn("sendFriendRequest failed from {RequesterUsername} to {TargetUsername}. Reason: {Reason}", requesterUsername, targetUsername, result.message);
+                    logger.Warn("sendFriendRequest failed from {RequesterUsername} to {TargetUsername}. Reason: {Reason}", requesterUsername, targetUsername, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Error during sendFriendRequest from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -163,13 +163,13 @@ namespace MindWeaveServer.Services
             if (!isCurrentUser(responderUsername))
             {
                 logger.Warn("respondToFriendRequest called by {ResponderUsername}, but current session is for {CurrentUsername}. Aborting.", responderUsername, currentUsername ?? "N/A");
-                return new OperationResultDto { success = false, message = Lang.ErrorSessionMismatch };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorSessionMismatch };
             }
             logger.Info("respondToFriendRequest attempt by {ResponderUsername} to request from {RequesterUsername}. Accepted: {Accepted}", responderUsername, requesterUsername ?? "NULL", accepted);
             try
             {
                 var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, accepted);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Friend request response ({Accepted}) processed successfully by {ResponderUsername} for request from {RequesterUsername}", accepted ? "Accepted" : "Declined", responderUsername, requesterUsername);
                     sendNotificationToUser(requesterUsername, cb => cb.notifyFriendResponse(responderUsername, accepted));
@@ -181,14 +181,14 @@ namespace MindWeaveServer.Services
                 }
                 else
                 {
-                    logger.Warn("respondToFriendRequest failed by {ResponderUsername} for request from {RequesterUsername}. Reason: {Reason}", responderUsername, requesterUsername, result.message);
+                    logger.Warn("respondToFriendRequest failed by {ResponderUsername} for request from {RequesterUsername}. Reason: {Reason}", responderUsername, requesterUsername, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Error during respondToFriendRequest by {ResponderUsername} for request from {RequesterUsername}", responderUsername, requesterUsername ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -197,27 +197,27 @@ namespace MindWeaveServer.Services
             if (!isCurrentUser(username))
             {
                 logger.Warn("removeFriend called by {Username}, but current session is for {CurrentUsername}. Aborting.", username, currentUsername ?? "N/A");
-                return new OperationResultDto { success = false, message = Lang.ErrorSessionMismatch };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorSessionMismatch };
             }
             logger.Info("removeFriend attempt by {Username} to remove {FriendToRemoveUsername}", username, friendToRemoveUsername ?? "NULL");
             try
             {
                 var result = await socialLogic.removeFriendAsync(username, friendToRemoveUsername);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Friend removed successfully: {Username} removed {FriendToRemoveUsername}", username, friendToRemoveUsername);
                     sendNotificationToUser(friendToRemoveUsername, cb => cb.notifyFriendStatusChanged(username, false));
                 }
                 else
                 {
-                    logger.Warn("removeFriend failed for {Username} trying to remove {FriendToRemoveUsername}. Reason: {Reason}", username, friendToRemoveUsername, result.message);
+                    logger.Warn("removeFriend failed for {Username} trying to remove {FriendToRemoveUsername}. Reason: {Reason}", username, friendToRemoveUsername, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Error during removeFriend by {Username} for {FriendToRemoveUsername}", username, friendToRemoveUsername ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -383,7 +383,7 @@ namespace MindWeaveServer.Services
                 if (friendsToNotify == null) return;
 
                 var onlineFriendUsernames = friendsToNotify
-                    .Select(friend => friend.username)
+                    .Select(friend => friend.Username)
                     .Where(username => SocialManagerService.isUserConnected(username));
                 
                 foreach (var username in onlineFriendUsernames)

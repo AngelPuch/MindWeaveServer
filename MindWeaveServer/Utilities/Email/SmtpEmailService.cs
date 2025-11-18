@@ -44,11 +44,11 @@ namespace MindWeaveServer.Utilities.Email
 
         public async Task sendEmailAsync(string recipientEmail, string recipientName, IEmailTemplate template)
         {
-            string subject = template.subject;
-            string htmlBody = template.htmlBody;
+            string subject = template.Subject;
+            string htmlBody = template.HtmlBody;
 
             logger.Info("Attempting to send email (MailKit). Template: {TemplateType}, To: {RecipientEmail}, Name: {RecipientName}, Subject: '{Subject}'",
-               template?.GetType().Name, recipientEmail ?? "NULL", recipientName ?? "NULL", subject ?? "NULL");
+               template.GetType().Name, recipientEmail ?? "NULL", recipientName ?? "NULL", subject ?? "NULL");
 
             if (string.IsNullOrWhiteSpace(recipientEmail))
             {

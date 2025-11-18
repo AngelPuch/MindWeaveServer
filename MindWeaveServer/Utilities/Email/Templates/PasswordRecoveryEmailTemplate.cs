@@ -4,8 +4,8 @@ namespace MindWeaveServer.Utilities.Email.Templates
 {
     public class PasswordRecoveryEmailTemplate : IEmailTemplate
     {
-        public string subject => Lang.EmailSubjectPasswordRecovery; 
-        public string htmlBody { get; }
+        public string Subject => Lang.EmailSubjectPasswordRecovery; 
+        public string HtmlBody { get; }
 
         public PasswordRecoveryEmailTemplate(string username, string recoveryCode)
         {
@@ -15,7 +15,7 @@ namespace MindWeaveServer.Utilities.Email.Templates
             string expiryInfo = string.Format(Lang.EmailExpiryInfo, 5);
             string ignoreInfo = Lang.EmailIgnoreInfo;
 
-            htmlBody = $@"
+            HtmlBody = $@"
                 <div style='font-family: Arial, sans-serif; text-align: center; color: #333;'>
                     <div style='max-width: 600px; margin: auto; border: 1px solid #ddd; padding: 20px;'>
                         <h2>{greeting}</h2>

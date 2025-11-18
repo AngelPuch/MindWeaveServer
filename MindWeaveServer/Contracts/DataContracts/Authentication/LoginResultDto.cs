@@ -7,18 +7,18 @@ namespace MindWeaveServer.Contracts.DataContracts.Authentication
     public class LoginResultDto
     {
         [DataMember]
-        public OperationResultDto operationResult { get; set; }
+        public OperationResultDto OperationResult { get; set; }
 
         [DataMember]
-        public int playerId { get; set; }
+        public int PlayerId { get; set; }
 
         [DataMember]
-        public string username { get; set; }
+        public string Username { get; set; }
 
         [DataMember]
-        public string avatarPath { get; set; }
+        public string AvatarPath { get; set; }
 
         [DataMember]
-        public string resultCode { get; set; }
+        public string ResultCode { get; set; }
     }
 }

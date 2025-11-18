@@ -7,24 +7,24 @@ namespace MindWeaveServer.Contracts.DataContracts.Authentication
     public class UserProfileDto
     {
         [DataMember]
-        public string username { get; set; }
+        public string Username { get; set; }
 
         [DataMember]
-        public string firstName { get; set; }
+        public string FirstName { get; set; }
 
         [DataMember]
-        public string lastName { get; set; }
+        public string LastName { get; set; }
 
         [DataMember]
-        public string email { get; set; }
+        public string Email { get; set; }
 
         [DataMember]
-        public DateTime dateOfBirth { get; set; }
+        public DateTime DateOfBirth { get; set; }
 
         [DataMember]
-        public int genderId { get; set; }
+        public int GenderId { get; set; }
 
         [DataMember]
-        public byte[] avatar { get; set; }
+        public byte[] Avatar { get; set; }
     }
 }

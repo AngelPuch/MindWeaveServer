@@ -7,9 +7,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Profile
     public class GenderDto
     {
         [DataMember]
-        public int idGender { get; set; }
+        public int IdGender { get; set; }
 
         [DataMember]
-        public string name { get; set; }
+        public string Name { get; set; }
     }
 }

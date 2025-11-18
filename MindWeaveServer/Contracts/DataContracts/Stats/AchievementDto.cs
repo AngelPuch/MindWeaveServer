@@ -6,12 +6,12 @@ namespace MindWeaveServer.Contracts.DataContracts.Stats
     public class AchievementDto
     {
         [DataMember]
-        public string name { get; set; }
+        public string Name { get; set; }
 
         [DataMember]
-        public string description { get; set; }
+        public string Description { get; set; }
 
         [DataMember]
-        public string iconPath { get; set; }
+        public string IconPath { get; set; }
     }
 }

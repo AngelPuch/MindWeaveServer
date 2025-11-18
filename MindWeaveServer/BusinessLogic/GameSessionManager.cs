@@ -103,7 +103,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private async Task<byte[]> getPuzzleBytes(string imagePath)
+        private Task<byte[]> getPuzzleBytes(string imagePath)
         {
             string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, imagePath);
 
@@ -122,19 +122,7 @@ namespace MindWeaveServer.BusinessLogic
                 throw new FileNotFoundException("Puzzle image not found.", fullPath);
             }
 
-            return File.ReadAllBytes(fullPath);
-        }
-
-        private GameSession findGameForPlayer(string username)
-        {
-            foreach (var game in activeSessions.Values)
-            {
-                if (game.Players.Values.Any(p => p.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
-                {
-                    return game;
-                }
-            }
-            return null;
+            return Task.FromResult(File.ReadAllBytes(fullPath));
         }
 
         public void handlePlayerDisconnect(string username, int playerId)

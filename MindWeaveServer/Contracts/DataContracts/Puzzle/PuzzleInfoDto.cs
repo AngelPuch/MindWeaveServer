@@ -6,17 +6,17 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
     public class PuzzleInfoDto
     {
         [DataMember]
-        public int puzzleId { get; set; }
+        public int PuzzleId { get; set; }
 
         [DataMember]
-        public string name { get; set; }
+        public string Name { get; set; }
 
         [DataMember]
-        public string imagePath { get; set; }
+        public string ImagePath { get; set; }
         [DataMember]
-        public bool isUploaded { get; set; }
+        public bool IsUploaded { get; set; }
 
         [DataMember]
-        public byte[] imageBytes { get; set; }
+        public byte[] ImageBytes { get; set; }
     }
 }

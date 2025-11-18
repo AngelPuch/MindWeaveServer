@@ -94,20 +94,20 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await profileLogic.updateProfileAsync(username, updatedProfileData);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Profile updated successfully for user: {Username}", userForContext);
                 }
                 else
                 {
-                    logger.Warn("Profile update failed for user: {Username}. Reason: {Reason}", userForContext, result.message);
+                    logger.Warn("Profile update failed for user: {Username}. Reason: {Reason}", userForContext, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during updateProfile for user: {Username}", userForContext);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -118,20 +118,20 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Avatar path updated successfully for user: {Username}", userForContext);
                 }
                 else
                 {
-                    logger.Warn("Avatar path update failed for user: {Username}. Reason: {Reason}", userForContext, result.message);
+                    logger.Warn("Avatar path update failed for user: {Username}. Reason: {Reason}", userForContext, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during updateAvatarPath for user: {Username}", userForContext);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -142,20 +142,20 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await profileLogic.changePasswordAsync(username, currentPassword, newPassword);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Password changed successfully for user: {Username}", userForContext);
                 }
                 else
                 {
-                    logger.Warn("Password change failed for user: {Username}. Reason: {Reason}", userForContext, result.message);
+                    logger.Warn("Password change failed for user: {Username}. Reason: {Reason}", userForContext, result.Message);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during changePassword for user: {Username}", userForContext);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
     }

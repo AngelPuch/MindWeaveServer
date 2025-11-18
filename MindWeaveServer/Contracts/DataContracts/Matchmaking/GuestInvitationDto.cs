@@ -6,12 +6,12 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
     public class GuestInvitationDto
     {
         [DataMember]
-        public string inviterUsername { get; set; }
+        public string InviterUsername { get; set; }
 
         [DataMember]
-        public string guestEmail { get; set; }
+        public string GuestEmail { get; set; }
 
         [DataMember]
-        public string lobbyCode { get; set; }
+        public string LobbyCode { get; set; }
     }
 }

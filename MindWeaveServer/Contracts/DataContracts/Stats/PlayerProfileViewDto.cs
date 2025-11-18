@@ -7,27 +7,27 @@ namespace MindWeaveServer.Contracts.DataContracts.Stats
     public class PlayerProfileViewDto
     {
         [DataMember]
-        public string username { get; set; }
+        public string Username { get; set; }
 
         [DataMember]
-        public string avatarPath { get; set; }
+        public string AvatarPath { get; set; }
 
         [DataMember]
-        public string firstName { get; set; }
+        public string FirstName { get; set; }
 
         [DataMember]
-        public string lastName { get; set; }
+        public string LastName { get; set; }
 
         [DataMember]
-        public System.DateTime? dateOfBirth { get; set; }
+        public System.DateTime? DateOfBirth { get; set; }
 
         [DataMember]
-        public string gender { get; set; }
+        public string Gender { get; set; }
 
         [DataMember]
-        public PlayerStatsDto stats { get; set; }
+        public PlayerStatsDto Stats { get; set; }
 
         [DataMember]
-        public List<AchievementDto> achievements { get; set; }
+        public List<AchievementDto> Achievements { get; set; }
     }
 }

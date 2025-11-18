@@ -83,8 +83,8 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .OrderBy(p => p.username) // Order alphabetically
                 .Select(p => new PlayerSearchResultDto
                 {
-                    username = p.username,
-                    avatarPath = p.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+                    Username = p.username,
+                    AvatarPath = p.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
                 })
                 .Take(maxResults)
                 .ToListAsync();

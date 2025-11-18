@@ -6,13 +6,13 @@ namespace MindWeaveServer.Contracts.DataContracts.Profile
     public class AvatarUpdateResultDto
     {
         [DataMember]
-        public bool success { get; set; }
+        public bool Success { get; set; }
 
         [DataMember]
-        public string message { get; set; }
+        public string Message { get; set; }
 
         [DataMember]
-        public string newAvatarPath { get; set; }
+        public string NewAvatarPath { get; set; }
     }
 }
   

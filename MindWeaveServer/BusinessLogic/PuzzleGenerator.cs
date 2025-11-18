@@ -30,8 +30,8 @@ namespace MindWeaveServer.BusinessLogic
 
             var puzzleDef = new PuzzleDefinitionDto
             {
-                fullImageBytes = imageBytes,
-                pieces = new List<PuzzlePieceDefinitionDto>()
+                FullImageBytes = imageBytes,
+                Pieces = new List<PuzzlePieceDefinitionDto>()
             };
 
             PuzzlePieceDefinitionDto[,] pieceGrid = new PuzzlePieceDefinitionDto[rows, columns];
@@ -39,8 +39,8 @@ namespace MindWeaveServer.BusinessLogic
             using (var ms = new MemoryStream(imageBytes))
             using (var img = Image.FromStream(ms))
             {
-                puzzleDef.puzzleWidth = img.Width;
-                puzzleDef.puzzleHeight = img.Height;
+                puzzleDef.PuzzleWidth = img.Width;
+                puzzleDef.PuzzleHeight = img.Height;
 
                 int pieceWidth = img.Width / columns;
                 int pieceHeight = img.Height / rows;
@@ -66,7 +66,7 @@ namespace MindWeaveServer.BusinessLogic
                         };
 
                         pieceGrid[r, c] = piece;
-                        puzzleDef.pieces.Add(piece);
+                        puzzleDef.Pieces.Add(piece);
                         pieceId++;
                     }
                 }
@@ -77,25 +77,16 @@ namespace MindWeaveServer.BusinessLogic
                     {
                         var currentPiece = pieceGrid[r, c];
 
-                        // Top Neighbor
                         currentPiece.TopNeighborId = (r > 0) ? pieceGrid[r - 1, c].PieceId : (int?)null;
-
-                        // Bottom Neighbor
                         currentPiece.BottomNeighborId = (r < rows - 1) ? pieceGrid[r + 1, c].PieceId : (int?)null;
-
-                        // Left Neighbor
                         currentPiece.LeftNeighborId = (c > 0) ? pieceGrid[r, c - 1].PieceId : (int?)null;
-
-                        // Right Neighbor
                         currentPiece.RightNeighborId = (c < columns - 1) ? pieceGrid[r, c + 1].PieceId : (int?)null;
                     }
                 }
             }
 
-            // --- DEBUG DEL SERVIDOR (PASO 2) ---
-            // Vamos a verificar si los datos existen ANTES de enviarlos al cliente.
-            System.Diagnostics.Trace.WriteLine($"[SERVER] generatePuzzle: Checking data for {puzzleDef.pieces.Count} pieces...");
-            foreach (var piece in puzzleDef.pieces.Take(5)) // Loguear solo las primeras 5 para no saturar
+            System.Diagnostics.Trace.WriteLine($"[SERVER] generatePuzzle: Checking data for {puzzleDef.Pieces.Count} pieces...");
+            foreach (var piece in puzzleDef.Pieces.Take(5))
             {
                 System.Diagnostics.Trace.WriteLine($"[SERVER] Piece {piece.PieceId} Neighbors: " +
                                                    $"T={piece.TopNeighborId}, " +
@@ -104,7 +95,6 @@ namespace MindWeaveServer.BusinessLogic
                                                    $"R={piece.RightNeighborId}");
             }
             System.Diagnostics.Trace.WriteLine("[SERVER] generatePuzzle: Check complete.");
-            // --- FIN DEBUG ---
 
             return puzzleDef;
         }

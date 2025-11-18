@@ -7,9 +7,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
     public class LobbyCreationResultDto : OperationResultDto 
     {
         [DataMember]
-        public string lobbyCode { get; set; } 
+        public string LobbyCode { get; set; } 
 
         [DataMember]
-        public LobbyStateDto initialLobbyState { get; set; } 
+        public LobbyStateDto InitialLobbyState { get; set; } 
     }
 }

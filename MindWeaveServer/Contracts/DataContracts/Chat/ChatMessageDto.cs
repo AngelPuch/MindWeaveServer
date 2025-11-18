@@ -7,10 +7,10 @@ namespace MindWeaveServer.Contracts.DataContracts.Chat
     public class ChatMessageDto
     {
         [DataMember]
-        public string senderUsername { get; set; }
+        public string SenderUsername { get; set; }
         [DataMember]
-        public string content { get; set; }
+        public string Content { get; set; }
         [DataMember]
-        public DateTime timestamp { get; set; }
+        public DateTime Timestamp { get; set; }
     }
 }

@@ -64,13 +64,13 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(requesterUsername) || string.IsNullOrWhiteSpace(targetUsername))
             {
                 logger.Warn("Send friend request failed: Requester or target username is null/whitespace.");
-                return new OperationResultDto { success = false, message = Lang.ValidationUsernameRequired };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationUsernameRequired };
             }
 
             if (requesterUsername.Equals(targetUsername, StringComparison.OrdinalIgnoreCase))
             {
                 logger.Warn("Send friend request failed: User {Username} attempted to send request to self.", requesterUsername);
-                return new OperationResultDto { success = false, message = Lang.ErrorCannotSelfFriend };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorCannotSelfFriend };
             }
 
             try
@@ -82,7 +82,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (requester == null || target == null)
                 {
                     logger.Warn("Send friend request failed: Requester (Found={RequesterFound}) or Target (Found={TargetFound}) player not found.", requester != null, target != null);
-                    return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
                 }
                 logger.Debug("Both players found. RequesterID: {RequesterId}, TargetID: {TargetId}", requester.idPlayer, target.idPlayer);
 
@@ -103,7 +103,7 @@ namespace MindWeaveServer.BusinessLogic
             catch (Exception ex)
             {
                 logger.Error(ex, "Unhandled exception during sendFriendRequestAsync from {RequesterUsername} to {TargetUsername} (likely during player/friendship lookup)", requesterUsername, targetUsername);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -114,7 +114,7 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(responderUsername) || string.IsNullOrWhiteSpace(requesterUsername))
             {
                 logger.Warn("Respond friend request failed: Responder or requester username is null/whitespace.");
-                return new OperationResultDto { success = false, message = Lang.ValidationUsernameRequired };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationUsernameRequired };
             }
 
             try
@@ -126,7 +126,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (responder == null || requester == null)
                 {
                     logger.Warn("Respond friend request failed: Responder (Found={ResponderFound}) or Requester (Found={RequesterFound}) player not found.", responder != null, requester != null);
-                    return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
                 }
                 logger.Debug("Both players found. ResponderID: {ResponderId}, RequesterID: {RequesterId}", responder.idPlayer, requester.idPlayer);
 
@@ -137,7 +137,7 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Warn("Respond friend request failed: No matching PENDING request found directed to {ResponderUsername} from {RequesterUsername}. (Found={Found}, Status={StatusId}, Addressee={AddresseeId})",
                         responderUsername, requesterUsername, friendship != null, friendship?.status_id, friendship?.addressee_id);
-                    return new OperationResultDto { success = false, message = Lang.ErrorNoPendingRequestFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorNoPendingRequestFound };
                 }
                 logger.Debug("Matching pending request found (ID: {FriendshipId}). Updating status.", friendship.friendships_id);
 
@@ -146,12 +146,12 @@ namespace MindWeaveServer.BusinessLogic
 
                 await friendshipRepository.saveChangesAsync();
                 logger.Info("Friend request from {RequesterUsername} to {ResponderUsername} processed. Status set to: {Status}", requesterUsername, responderUsername, friendship.status_id);
-                return new OperationResultDto { success = true, message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
+                return new OperationResultDto { Success = true, Message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception during respondToFriendRequestAsync for Responder: {ResponderUsername}, Requester: {RequesterUsername}", responderUsername, requesterUsername);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -218,11 +218,11 @@ namespace MindWeaveServer.BusinessLogic
                     .Where(req => req.Player1 != null)
                     .Select(req => new FriendRequestInfoDto
                     {
-                        requesterUsername = req.Player1.username,
-                        requestDate = req.request_date,
-                        avatarPath = req.Player1.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+                        RequesterUsername = req.Player1.username,
+                        RequestDate = req.request_date,
+                        AvatarPath = req.Player1.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
                     })
-                    .OrderByDescending(r => r.requestDate)
+                    .OrderByDescending(r => r.RequestDate)
                     .ToList();
 
                 int skippedCount = pendingRequests.Count - requestInfoDtos.Count;
@@ -247,12 +247,12 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(friendToRemoveUsername))
             {
                 logger.Warn("Remove friend failed: Username or friend username is null/whitespace.");
-                return new OperationResultDto { success = false, message = Lang.ValidationUsernameRequired };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationUsernameRequired };
             }
             if (username.Equals(friendToRemoveUsername, StringComparison.OrdinalIgnoreCase))
             {
                 logger.Warn("Remove friend failed: User {Username} attempted to remove self.", username);
-                return new OperationResultDto { success = false, message = Lang.ErrorCannotRemoveSelf };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorCannotRemoveSelf };
             }
 
             try
@@ -264,7 +264,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (player == null || friendToRemove == null)
                 {
                     logger.Warn("Remove friend failed: Player (Found={PlayerFound}) or Friend (Found={FriendFound}) not found.", player != null, friendToRemove != null);
-                    return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
                 }
                 logger.Debug("Both players found. PlayerID: {PlayerId}, FriendID: {FriendId}", player.idPlayer, friendToRemove.idPlayer);
 
@@ -273,7 +273,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (friendship == null || friendship.status_id != FriendshipStatusConstants.ACCEPTED)
                 {
                     logger.Warn("Remove friend failed: No ACCEPTED friendship found between {Username} and {FriendToRemove}. (Found={Found}, Status={StatusId})", username, friendToRemoveUsername, friendship != null, friendship?.status_id);
-                    return new OperationResultDto { success = false, message = Lang.ErrorFriendshipNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorFriendshipNotFound };
                 }
                 logger.Debug("Accepted friendship found (ID: {FriendshipId}). Removing from DB.", friendship.friendships_id);
 
@@ -281,12 +281,12 @@ namespace MindWeaveServer.BusinessLogic
 
                 await friendshipRepository.saveChangesAsync();
                 logger.Info("Friendship between {Username} and {FriendToRemove} removed successfully.", username, friendToRemoveUsername);
-                return new OperationResultDto { success = true, message = Lang.FriendRemovedSuccessfully };
+                return new OperationResultDto { Success = true, Message = Lang.FriendRemovedSuccessfully };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception during removeFriendAsync for User: {Username}, Friend: {FriendToRemove}", username, friendToRemoveUsername);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -300,18 +300,18 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     case FriendshipStatusConstants.ACCEPTED:
                         logger.Warn("Send request failed: Friendship already exists and is ACCEPTED.");
-                        return new OperationResultDto { success = false, message = Lang.FriendshipAlreadyExists };
+                        return new OperationResultDto { Success = false, Message = Lang.FriendshipAlreadyExists };
 
                     case FriendshipStatusConstants.PENDING:
                         if (existingFriendship.requester_id == requester.idPlayer)
                         {
                             logger.Warn("Send request failed: A PENDING request from {RequesterUsername} to {TargetUsername} already exists.", requester.username, target.username);
-                            return new OperationResultDto { success = false, message = Lang.FriendRequestAlreadySent };
+                            return new OperationResultDto { Success = false, Message = Lang.FriendRequestAlreadySent };
                         }
                         else
                         {
                             logger.Warn("Send request failed: A PENDING request from {TargetUsername} to {RequesterUsername} already exists. User should respond instead.", target.username, requester.username);
-                            return new OperationResultDto { success = false, message = Lang.FriendRequestReceivedFromUser };
+                            return new OperationResultDto { Success = false, Message = Lang.FriendRequestReceivedFromUser };
                         }
 
                     case FriendshipStatusConstants.REJECTED:
@@ -324,17 +324,17 @@ namespace MindWeaveServer.BusinessLogic
                         logger.Debug("Saving updated (rejected to pending) friendship request to DB.");
                         await friendshipRepository.saveChangesAsync();
                         logger.Info("Successfully re-sent friend request (updated rejected status to pending)."); 
-                        return new OperationResultDto { success = true, message = Lang.FriendRequestSent };
+                        return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
 
                     default:
                         logger.Error("Send request failed: Unknown or unhandled friendship status ({StatusId}) between {RequesterUsername} and {TargetUsername}.", existingFriendship.status_id, requester.username, target.username);
-                        return new OperationResultDto { success = false, message = Lang.FriendshipStatusPreventsRequest };
+                        return new OperationResultDto { Success = false, Message = Lang.FriendshipStatusPreventsRequest };
                 }
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception saving updated (rejected to pending) friendship request.");
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -362,12 +362,12 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Warn("New friendship request saved, but ID was not assigned or is zero.");
                 }
-                return new OperationResultDto { success = true, message = Lang.FriendRequestSent };
+                return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception saving new friendship request from {RequesterUsername} to {TargetUsername}", requester.username, target.username);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -381,9 +381,9 @@ namespace MindWeaveServer.BusinessLogic
                 bool isOnline = onlineUsersSet.Contains(friendEntity.username);
                 return new FriendDto
                 {
-                    username = friendEntity.username,
-                    isOnline = isOnline,
-                    avatarPath = friendEntity.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+                    Username = friendEntity.username,
+                    IsOnline = isOnline,
+                    AvatarPath = friendEntity.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
                 };
             }
             else

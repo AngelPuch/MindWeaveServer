@@ -5,7 +5,6 @@ using NLog;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 
@@ -39,20 +38,20 @@ namespace MindWeaveServer.BusinessLogic
             {
                 var dto = new PuzzleInfoDto
                 {
-                    puzzleId = p.puzzle_id,
-                    name = Path.GetFileNameWithoutExtension(p.image_path ?? "Puzzle"),
-                    imagePath = p.image_path,
-                    isUploaded = !p.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase)
+                    PuzzleId = p.puzzle_id,
+                    Name = Path.GetFileNameWithoutExtension(p.image_path ?? "Puzzle"),
+                    ImagePath = p.image_path,
+                    IsUploaded = !p.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase)
                 };
 
-                if (dto.isUploaded)
+                if (dto.IsUploaded)
                 {
                     try
                     {
                         string filePath = Path.Combine(uploadPath, p.image_path);
                         if (File.Exists(filePath))
                         {
-                            dto.imageBytes = File.ReadAllBytes(filePath);
+                            dto.ImageBytes = File.ReadAllBytes(filePath);
                         }
                         else
                         {
@@ -77,7 +76,7 @@ namespace MindWeaveServer.BusinessLogic
             if (imageBytes == null || imageBytes.Length == 0 || string.IsNullOrWhiteSpace(fileName) || string.IsNullOrWhiteSpace(username))
             {
                 logger.Warn("uploadPuzzleImageAsync logic failed for {Username}: Invalid data provided.", username ?? "NULL");
-                return new UploadResultDto { success = false, message = Lang.ErrorPuzzleUploadInvalidData };
+                return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadInvalidData };
             }
 
             string uploadPath = getUploadFolderPath();
@@ -102,7 +101,7 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Warn("Upload Error: Player {Username} not found.", username);
                     tryDeleteFile(filePath);
-                    return new UploadResultDto { success = false, message = Lang.ErrorPuzzleUploadPlayerNotFound };
+                    return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadPlayerNotFound };
                 }
 
                 var newPuzzle = new Puzzles
@@ -118,20 +117,20 @@ namespace MindWeaveServer.BusinessLogic
 
                 return new UploadResultDto
                 {
-                    success = true,
-                    message = Lang.SuccessPuzzleUpload,
-                    newPuzzleId = newPuzzle.puzzle_id
+                    Success = true,
+                    Message = Lang.SuccessPuzzleUpload,
+                    NewPuzzleId = newPuzzle.puzzle_id
                 };
             }
             catch (IOException ioEx)
             {
                 logger.Error(ioEx, "I/O Error in uploadPuzzleImageAsync for {Username}", username);
-                return new UploadResultDto { success = false, message = Lang.ErrorPuzzleUploadFailed };
+                return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadFailed };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Generic Error in uploadPuzzleImageAsync for {Username}", username);
-                return new UploadResultDto { success = false, message = Lang.GenericServerError };
+                return new UploadResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -167,7 +166,7 @@ namespace MindWeaveServer.BusinessLogic
                     return null;
                 }
 
-                byte[] imageBytes = null;
+                byte[] imageBytes;
                 if (!puzzleData.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase))
                 {
                     string uploadPath = getUploadFolderPath();
@@ -203,7 +202,6 @@ namespace MindWeaveServer.BusinessLogic
                     logger.Warn("Invalid difficultyId {DifficultyId} requested.", difficultyId);
                     return null;
                 }
-                int pieceCount = difficulty.piece_count;
 
                 PuzzleDefinitionDto puzzleDefinition = puzzleGenerator.generatePuzzle(imageBytes, difficulty);
                 return puzzleDefinition;

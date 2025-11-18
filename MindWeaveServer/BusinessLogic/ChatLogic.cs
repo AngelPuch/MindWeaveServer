@@ -5,7 +5,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
-using System.Threading.Tasks;
 using NLog;
 
 namespace MindWeaveServer.BusinessLogic
@@ -91,9 +90,9 @@ namespace MindWeaveServer.BusinessLogic
 
             var messageDto = new ChatMessageDto
             {
-                senderUsername = senderUsername,
-                content = messageContent,
-                timestamp = DateTime.UtcNow 
+                SenderUsername = senderUsername,
+                Content = messageContent,
+                Timestamp = DateTime.UtcNow 
             };
 
             addMessageToHistory(lobbyId, messageDto);
@@ -117,12 +116,12 @@ namespace MindWeaveServer.BusinessLogic
                 }
                 countAfterAdd = history.Count;
             }
-            logger.Debug("[ChatLogic HISTORY] Message from {SenderUsername} added to history for lobby '{LobbyId}'. New Count: {HistoryCount}", messageDto.senderUsername, lobbyId, countAfterAdd);
+            logger.Debug("[ChatLogic HISTORY] Message from {SenderUsername} added to history for lobby '{LobbyId}'. New Count: {HistoryCount}", messageDto.SenderUsername, lobbyId, countAfterAdd);
         }
 
         private void broadcastMessage(string lobbyId, ChatMessageDto messageDto)
         {
-            logger.Debug("Broadcasting message from {SenderUsername} to lobby {LobbyId}", messageDto.senderUsername, lobbyId);
+            logger.Debug("Broadcasting message from {SenderUsername} to lobby {LobbyId}", messageDto.SenderUsername, lobbyId);
 
             if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {

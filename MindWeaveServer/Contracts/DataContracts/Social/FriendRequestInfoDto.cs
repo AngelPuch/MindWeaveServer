@@ -8,11 +8,11 @@ namespace MindWeaveServer.Contracts.DataContracts.Social
     {
        
         [DataMember]
-        public string requesterUsername { get; set; }
+        public string RequesterUsername { get; set; }
 
         [DataMember]
-        public DateTime requestDate { get; set; }
+        public DateTime RequestDate { get; set; }
         [DataMember]
-        public string avatarPath { get; set; }
+        public string AvatarPath { get; set; }
     }
 }

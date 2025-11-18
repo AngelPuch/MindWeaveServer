@@ -7,12 +7,12 @@ namespace MindWeaveServer.Contracts.DataContracts.Stats
     public class PlayerStatsDto
     {
         [DataMember]
-        public int puzzlesCompleted { get; set; }
+        public int PuzzlesCompleted { get; set; }
         [DataMember]
-        public int puzzlesWon { get; set; }
+        public int PuzzlesWon { get; set; }
         [DataMember]
-        public TimeSpan totalPlaytime { get; set; }
+        public TimeSpan TotalPlaytime { get; set; }
         [DataMember]
-        public int highestScore { get; set; }
+        public int HighestScore { get; set; }
     }
 }

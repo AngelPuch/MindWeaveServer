@@ -7,6 +7,6 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
     public class UploadResultDto : OperationResultDto
     {
         [DataMember]
-        public int newPuzzleId { get; set; }
+        public int NewPuzzleId { get; set; }
     }
 }

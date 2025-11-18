@@ -2,7 +2,7 @@
 {
     public interface IEmailTemplate
     {
-        string subject { get; }
-        string htmlBody { get; }
+        string Subject { get; }
+        string HtmlBody { get; }
     }
 }

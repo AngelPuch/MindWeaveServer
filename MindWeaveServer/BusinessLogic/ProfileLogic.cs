@@ -95,7 +95,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 var allGendersData = await genderRepository.getAllGendersAsync();
                 var allGendersDto = allGendersData.Select
-                    (g => new GenderDto { idGender = g.idGender, name = g.gender1 }).ToList(); 
+                    (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList(); 
                 logger.Debug("Retrieved {Count} genders.", allGendersDto.Count);
 
                 logger.Info("Successfully retrieved editable profile data for User: {Username}", username);
@@ -116,7 +116,7 @@ namespace MindWeaveServer.BusinessLogic
             if (updatedProfileData == null)
             {
                 logger.Warn("Update profile failed for {Username}: Updated profile data is null.", username ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.ValidationProfileOrPasswordRequired };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationProfileOrPasswordRequired };
             }
 
             logger.Debug("Validating updated profile data for User: {Username}", username);
@@ -125,7 +125,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 string firstError = validationResult.Errors[0].ErrorMessage;
                 logger.Warn("Update profile failed for {Username}: Validation failed. Reason: {Reason}", username ?? "NULL", firstError);
-                return new OperationResultDto { success = false, message = firstError };
+                return new OperationResultDto { Success = false, Message = firstError };
             }
             logger.Debug("Profile data validation successful for User: {Username}", username);
 
@@ -137,7 +137,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (playerToUpdate == null)
                 {
                     logger.Warn("Update profile failed: Player {Username} not found.", username);
-                    return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
                 }
                 logger.Debug("Player {Username} found. Applying updates.", username);
 
@@ -147,12 +147,12 @@ namespace MindWeaveServer.BusinessLogic
                 await playerRepository.saveChangesAsync();
                 logger.Info("Profile updated successfully for User: {Username}", username);
 
-                return new OperationResultDto { success = true, message = Lang.ProfileUpdatedSuccessfully };
+                return new OperationResultDto { Success = true, Message = Lang.ProfileUpdatedSuccessfully };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception during updateProfileAsync for User: {Username}", username ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -164,7 +164,7 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(newAvatarPath))
             {
                 logger.Warn("Update avatar path failed: Username or new path is null/whitespace.");
-                return new OperationResultDto { success = false, message = Lang.ErrorAvatarPathCannotBeEmpty };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorAvatarPathCannotBeEmpty };
             }
 
             try
@@ -175,7 +175,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (playerToUpdate == null)
                 {
                     logger.Warn("Update avatar path failed: Player {Username} not found.", username);
-                    return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
                 }
 
                 logger.Debug("Player {Username} found. Updating avatar path.", username);
@@ -194,14 +194,14 @@ namespace MindWeaveServer.BusinessLogic
 
                 return new OperationResultDto
                 {
-                    success = success,
-                    message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
+                    Success = success,
+                    Message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
                 };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception during updateAvatarPathAsync for User: {Username}", username);
-                return new OperationResultDto { success = false, message = Lang.ErrorAvatarUpdateFailed };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorAvatarUpdateFailed };
             }
         }
 
@@ -212,7 +212,7 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
             {
                 logger.Warn("Change password failed for {Username}: One or more fields are null/whitespace.", username ?? "NULL");
-                return new OperationResultDto { success = false, message = Lang.ErrorAllFieldsRequired };
+                return new OperationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired };
             }
 
             try
@@ -223,7 +223,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (player == null)
                 {
                     logger.Warn("Change password failed: Player {Username} not found.", username);
-                    return new OperationResultDto { success = false, message = Lang.ErrorPlayerNotFound };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
                 }
 
                 bool currentPasswordVerified = passwordService.verifyPassword(currentPassword, player.password_hash);
@@ -231,14 +231,14 @@ namespace MindWeaveServer.BusinessLogic
                 if (!currentPasswordVerified)
                 {
                     logger.Warn("Change password failed for {Username}: Current password verification failed.", username);
-                    return new OperationResultDto { success = false, message = Lang.ErrorCurrentPasswordIncorrect };
+                    return new OperationResultDto { Success = false, Message = Lang.ErrorCurrentPasswordIncorrect };
                 }
 
                 var policyValidation = passwordPolicyValidator.validate(newPassword);
 
-                if (!policyValidation.success)
+                if (!policyValidation.Success)
                 {
-                    logger.Warn("Change password failed for {Username}: New password does not meet policy. Reason: {Reason}", username, policyValidation.message);
+                    logger.Warn("Change password failed for {Username}: New password does not meet policy. Reason: {Reason}", username, policyValidation.Message);
                     return policyValidation; 
                 }
 
@@ -256,14 +256,14 @@ namespace MindWeaveServer.BusinessLogic
 
                 return new OperationResultDto
                 {
-                    success = success,
-                    message = success ? Lang.PasswordChangedSuccessfully : Lang.PasswordChangedFailed
+                    Success = success,
+                    Message = success ? Lang.PasswordChangedSuccessfully : Lang.PasswordChangedFailed
                 };
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Exception during changePasswordAsync for User: {Username}", username);
-                return new OperationResultDto { success = false, message = Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
 
@@ -271,24 +271,24 @@ namespace MindWeaveServer.BusinessLogic
         {
             return new PlayerProfileViewDto
             {
-                username = player.username,
-                avatarPath = player.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png",
-                firstName = player.first_name,
-                lastName = player.last_name,
-                dateOfBirth = player.date_of_birth,
-                gender = player.Gender?.gender1, 
-                stats = new PlayerStatsDto 
+                Username = player.username,
+                AvatarPath = player.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png",
+                FirstName = player.first_name,
+                LastName = player.last_name,
+                DateOfBirth = player.date_of_birth,
+                Gender = player.Gender?.gender1, 
+                Stats = new PlayerStatsDto 
                 {
-                    puzzlesCompleted = player.PlayerStats?.puzzles_completed ?? 0,
-                    puzzlesWon = player.PlayerStats?.puzzles_won ?? 0,
-                    totalPlaytime = TimeSpan.FromMinutes(player.PlayerStats?.total_playtime_minutes ?? 0),
-                    highestScore = player.PlayerStats?.highest_score ?? 0
+                    PuzzlesCompleted = player.PlayerStats?.puzzles_completed ?? 0,
+                    PuzzlesWon = player.PlayerStats?.puzzles_won ?? 0,
+                    TotalPlaytime = TimeSpan.FromMinutes(player.PlayerStats?.total_playtime_minutes ?? 0),
+                    HighestScore = player.PlayerStats?.highest_score ?? 0
                 },
-                achievements = player.Achievements?.Select(ach => new AchievementDto
+                Achievements = player.Achievements?.Select(ach => new AchievementDto
                 {
-                    name = ach.name,
-                    description = ach.description,
-                    iconPath = ach.icon_path
+                    Name = ach.name,
+                    Description = ach.description,
+                    IconPath = ach.icon_path
                 }).ToList() ?? new List<AchievementDto>() 
             };
         }
@@ -296,21 +296,21 @@ namespace MindWeaveServer.BusinessLogic
         {
             return new UserProfileForEditDto
             {
-                firstName = player.first_name,
-                lastName = player.last_name,
-                dateOfBirth = player.date_of_birth,
-                idGender = player.gender_id ?? 0, 
-                availableGenders = allGendersDto 
+                FirstName = player.first_name,
+                LastName = player.last_name,
+                DateOfBirth = player.date_of_birth,
+                IdGender = player.gender_id ?? 0, 
+                AvailableGenders = allGendersDto 
             };
         }
         private static void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
         {
           
-            player.first_name = updatedProfileData.firstName.Trim();
-            player.last_name = updatedProfileData.lastName?.Trim(); 
-            player.date_of_birth = updatedProfileData.dateOfBirth;
+            player.first_name = updatedProfileData.FirstName.Trim();
+            player.last_name = updatedProfileData.LastName?.Trim(); 
+            player.date_of_birth = updatedProfileData.DateOfBirth;
             
-            player.gender_id = updatedProfileData.idGender > 0 ? updatedProfileData.idGender : (int?)null;
+            player.gender_id = updatedProfileData.IdGender > 0 ? updatedProfileData.IdGender : (int?)null;
         }
 
     }

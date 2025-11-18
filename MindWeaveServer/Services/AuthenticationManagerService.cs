@@ -49,22 +49,22 @@ namespace MindWeaveServer.Services
 
         public async Task<LoginResultDto> login(LoginDto loginCredentials)
         {
-            string emailForContext = loginCredentials?.email ?? "NULL";
+            string emailForContext = loginCredentials?.Email ?? "NULL";
             logger.Info("Login attempt started for email: {Email}", emailForContext);
             try
             {
                 var result = await authenticationLogic.loginAsync(loginCredentials);
-                if (result.operationResult.success)
+                if (result.OperationResult.Success)
                 {
-                    logger.Info("Login successful for user: {Username}. Email: {Email}", result.username, emailForContext);
+                    logger.Info("Login successful for user: {Username}. Email: {Email}", result.Username, emailForContext);
                 }
-                else if (result.resultCode == "ACCOUNT_NOT_VERIFIED")
+                else if (result.ResultCode == "ACCOUNT_NOT_VERIFIED")
                 {
                     logger.Warn("Login failed: Account not verified. Email: {Email}", emailForContext);
                 }
                 else
                 {
-                    logger.Warn("Login failed: {Reason}. Email: {Email}", result.operationResult.message, emailForContext);
+                    logger.Warn("Login failed: {Reason}. Email: {Email}", result.OperationResult.Message, emailForContext);
                 }
                 return result;
             }
@@ -73,33 +73,33 @@ namespace MindWeaveServer.Services
                logger.Error(ex, "An unexpected error occurred during login. Email: {Email}", emailForContext);
                 return new LoginResultDto
                 {
-                    operationResult = new OperationResultDto { success = false, message = Resources.Lang.GenericServerError }
+                    OperationResult = new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError }
                 };
             }
         }
 
         public async Task<OperationResultDto> register(UserProfileDto userProfile, string password)
         {
-            string usernameForContext = userProfile?.username ?? "NULL";
-            string emailForContext = userProfile?.email ?? "NULL";
+            string usernameForContext = userProfile?.Username ?? "NULL";
+            string emailForContext = userProfile?.Email ?? "NULL";
             logger.Info("Registration attempt started for user: {Username}, Email: {Email}", usernameForContext, emailForContext);
             try
             {
                 var result = await authenticationLogic.registerPlayerAsync(userProfile, password);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Registration successful for user: {Username}, Email: {Email}", usernameForContext, emailForContext);
                 }
                 else
                 {
-                    logger.Warn("Registration failed: {Reason}. User: {Username}, Email: {Email}", result.message, usernameForContext, emailForContext);
+                    logger.Warn("Registration failed: {Reason}. User: {Username}, Email: {Email}", result.Message, usernameForContext, emailForContext);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during registration. User: {Username}, Email: {Email}", usernameForContext, emailForContext);
-                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
             }
         }
         public async Task<OperationResultDto> verifyAccount(string email, string code)
@@ -109,20 +109,20 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await authenticationLogic.verifyAccountAsync(email, code);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Account verification successful for email: {Email}", emailForContext);
                 }
                 else
                 {
-                    logger.Warn("Account verification failed: {Reason}. Email: {Email}", result.message, emailForContext);
+                    logger.Warn("Account verification failed: {Reason}. Email: {Email}", result.Message, emailForContext);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred during account verification. Email: {Email}", emailForContext);
-                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
             }
         }
 
@@ -133,20 +133,20 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await authenticationLogic.resendVerificationCodeAsync(email);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Resent verification code successfully for email: {Email}", emailForContext);
                 }
                 else
                 {
-                    logger.Warn("Resend verification code failed: {Reason}. Email: {Email}", result.message, emailForContext);
+                    logger.Warn("Resend verification code failed: {Reason}. Email: {Email}", result.Message, emailForContext);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred while resending verification code. Email: {Email}", emailForContext);
-                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
             }
         }
 
@@ -157,13 +157,13 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await authenticationLogic.sendPasswordRecoveryCodeAsync(email);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Sent password recovery code successfully for email: {Email}", emailForContext);
                 }
                 else
                 {
-                    logger.Warn("Send password recovery code failed: {Reason}. Email: {Email}", result.message, emailForContext);
+                    logger.Warn("Send password recovery code failed: {Reason}. Email: {Email}", result.Message, emailForContext);
                 }
                 return result;
 
@@ -171,7 +171,7 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred while sending password recovery code. Email: {Email}", emailForContext);
-                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
             }
         }
 
@@ -182,20 +182,20 @@ namespace MindWeaveServer.Services
             try
             {
                 var result = await authenticationLogic.resetPasswordWithCodeAsync(email, code, newPassword);
-                if (result.success)
+                if (result.Success)
                 {
                     logger.Info("Password reset successful for email: {Email}", emailForContext);
                 }
                 else
                 {
-                    logger.Warn("Password reset failed: {Reason}. Email: {Email}", result.message, emailForContext);
+                    logger.Warn("Password reset failed: {Reason}. Email: {Email}", result.Message, emailForContext);
                 }
                 return result;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "An unexpected error occurred while resetting password. Email: {Email}", emailForContext);
-                return new OperationResultDto { success = false, message = Resources.Lang.GenericServerError };
+                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
             }
         }
 

@@ -66,7 +66,7 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 logger.Error(ex, "Generic Error in uploadPuzzleImageAsync service call for {Username}", username ?? "NULL");
-                return new UploadResultDto { success = false, message = Lang.GenericServerError };
+                return new UploadResultDto { Success = false, Message = Lang.GenericServerError };
             }
         }
     }

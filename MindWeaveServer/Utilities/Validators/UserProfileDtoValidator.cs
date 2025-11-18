@@ -9,27 +9,27 @@ namespace MindWeaveServer.Utilities.Validators
     {
         public UserProfileDtoValidator()
         {
-            RuleFor(x => x.username)
+            RuleFor(x => x.Username)
                 .NotEmpty().WithMessage(Lang.ValidationUsernameRequired)
                 .Length(3, 16).WithMessage(Lang.ValidationUsernameLength)
                 .Matches("^[a-zA-Z0-9]*$").WithMessage(Lang.ValidationUsernameAlphanumeric);
 
-            RuleFor(x => x.email)
+            RuleFor(x => x.Email)
                 .NotEmpty().WithMessage(Lang.ValidationEmailRequired)
                 .EmailAddress().WithMessage(Lang.ValidationEmailFormat);
 
-            RuleFor(x => x.firstName)
+            RuleFor(x => x.FirstName)
                 .NotEmpty().WithMessage(Lang.ValidationFirstNameRequired)
                 .MaximumLength(45).WithMessage(Lang.ValidationFirstNameLength)
                 .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
                 .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").WithMessage(Lang.ValidationOnlyLetters);
 
-            RuleFor(x => x.lastName)
+            RuleFor(x => x.LastName)
                 .MaximumLength(45).WithMessage(Lang.ValidationLastNameLength)
-                .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
-                .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").When(x => !string.IsNullOrEmpty(x.lastName)).WithMessage(Lang.ValidationOnlyLetters);
+                .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.LastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
+                .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").When(x => !string.IsNullOrEmpty(x.LastName)).WithMessage(Lang.ValidationOnlyLetters);
 
-            RuleFor(x => x.dateOfBirth)
+            RuleFor(x => x.DateOfBirth)
                 .NotNull().WithMessage(Lang.ValidationDateOfBirthRequired)
                 .Must(beAValidAge).WithMessage(Lang.ValidationDateOfBirthMinimumAge)
                 .Must(beARealisticAge).WithMessage(Lang.ValidationDateOfBirthRealistic);

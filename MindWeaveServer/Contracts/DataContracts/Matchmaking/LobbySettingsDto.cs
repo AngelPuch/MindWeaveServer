@@ -6,12 +6,12 @@ namespace MindWeaveServer.Contracts.DataContracts.Matchmaking
     public class LobbySettingsDto
     {
         [DataMember]
-        public int difficultyId { get; set; }
+        public int DifficultyId { get; set; }
 
         [DataMember]
-        public byte[] customPuzzleImage { get; set; }
+        public byte[] CustomPuzzleImage { get; set; }
 
         [DataMember]
-        public int? preloadedPuzzleId { get; set; }
+        public int? PreloadedPuzzleId { get; set; }
     }
 }

@@ -6,8 +6,8 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
     public class OperationResultDto
     {
         [DataMember]
-        public bool success { get; set; }
+        public bool Success { get; set; }
         [DataMember]
-        public string message { get; set; }
+        public string Message { get; set; }
     }
 }

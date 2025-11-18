@@ -18,13 +18,13 @@ namespace MindWeaveServer.Utilities.Validators
             if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
             {
                 logger.Warn("Password validation failed: Length is less than 8 characters or null/whitespace.");
-                return new OperationResultDto { success = false, message = Lang.ValidationPasswordLength };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordLength };
             }
 
             if (password.Any(char.IsWhiteSpace))
             {
                 logger.Warn("Password validation failed: Contains whitespace characters.");
-                return new OperationResultDto { success = false, message = Lang.ValidationPasswordNoSpaces };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordNoSpaces };
             }
 
             bool hasUpper = password.Any(char.IsUpper);
@@ -34,11 +34,11 @@ namespace MindWeaveServer.Utilities.Validators
             if (!hasUpper || !hasLower || !hasDigit)
             {
                 logger.Warn("Password validation failed: Complexity requirement not met (Upper={HasUpper}, Lower={HasLower}, Digit={HasDigit}).", hasUpper, hasLower, hasDigit);
-                return new OperationResultDto { success = false, message = Lang.ValidationPasswordComplexity };
+                return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordComplexity };
             }
 
             logger.Debug("Password validation successful."); 
-            return new OperationResultDto { success = true };
+            return new OperationResultDto { Success = true };
         }
     }
 }

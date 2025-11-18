@@ -7,15 +7,15 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
     public class PuzzleDefinitionDto
     {
         [DataMember]
-        public byte[] fullImageBytes { get; set; }
+        public byte[] FullImageBytes { get; set; }
 
         [DataMember]
-        public int puzzleWidth { get; set; } 
+        public int PuzzleWidth { get; set; } 
 
         [DataMember]
-        public int puzzleHeight { get; set; }
+        public int PuzzleHeight { get; set; }
 
         [DataMember]
-        public List<PuzzlePieceDefinitionDto> pieces { get; set; }
+        public List<PuzzlePieceDefinitionDto> Pieces { get; set; }
     }
 }
