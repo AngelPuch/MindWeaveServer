@@ -55,7 +55,7 @@ namespace MindWeaveServer.BusinessLogic
             ConcurrentDictionary<string, LobbyStateDto> lobbies,
             ConcurrentDictionary<string, IMatchmakingCallback> callbacks,
             IPuzzleRepository puzzleRepository,
-            GameSessionManager gameSessionManager) 
+            GameSessionManager gameSessionManager)
 
         {
             this.matchmakingRepository = matchmakingRepository ?? throw new ArgumentNullException(nameof(matchmakingRepository));
@@ -66,7 +66,7 @@ namespace MindWeaveServer.BusinessLogic
             this.userCallbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
             this.gameSessionManager = gameSessionManager;
             this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
-            logger.Info("MatchmakingLogic instance created."); 
+            logger.Info("MatchmakingLogic instance created.");
         }
 
 
@@ -109,7 +109,7 @@ namespace MindWeaveServer.BusinessLogic
                     {
                         if (puzzle.image_path.StartsWith("puzzleDefault"))
                         {
-                            puzzleImagePath = puzzle.image_path; 
+                            puzzleImagePath = puzzle.image_path;
 
                         }
                         else
@@ -137,7 +137,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 settings.CustomPuzzleImage = puzzleBytes;
 
-                var initialState = buildInitialLobbyState(newMatch, hostUsername, settings, puzzleImagePath); 
+                var initialState = buildInitialLobbyState(newMatch, hostUsername, settings, puzzleImagePath);
 
                 if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
                 {
@@ -169,7 +169,7 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("joinLobbyAsync called for User: {Username}, Lobby: {LobbyCode}", username ?? "NULL", lobbyCode ?? "NULL");
 
             registerCallback(username, callback);
-            
+
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
                 logger.Warn("Join lobby failed for {Username}: Lobby {LobbyCode} not found in active lobbies.", username, lobbyCode);
@@ -227,8 +227,8 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             bool wasGuest = false;
-            
-            if (guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests)) 
+
+            if (guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests))
             {
                 wasGuest = currentGuests.Remove(username);
                 if (wasGuest)
@@ -251,30 +251,30 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Info("User {Username} removed from memory state for lobby {LobbyCode}. HostLeft={DidHostLeave}, LobbyClosed={IsLobbyClosed}", username, lobbyCode, didHostLeave, isLobbyClosed);
 
-            
+
             if (!wasGuest)
             {
                 logger.Debug("User {Username} was not a guest. Synchronizing leave with DB for lobby {LobbyCode}.", username, lobbyCode);
-                await synchronizeDbOnLeaveAsync(username, lobbyCode, isLobbyClosed); 
+                await synchronizeDbOnLeaveAsync(username, lobbyCode, isLobbyClosed);
             }
-            else if (isLobbyClosed) 
+            else if (isLobbyClosed)
             {
                 logger.Debug("Guest {Username} was the last player. Synchronizing lobby closure (cancel match) with DB for lobby {LobbyCode}.", username, lobbyCode);
-                await synchronizeDbOnLeaveAsync(null, lobbyCode, true); 
+                await synchronizeDbOnLeaveAsync(null, lobbyCode, true);
             }
 
             if (isLobbyClosed)
             {
                 logger.Info("Lobby {LobbyCode} is now closed. Handling closure.", lobbyCode);
-                handleLobbyClosure(lobbyCode, didHostLeave, remainingPlayers); 
+                handleLobbyClosure(lobbyCode, didHostLeave, remainingPlayers);
             }
             else
             {
                 logger.Info("Lobby {LobbyCode} remains active. Broadcasting update after user {Username} left.", lobbyCode, username);
-                
+
                 notifyLobbyStateChanged(lobbyState);
             }
-            removeCallback(username); 
+            removeCallback(username);
         }
 
         public void handleUserDisconnect(string username)
@@ -284,7 +284,7 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("handleUserDisconnect called with null or empty username.");
                 return;
             }
-            
+
             logger.Warn("[HandleDisconnect] Processing disconnect for user: '{Username}'", username);
 
             List<string> lobbiesToLeave = activeLobbies
@@ -318,7 +318,7 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            var (isValid, playersSnapshot) = validateLobbyStateAndGetSnapshot(lobbyState, hostUsername); 
+            var (isValid, playersSnapshot) = validateLobbyStateAndGetSnapshot(lobbyState, hostUsername);
             if (!isValid)
             {
                 logger.Warn("Start game validation failed for Lobby {LobbyCode}, Host {Username}.", lobbyCode, hostUsername);
@@ -357,13 +357,13 @@ namespace MindWeaveServer.BusinessLogic
             }
 
 
-            bool kickedFromMemory = tryKickPlayerFromMemory(lobbyState, hostUsername, playerToKickUsername); 
+            bool kickedFromMemory = tryKickPlayerFromMemory(lobbyState, hostUsername, playerToKickUsername);
 
             if (kickedFromMemory)
             {
                 logger.Info("Player {TargetUsername} successfully kicked from memory state of lobby {LobbyCode} by {HostUsername}.", playerToKickUsername, lobbyCode, hostUsername);
                 await handlePostKickCleanupAsync(isGuest, playerToKickUsername, lobbyCode);
-                notifyAllOnKick(lobbyState, playerToKickUsername); 
+                notifyAllOnKick(lobbyState, playerToKickUsername);
             }
             else
             {
@@ -404,10 +404,10 @@ namespace MindWeaveServer.BusinessLogic
                     sendCallbackToUser(inviterUsername, cb => cb.lobbyCreationFailed(string.Format(Lang.PlayerAlreadyInLobby, invitedUsername)));
                     return Task.CompletedTask;
                 }
-            } 
+            }
 
             logger.Info("Sending lobby invite notification to {TargetUsername} for lobby {LobbyCode} from {InviterUsername}.", invitedUsername, lobbyCode, inviterUsername);
-            SocialManagerService.sendNotificationToUser(invitedUsername, cb => cb.notifyLobbyInvite(inviterUsername, lobbyCode)); 
+            SocialManagerService.sendNotificationToUser(invitedUsername, cb => cb.notifyLobbyInvite(inviterUsername, lobbyCode));
             return Task.CompletedTask;
         }
 
@@ -419,7 +419,7 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
             List<string> currentPlayersSnapshot;
-            lock (lobbyState) 
+            lock (lobbyState)
             {
                 currentPlayersSnapshot = lobbyState.Players.ToList();
             }
@@ -434,7 +434,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             logger.Info("changeDifficultyAsync called by Host: {Username}, Lobby: {LobbyId}, New Difficulty: {DifficultyId}", hostUsername ?? "NULL", lobbyId ?? "NULL", newDifficultyId);
 
-            if (newDifficultyId < 1 || newDifficultyId > 3) 
+            if (newDifficultyId < 1 || newDifficultyId > 3)
             {
                 logger.Warn("Change difficulty failed: Invalid difficulty ID ({DifficultyId}) requested.", newDifficultyId);
                 sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ValidationErrorDifficultyInvalid));
@@ -723,7 +723,7 @@ namespace MindWeaveServer.BusinessLogic
                 HostUsername = hostUsername,
                 Players = new List<string> { hostUsername },
                 CurrentSettingsDto = settings,
-                PuzzleImagePath = puzzleImagePath 
+                PuzzleImagePath = puzzleImagePath
             };
         }
 
@@ -764,7 +764,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 if (player != null && match != null && match.match_status_id == MATCH_STATUS_WAITING)
                 {
-                    logger.Debug("Player (ID: {PlayerId}) and Match (ID: {MatchId}) found and match is waiting. Adding participant if not exists.", 
+                    logger.Debug("Player (ID: {PlayerId}) and Match (ID: {MatchId}) found and match is waiting. Adding participant if not exists.",
                         player.idPlayer, match.matches_id);
                     await addParticipantIfNotExistsAsync(match, player);
                     return true;
@@ -943,7 +943,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 logger.Debug("Updating match status to InProgress and setting start time for MatchID: {MatchId}",
                     match.matches_id);
-              
+
                 matchmakingRepository.updateMatchStatus(match, MATCH_STATUS_IN_PROGRESS);
                 matchmakingRepository.updateMatchStartTime(match);
 
@@ -957,8 +957,8 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception trying to start match in DB for lobby {LobbyCode}", lobbyCode); 
-                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.DatabaseErrorStartingMatch)); 
+                logger.Error(ex, "Exception trying to start match in DB for lobby {LobbyCode}", lobbyCode);
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.DatabaseErrorStartingMatch));
                 return null;
             }
         }
@@ -1049,23 +1049,23 @@ namespace MindWeaveServer.BusinessLogic
             catch (Exception ex)
             {
                 logger.Error(ex, "Failed to create GameSession for lobby {LobbyCode}. Kicking players.", lobbyState.LobbyId);
-                
+
                 foreach (var playerUsername in playersSnapshot)
                 {
                     sendCallbackToUser(playerUsername, cb => cb.kickedFromLobby(Lang.GenericServerError));
                     removeCallback(playerUsername);
                 }
-                
+
                 activeLobbies.TryRemove(lobbyState.LobbyId, out _);
                 guestUsernamesInLobby.TryRemove(lobbyState.LobbyId, out _);
                 return;
             }
 
-            
+
             logger.Info("GameSession created. Notifying all players with OnGameStarted callback.");
             foreach (var player in newGameSession.Players.Values)
             {
-                
+
                 sendCallbackToUser(player.Username, cb => cb.onGameStarted(newGameSession.PuzzleDefinition));
                 removeCallback(player.Username);
             }
@@ -1086,13 +1086,13 @@ namespace MindWeaveServer.BusinessLogic
             {
                 if (!lobbyState.HostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
                 {
-                    logger.Warn("Kick player failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.LobbyId); 
+                    logger.Warn("Kick player failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.LobbyId);
                     return false;
                 }
 
                 if (hostUsername.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase))
                 {
-                    logger.Warn("Kick player failed: Host {Username} cannot kick themselves from lobby {LobbyId}.", hostUsername, lobbyState.LobbyId); 
+                    logger.Warn("Kick player failed: Host {Username} cannot kick themselves from lobby {LobbyId}.", hostUsername, lobbyState.LobbyId);
                     return false;
                 }
 
@@ -1147,14 +1147,14 @@ namespace MindWeaveServer.BusinessLogic
             {
                 if (!lobbyState.HostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
                 {
-                    logger.Warn("Change difficulty failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.LobbyId); 
-                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost)); 
+                    logger.Warn("Change difficulty failed: User {Username} is not the host of lobby {LobbyId}.", hostUsername, lobbyState.LobbyId);
+                    sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost));
                     return false;
                 }
 
                 if (lobbyState.CurrentSettingsDto.DifficultyId == newDifficultyId)
                 {
-                    logger.Debug("Change difficulty ignored: Difficulty for lobby {LobbyId} is already {DifficultyId}.", lobbyState.LobbyId, newDifficultyId); 
+                    logger.Debug("Change difficulty ignored: Difficulty for lobby {LobbyId} is already {DifficultyId}.", lobbyState.LobbyId, newDifficultyId);
                     return false;
                 }
                 lobbyState.CurrentSettingsDto.DifficultyId = newDifficultyId;
@@ -1192,8 +1192,8 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception trying to synchronize difficulty change to DB for lobby {LobbyId}", lobbyId); 
-                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ErrorSavingDifficultyChange)); 
+                logger.Error(ex, "Exception trying to synchronize difficulty change to DB for lobby {LobbyId}", lobbyId);
+                sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.ErrorSavingDifficultyChange));
                 return false;
             }
         }
@@ -1254,8 +1254,8 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private async Task<(bool isValid, Player inviter, Matches match, string errorKey)> 
-            getInvitationPrerequisitesAsync(string inviterUsername, string lobbyCode) 
+        private async Task<(bool isValid, Player inviter, Matches match, string errorKey)>
+            getInvitationPrerequisitesAsync(string inviterUsername, string lobbyCode)
         {
             logger.Debug("Fetching inviter player data: {InviterUsername}", inviterUsername);
             var inviterPlayer = await playerRepository.getPlayerByUsernameAsync(inviterUsername);
@@ -1293,11 +1293,11 @@ namespace MindWeaveServer.BusinessLogic
             return (true, inviterPlayer, match, null);
         }
 
-        private async Task<(bool isValid, Matches match, GuestInvitations invitation, LobbyStateDto lobbyState, GuestJoinResultDto errorResult)> 
-            validateGuestJoinPrerequisitesAsync(string lobbyCode, string guestEmailLower) 
+        private async Task<(bool isValid, Matches match, GuestInvitations invitation, LobbyStateDto lobbyState, GuestJoinResultDto errorResult)>
+            validateGuestJoinPrerequisitesAsync(string lobbyCode, string guestEmailLower)
         {
             logger.Debug("Fetching match data for lobby code: {LobbyCode}", lobbyCode);
-            
+
             Matches match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
             if (match == null || match.lobby_code != lobbyCode || match.match_status_id != MATCH_STATUS_WAITING)
             {
@@ -1392,7 +1392,7 @@ namespace MindWeaveServer.BusinessLogic
             return $"{currentBase}{counterStr}";
         }
 
-        private (bool success, string finalUsername, int playerId, GuestJoinResultDto errorResult) 
+        private (bool success, string finalUsername, int playerId, GuestJoinResultDto errorResult)
             tryAddGuestToLobbyState(LobbyStateDto lobbyState, string lobbyCode, string desiredUsername, IMatchmakingCallback callback)
         {
             string finalGuestUsername;

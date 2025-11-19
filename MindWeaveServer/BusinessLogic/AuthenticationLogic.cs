@@ -92,10 +92,14 @@ namespace MindWeaveServer.BusinessLogic
                     return await handleNewPlayerRegistrationAsync(userProfile, password);
                 }
             }
-            catch (Exception ex)
+            catch (System.Data.Entity.Infrastructure.DbUpdateException dbEx)
             {
-                logger.Error(ex, "Exception during registerPlayerAsync for User: {Username}", usernameForContext);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                if (dbEx.InnerException?.InnerException is System.Data.SqlClient.SqlException sqlEx &&
+                   (sqlEx.Number == 2601 || sqlEx.Number == 2627))
+                {
+                    throw new InvalidOperationException("DuplicateUser");
+                }
+                throw;
             }
         }
 
@@ -108,73 +112,61 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.RegistrationUsernameOrEmailExists };
             }
 
-            try
-            {
-                string newVerificationCode = this.verificationCodeService.generateVerificationCode();
-                logger.Debug("Generated new verification code for unverified User: {Username}", existingPlayer.username);
+            
+            string newVerificationCode = this.verificationCodeService.generateVerificationCode();
+            logger.Debug("Generated new verification code for unverified User: {Username}", existingPlayer.username);
 
-                existingPlayer.password_hash = this.passwordService.hashPassword(password);
-                existingPlayer.first_name = userProfile.FirstName.Trim();
-                existingPlayer.last_name = userProfile.LastName?.Trim();
-                existingPlayer.date_of_birth = userProfile.DateOfBirth;
-                existingPlayer.gender_id = userProfile.GenderId;
-                existingPlayer.verification_code = newVerificationCode;
-                existingPlayer.code_expiry_date = this.verificationCodeService.getVerificationExpiryTime();
-                existingPlayer.email = userProfile.Email.Trim();
+            existingPlayer.password_hash = this.passwordService.hashPassword(password);
+            existingPlayer.first_name = userProfile.FirstName.Trim();
+            existingPlayer.last_name = userProfile.LastName?.Trim();
+            existingPlayer.date_of_birth = userProfile.DateOfBirth;
+            existingPlayer.gender_id = userProfile.GenderId;
+            existingPlayer.verification_code = newVerificationCode;
+            existingPlayer.code_expiry_date = this.verificationCodeService.getVerificationExpiryTime();
+            existingPlayer.email = userProfile.Email.Trim();
 
-                await this.playerRepository.saveChangesAsync();
-                logger.Info("Updated existing unverified player data for User: {Username}", existingPlayer.username);
+            await this.playerRepository.saveChangesAsync();
+            logger.Info("Updated existing unverified player data for User: {Username}", existingPlayer.username);
 
-                await sendVerificationEmailAsync(existingPlayer.email, existingPlayer.username, newVerificationCode);
+            await sendVerificationEmailAsync(existingPlayer.email, existingPlayer.username, newVerificationCode);
 
-                return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during handleExistingPlayerRegistrationAsync for User: {Username}", existingPlayer.username);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+            return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
         }
+            
 
         private async Task<OperationResultDto> handleNewPlayerRegistrationAsync(UserProfileDto userProfile, string password)
         {
             logger.Debug("Handling new player registration for User: {Username}", userProfile.Username);
-            try
+            
+            string verificationCode = this.verificationCodeService.generateVerificationCode();
+            logger.Debug("Generated verification code for new User: {Username}", userProfile.Username);
+
+            var newPlayer = new Player
             {
-                string verificationCode = this.verificationCodeService.generateVerificationCode();
-                logger.Debug("Generated verification code for new User: {Username}", userProfile.Username);
+                username = userProfile.Username.Trim(),
+                email = userProfile.Email.Trim(),
+                password_hash = this.passwordService.hashPassword(password),
+                first_name = userProfile.FirstName.Trim(),
+                last_name = userProfile.LastName?.Trim(),
+                date_of_birth = userProfile.DateOfBirth,
+                gender_id = userProfile.GenderId,
+                is_verified = false,
+                verification_code = verificationCode,
+                code_expiry_date = this.verificationCodeService.getVerificationExpiryTime(),
+                avatar_path = "/Resources/Images/Avatar/default_avatar.png"
+            };
 
-                var newPlayer = new Player
-                {
-                    username = userProfile.Username.Trim(),
-                    email = userProfile.Email.Trim(),
-                    password_hash = this.passwordService.hashPassword(password),
-                    first_name = userProfile.FirstName.Trim(),
-                    last_name = userProfile.LastName?.Trim(),
-                    date_of_birth = userProfile.DateOfBirth,
-                    gender_id = userProfile.GenderId,
-                    is_verified = false,
-                    verification_code = verificationCode,
-                    code_expiry_date = this.verificationCodeService.getVerificationExpiryTime(),
-                    avatar_path = "/Resources/Images/Avatar/default_avatar.png"
-                };
+            this.playerRepository.addPlayer(newPlayer);
+            await this.playerRepository.saveChangesAsync();
+            logger.Info("New player record created for User: {Username} (ID: {PlayerId})", newPlayer.username, newPlayer.idPlayer);
 
-                this.playerRepository.addPlayer(newPlayer);
-                await this.playerRepository.saveChangesAsync();
-                logger.Info("New player record created for User: {Username} (ID: {PlayerId})", newPlayer.username, newPlayer.idPlayer);
+            //TODO: Initialize player stats
+            logger.Debug("TODO: Initialize player stats for new User: {Username}", newPlayer.username);
 
-                //TODO: Initialize player stats
-                logger.Debug("TODO: Initialize player stats for new User: {Username}", newPlayer.username);
+            await sendVerificationEmailAsync(newPlayer.email, newPlayer.username, verificationCode);
 
-                await sendVerificationEmailAsync(newPlayer.email, newPlayer.username, verificationCode);
-
-                return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during handleNewPlayerRegistrationAsync for User: {Username}", userProfile.Username);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+            return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
+            
         }
 
 
@@ -194,49 +186,41 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.VerificationCodeInvalidFormat };
             }
 
-            try
+            logger.Debug("Fetching player by email for verification: {Email}", email);
+            var playerToVerify = await this.playerRepository.getPlayerByEmailAsync(email);
+
+            if (playerToVerify == null)
             {
-                logger.Debug("Fetching player by email for verification: {Email}", email);
-                var playerToVerify = await this.playerRepository.getPlayerByEmailAsync(email);
-
-                if (playerToVerify == null)
-                {
-                    logger.Warn("Verification failed: Player not found for Email: {Email}", email);
-                    return new OperationResultDto { Success = false, Message = Lang.VerificationEmailNotFound };
-                }
-
-                if (playerToVerify.is_verified)
-                {
-                    logger.Warn("Verification failed for Email: {Email}: Account already verified.", email);
-                    return new OperationResultDto { Success = false, Message = Lang.VerificationAccountAlreadyVerified };
-                }
-
-                bool isCodeValid = playerToVerify.verification_code == code;
-                bool isCodeExpired = playerToVerify.code_expiry_date < DateTime.UtcNow;
-
-                if (!isCodeValid || isCodeExpired)
-                {
-                    logger.Warn("Verification failed for Email: {Email}: Code is invalid ({IsCodeValid}) or expired ({IsCodeExpired}).", email, isCodeValid, isCodeExpired);
-                    return new OperationResultDto { Success = false, Message = Lang.VerificationInvalidOrExpiredCode };
-                }
-
-                logger.Debug("Verification code is valid and not expired for Email: {Email}", email);
-
-                playerToVerify.is_verified = true;
-                playerToVerify.verification_code = null;
-                playerToVerify.code_expiry_date = null;
-
-                await this.playerRepository.saveChangesAsync();
-                logger.Info("Account successfully verified for Email: {Email}, User: {Username}", email, playerToVerify.username);
-
-                return new OperationResultDto { Success = true, Message = Lang.VerificationSuccessful };
+                logger.Warn("Verification failed: Player not found for Email: {Email}", email);
+                return new OperationResultDto { Success = false, Message = Lang.VerificationEmailNotFound };
             }
-            catch (Exception ex)
+
+            if (playerToVerify.is_verified)
             {
-                logger.Error(ex, "Exception during verifyAccountAsync for Email: {Email}", email);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Warn("Verification failed for Email: {Email}: Account already verified.", email);
+                return new OperationResultDto { Success = false, Message = Lang.VerificationAccountAlreadyVerified };
             }
+
+            bool isCodeValid = playerToVerify.verification_code == code;
+            bool isCodeExpired = playerToVerify.code_expiry_date < DateTime.UtcNow;
+
+            if (!isCodeValid || isCodeExpired)
+            {
+                logger.Warn("Verification failed for Email: {Email}: Code is invalid/expired.", email);
+                return new OperationResultDto { Success = false, Message = Lang.VerificationInvalidOrExpiredCode };
+            }
+
+            playerToVerify.is_verified = true;
+            playerToVerify.verification_code = null;
+            playerToVerify.code_expiry_date = null;
+
+            await this.playerRepository.saveChangesAsync(); 
+
+            logger.Info("Account successfully verified for Email: {Email}", email);
+            return new OperationResultDto { Success = true, Message = Lang.VerificationSuccessful };
         }
+            
+       
 
         public async Task<LoginResultDto> loginAsync(LoginDto loginData)
         {
@@ -258,54 +242,46 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Debug("Login input validation successful for Email: {Email}", emailForContext);
 
-            try
+
+            logger.Debug("Fetching player by email for login: {Email}", emailForContext);
+            var player = await this.playerRepository.getPlayerByEmailAsync(loginData.Email);
+
+            bool passwordVerified = false;
+            if (player != null)
             {
-                logger.Debug("Fetching player by email for login: {Email}", emailForContext);
-                var player = await this.playerRepository.getPlayerByEmailAsync(loginData.Email);
+                passwordVerified = this.passwordService.verifyPassword(loginData.Password, player.password_hash);
+            }
+            else
+            {
+                logger.Warn("Login failed: Player not found for Email: {Email}", emailForContext);
+            }
 
-                bool passwordVerified = false;
-                if (player != null)
-                {
-                    logger.Debug("Player found for Email: {Email}. Verifying password.", emailForContext);
-                    passwordVerified = this.passwordService.verifyPassword(loginData.Password, player.password_hash);
-                    logger.Debug("Password verification result for Email {Email}: {Result}", emailForContext, passwordVerified);
-                }
-                else
-                {
-                    logger.Warn("Login failed: Player not found for Email: {Email}", emailForContext);
-                }
+            if (player == null || !passwordVerified)
+            {
+                logger.Warn("Login failed: Invalid credentials for Email: {Email}", emailForContext);
+                return new LoginResultDto { OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginPasswordNotEmpty } };
+            }
 
-                if (player == null || !passwordVerified)
-                {
-                    logger.Warn("Login failed for Email: {Email}: Invalid credentials (player not found or password mismatch).", emailForContext);
-                    return new LoginResultDto { OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginPasswordNotEmpty } };
-                }
-
-                if (!player.is_verified)
-                {
-                    logger.Warn("Login failed for Email: {Email}, User: {Username}: Account is not verified.", emailForContext, player.username);
-                    return new LoginResultDto
-                    {
-                        OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginAccountNotVerified },
-                        ResultCode = RESULT_CODE_ACCOUNT_NOT_VERIFIED
-                    };
-                }
-
-                logger.Info("Login successful for Email: {Email}, User: {Username}", emailForContext, player.username);
+            if (!player.is_verified)
+            {
+                logger.Warn("Login failed: Account not verified for Email: {Email}", emailForContext);
                 return new LoginResultDto
                 {
-                    OperationResult = new OperationResultDto { Success = true, Message = Lang.LoginSuccessful },
-                    Username = player.username,
-                    AvatarPath = player.avatar_path,
-                    PlayerId = player.idPlayer
+                    OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginAccountNotVerified },
+                    ResultCode = "ACCOUNT_NOT_VERIFIED"
                 };
             }
-            catch (Exception ex)
+
+            logger.Info("Login successful for User: {Username}", player.username);
+            return new LoginResultDto
             {
-                logger.Error(ex, "Exception during loginAsync for Email: {Email}", emailForContext);
-                return new LoginResultDto { OperationResult = new OperationResultDto { Success = false, Message = Lang.GenericServerError } };
-            }
+                OperationResult = new OperationResultDto { Success = true, Message = Lang.LoginSuccessful },
+                Username = player.username,
+                AvatarPath = player.avatar_path,
+                PlayerId = player.idPlayer
+            };
         }
+
 
         public async Task<OperationResultDto> resendVerificationCodeAsync(string email)
         {
@@ -363,38 +339,33 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ValidationEmailRequired };
             }
 
-            try
+           
+            logger.Debug("Fetching player by email for password recovery: {Email}", email);
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            if (player == null)
             {
-                logger.Debug("Fetching player by email for password recovery: {Email}", email);
-                var player = await playerRepository.getPlayerByEmailAsync(email);
-
-                if (player == null)
-                {
-                    logger.Warn("Send recovery code failed: Account not found for Email: {Email}", email);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorAccountNotFound };
-                }
-
-                string recoveryCode = verificationCodeService.generateVerificationCode();
-                DateTime expiryTime = verificationCodeService.getVerificationExpiryTime();
-                logger.Debug("Generated password recovery code for Email: {Email}", email);
-
-                player.verification_code = recoveryCode;
-                player.code_expiry_date = expiryTime;
-
-                await playerRepository.saveChangesAsync();
-                logger.Info("Updated recovery code in DB for Email: {Email}", email);
-
-                var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, recoveryCode);
-                await emailService.sendEmailAsync(player.email, player.username, emailTemplate);
-
-                return new OperationResultDto { Success = true, Message = Lang.InfoRecoveryCodeSent };
+                logger.Warn("Send recovery code failed: Account not found for Email: {Email}", email);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorAccountNotFound };
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during sendPasswordRecoveryCodeAsync for Email: {Email}. Could be DB or Email sending failure.", email);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+
+            string recoveryCode = verificationCodeService.generateVerificationCode();
+            DateTime expiryTime = verificationCodeService.getVerificationExpiryTime();
+            logger.Debug("Generated password recovery code for Email: {Email}", email);
+
+            player.verification_code = recoveryCode;
+            player.code_expiry_date = expiryTime;
+
+            await playerRepository.saveChangesAsync();
+            logger.Info("Updated recovery code in DB for Email: {Email}", email);
+
+            var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, recoveryCode);
+            await emailService.sendEmailAsync(player.email, player.username, emailTemplate);
+
+            return new OperationResultDto { Success = true, Message = Lang.InfoRecoveryCodeSent };
         }
+            
+
 
         public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
         {
@@ -420,48 +391,43 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Debug("New password validation successful for Email: {Email}", email);
 
-            try
+          
+            logger.Debug("Fetching player by email for password reset: {Email}", email);
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            if (player == null)
             {
-                logger.Debug("Fetching player by email for password reset: {Email}", email);
-                var player = await playerRepository.getPlayerByEmailAsync(email);
-
-                if (player == null)
-                {
-                    logger.Warn("Password reset failed: Account not found for Email: {Email}", email);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorAccountNotFound };
-                }
-
-                bool isCodeValid = player.verification_code == code;
-                bool isCodeExpired = player.code_expiry_date < DateTime.UtcNow;
-
-                if (!isCodeValid || isCodeExpired)
-                {
-                    logger.Warn("Password reset failed for Email: {Email}: Recovery code is invalid ({IsCodeValid}) or expired ({IsCodeExpired}).", email, isCodeValid, isCodeExpired);
-                    return new OperationResultDto { Success = false, Message = Lang.VerificationInvalidOrExpiredCode };
-                }
-
-                logger.Debug("Recovery code is valid and not expired for Email: {Email}", email);
-
-                player.password_hash = passwordService.hashPassword(newPassword);
-                player.verification_code = null;
-                player.code_expiry_date = null;
-                if (!player.is_verified)
-                {
-                    player.is_verified = true;
-                    logger.Info("Account for Email: {Email} was also marked as verified during password reset.", email);
-                }
-
-                await playerRepository.saveChangesAsync();
-                logger.Info("Password successfully reset and saved for Email: {Email}, User: {Username}", email, player.username);
-
-                return new OperationResultDto { Success = true, Message = Lang.InfoPasswordResetSuccess };
+                logger.Warn("Password reset failed: Account not found for Email: {Email}", email);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorAccountNotFound };
             }
-            catch (Exception ex)
+
+            bool isCodeValid = player.verification_code == code;
+            bool isCodeExpired = player.code_expiry_date < DateTime.UtcNow;
+
+            if (!isCodeValid || isCodeExpired)
             {
-                logger.Error(ex, "Exception during resetPasswordWithCodeAsync for Email: {Email}", email);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Warn("Password reset failed for Email: {Email}: Recovery code is invalid ({IsCodeValid}) or expired ({IsCodeExpired}).", email, isCodeValid, isCodeExpired);
+                return new OperationResultDto { Success = false, Message = Lang.VerificationInvalidOrExpiredCode };
             }
-        }
+
+            logger.Debug("Recovery code is valid and not expired for Email: {Email}", email);
+
+            player.password_hash = passwordService.hashPassword(newPassword);
+            player.verification_code = null;
+            player.code_expiry_date = null;
+            if (!player.is_verified)
+            {
+                player.is_verified = true;
+                logger.Info("Account for Email: {Email} was also marked as verified during password reset.", email);
+            }
+
+            await playerRepository.saveChangesAsync();
+            logger.Info("Password successfully reset and saved for Email: {Email}, User: {Username}", email, player.username);
+
+            return new OperationResultDto { Success = true, Message = Lang.InfoPasswordResetSuccess };
+         }
+           
+
 
         private async Task sendVerificationEmailAsync(string email, string username, string code)
         {

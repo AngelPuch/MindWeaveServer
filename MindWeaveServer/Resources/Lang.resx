@@ -117,8 +117,14 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="DatabaseConnectionError" xml:space="preserve">
+    <value>Error en la conexión con la base de datos.</value>
+  </data>
   <data name="DatabaseErrorStartingMatch" xml:space="preserve">
     <value>Error en la base de datos al iniciar la partida.</value>
+  </data>
+  <data name="DuplicateUserError" xml:space="preserve">
+    <value>El usuario ya existe.</value>
   </data>
   <data name="EmailCodeInfoGuestInvite" xml:space="preserve">
     <value>Usa el siguiente código para unirte:</value>
@@ -203,6 +209,9 @@
   </data>
   <data name="ErrorJoiningLobbyData" xml:space="preserve">
     <value>Error al unirse a los datos del lobby.</value>
+  </data>
+  <data name="ErrorMsgServerOffline" xml:space="preserve">
+    <value>El servidor se encuentra inhabilitado. Intenta más tarde por favor.</value>
   </data>
   <data name="ErrorNoPendingRequestFound" xml:space="preserve">
     <value>No se encontró una solicitud de amistad pendiente de este usuario.</value>

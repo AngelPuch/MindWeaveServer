@@ -61,11 +61,29 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Error en la conexión con la base de datos..
+        /// </summary>
+        public static string DatabaseConnectionError {
+            get {
+                return ResourceManager.GetString("DatabaseConnectionError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Error en la base de datos al iniciar la partida..
         /// </summary>
         public static string DatabaseErrorStartingMatch {
             get {
                 return ResourceManager.GetString("DatabaseErrorStartingMatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El usuario ya existe..
+        /// </summary>
+        public static string DuplicateUserError {
+            get {
+                return ResourceManager.GetString("DuplicateUserError", resourceCulture);
             }
         }
         
@@ -318,6 +336,15 @@ namespace MindWeaveServer.Resources {
         public static string ErrorJoiningLobbyData {
             get {
                 return ResourceManager.GetString("ErrorJoiningLobbyData", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a El servidor se encuentra inhabilitado. Intenta más tarde por favor..
+        /// </summary>
+        public static string ErrorMsgServerOffline {
+            get {
+                return ResourceManager.GetString("ErrorMsgServerOffline", resourceCulture);
             }
         }
         

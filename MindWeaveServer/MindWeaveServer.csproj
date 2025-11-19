@@ -140,6 +140,8 @@
     <Compile Include="Contracts\DataContracts\Puzzle\PuzzleDefinitionDto.cs" />
     <Compile Include="Contracts\DataContracts\Puzzle\PuzzleInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Puzzle\PuzzlePieceDefinitionDto.cs" />
+    <Compile Include="Contracts\DataContracts\Shared\ServiceErrorType.cs" />
+    <Compile Include="Contracts\DataContracts\Shared\ServiceFaultDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendDto.cs" />
     <Compile Include="Contracts\DataContracts\Social\FriendRequestInfoDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbySettingsDto.cs" />

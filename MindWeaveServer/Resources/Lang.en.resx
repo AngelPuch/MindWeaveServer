@@ -117,8 +117,14 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="DatabaseConnectionError" xml:space="preserve">
+    <value>Database connection error</value>
+  </data>
   <data name="DatabaseErrorStartingMatch" xml:space="preserve">
     <value>Database error starting the match.</value>
+  </data>
+  <data name="DuplicateUserError" xml:space="preserve">
+    <value>User already exists.</value>
   </data>
   <data name="EmailCodeInfoGuestInvite" xml:space="preserve">
     <value>Use the following code to join:</value>
@@ -203,6 +209,9 @@
   </data>
   <data name="ErrorJoiningLobbyData" xml:space="preserve">
     <value>Error joining lobby data.</value>
+  </data>
+  <data name="ErrorMsgServerOffline" xml:space="preserve">
+    <value>The server is unavailable. Please try again later.</value>
   </data>
   <data name="ErrorNoPendingRequestFound" xml:space="preserve">
     <value>No pending friend request found from this user to respond to.</value>

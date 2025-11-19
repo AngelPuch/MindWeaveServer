@@ -93,17 +93,7 @@ namespace MindWeaveServer.BusinessLogic
                 }
             }
 
-            System.Diagnostics.Trace.WriteLine($"[SERVER] generatePuzzle: Checking data for {puzzleDef.Pieces.Count} pieces...");
-            foreach (var piece in puzzleDef.Pieces.Take(5))
-            {
-                System.Diagnostics.Trace.WriteLine($"[SERVER] Piece {piece.PieceId} Neighbors: " +
-                                                   $"T={piece.TopNeighborId}, " +
-                                                   $"B={piece.BottomNeighborId}, " +
-                                                   $"L={piece.LeftNeighborId}, " +
-                                                   $"R={piece.RightNeighborId}");
-            }
-            System.Diagnostics.Trace.WriteLine("[SERVER] generatePuzzle: Check complete.");
-
+         
             return puzzleDef;
         }
     }

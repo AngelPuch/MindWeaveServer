@@ -1,15 +1,16 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Validators;
-using System;
-using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Shared;
 using NLog;
+using System;
+using System.ServiceModel;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
@@ -68,13 +69,36 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (System.Data.Entity.Core.EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Login Fatal: Database unavailable for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
+            catch (TimeoutException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.GenericServerError,
+                    "Timeout");
+
+                logger.Error(ex, "Login Error: Operation timed out for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Service Timeout"));
+            }
+           
             catch (Exception ex)
             {
-               logger.Error(ex, "An unexpected error occurred during login. Email: {Email}", emailForContext);
-                return new LoginResultDto
-                {
-                    OperationResult = new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError }
-                };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Resources.Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Login Critical: Unhandled exception for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -96,10 +120,35 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (InvalidOperationException ex) when (ex.Message == "DuplicateUser")
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DuplicateRecord,
+                    Resources.Lang.RegistrationUsernameOrEmailExists,
+                    "Username/Email");
+
+                logger.Warn("Registration failed: Duplicate user detected for {Username}", usernameForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Duplicate Record"));
+            }
+            catch (System.Data.Entity.Core.EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Database connectivity error during registration for {Username}", usernameForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during registration. User: {Username}, Email: {Email}", usernameForContext, emailForContext);
-                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Resources.Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Critical unhandled error during registration for {Username}", usernameForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
         public async Task<OperationResultDto> verifyAccount(string email, string code)
@@ -119,10 +168,25 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (System.Data.Entity.Core.EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Verification Fatal: Database unavailable for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during account verification. Email: {Email}", emailForContext);
-                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Resources.Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Verification Critical: Unhandled exception for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -143,10 +207,34 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (System.Data.Entity.Core.EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "ResendCode Fatal: Database unavailable for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
+            catch (System.Net.Sockets.SocketException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.CommunicationError,
+                    "Error sending email. Please try again later.",
+                    "EmailService");
+                logger.Error(ex, "ResendCode Error: Email service failed for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Email Service Failed"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred while resending verification code. Email: {Email}", emailForContext);
-                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Resources.Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "ResendCode Critical: Unhandled exception for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -168,10 +256,35 @@ namespace MindWeaveServer.Services
                 return result;
 
             }
+            catch (System.Data.Entity.Core.EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "RecoveryCode Fatal: Database unavailable for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
+            catch (System.Net.Mail.SmtpException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.CommunicationError,
+                    "Failed to send recovery email. Please check the email address.",
+                    "EmailService");
+
+                logger.Error(ex, "RecoveryCode Error: SMTP failed for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Email Delivery Failed"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred while sending password recovery code. Email: {Email}", emailForContext);
-                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Resources.Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "RecoveryCode Critical: Unhandled exception for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -192,10 +305,25 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (System.Data.Entity.Core.EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Resources.Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "ResetPassword Fatal: Database unavailable for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred while resetting password. Email: {Email}", emailForContext);
-                return new OperationResultDto { Success = false, Message = Resources.Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Resources.Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "ResetPassword Critical: Unhandled exception for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -208,3 +336,4 @@ namespace MindWeaveServer.Services
 
     }
 }
+ 

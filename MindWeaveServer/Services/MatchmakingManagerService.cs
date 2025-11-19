@@ -54,10 +54,10 @@ namespace MindWeaveServer.Services
                 guestInvitationRepository,
                 emailService,
                 activeLobbies,
-                userCallbacks,     
+                userCallbacks,
                 puzzleRepository,
-                this.gameSessionManager     
-                                            
+                this.gameSessionManager
+
                 );
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
@@ -330,7 +330,7 @@ namespace MindWeaveServer.Services
                 {
                     currentUsername = result.AssignedGuestUsername;
                     currentUserCallback = guestCallback;
-                    setupCallbackEvents(guestCallback as ICommunicationObject); 
+                    setupCallbackEvents(guestCallback as ICommunicationObject);
                     logger.Info("joinLobbyAsGuest successful for code {LobbyCode}. Assigned username: {GuestUsername}", codeForContext, result.AssignedGuestUsername);
 
                 }
