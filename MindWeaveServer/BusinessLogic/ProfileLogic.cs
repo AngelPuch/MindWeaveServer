@@ -49,26 +49,20 @@ namespace MindWeaveServer.BusinessLogic
                 return null; 
             }
 
-            try
-            {
-                logger.Debug("Fetching player with profile view data for User: {Username}", username);
-                var player = await playerRepository.getPlayerWithProfileViewDataAsync(username);
+         
+            logger.Debug("Fetching player with profile view data for User: {Username}", username);
+            var player = await playerRepository.getPlayerWithProfileViewDataAsync(username);
 
-                if (player == null)
-                {
-                    logger.Warn("getPlayerProfileViewAsync: Player not found for User: {Username}", username);
-                    return null; 
-                }
-
-                logger.Info("Successfully retrieved profile view data for User: {Username}", username);
-                
-                return mapToPlayerProfileViewDto(player);
-            }
-            catch (Exception ex)
+            if (player == null)
             {
-                logger.Error(ex, "Exception during getPlayerProfileViewAsync for User: {Username}", username);
+                logger.Warn("getPlayerProfileViewAsync: Player not found for User: {Username}", username);
                 return null; 
             }
+
+            logger.Info("Successfully retrieved profile view data for User: {Username}", username);
+                
+            return mapToPlayerProfileViewDto(player);
+            
         }
 
         public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
@@ -81,31 +75,25 @@ namespace MindWeaveServer.BusinessLogic
                 return null;
             }
 
-            try
+           
+            logger.Debug("Fetching player data for editing for User: {Username}", username);
+            var player = await playerRepository.getPlayerByUsernameAsync(username); 
+
+            if (player == null)
             {
-                logger.Debug("Fetching player data for editing for User: {Username}", username);
-                var player = await playerRepository.getPlayerByUsernameAsync(username); 
-
-                if (player == null)
-                {
-                    logger.Warn("getPlayerProfileForEditAsync: Player not found for User: {Username}", username);
-                    return null;
-                }
-                logger.Debug("Player found. Fetching all genders.");
-
-                var allGendersData = await genderRepository.getAllGendersAsync();
-                var allGendersDto = allGendersData.Select
-                    (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList(); 
-                logger.Debug("Retrieved {Count} genders.", allGendersDto.Count);
-
-                logger.Info("Successfully retrieved editable profile data for User: {Username}", username);
-                return mapToUserProfileForEditDto(player, allGendersDto);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during getPlayerProfileForEditAsync for User: {Username}", username);
+                logger.Warn("getPlayerProfileForEditAsync: Player not found for User: {Username}", username);
                 return null;
             }
+            logger.Debug("Player found. Fetching all genders.");
+
+            var allGendersData = await genderRepository.getAllGendersAsync();
+            var allGendersDto = allGendersData.Select
+                (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList(); 
+            logger.Debug("Retrieved {Count} genders.", allGendersDto.Count);
+
+            logger.Info("Successfully retrieved editable profile data for User: {Username}", username);
+            return mapToUserProfileForEditDto(player, allGendersDto);
+            
         }
 
 
@@ -129,31 +117,24 @@ namespace MindWeaveServer.BusinessLogic
             }
             logger.Debug("Profile data validation successful for User: {Username}", username);
 
-            try
+            logger.Debug("Fetching player with tracking for update: {Username}", username);
+            var playerToUpdate = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
+
+            if (playerToUpdate == null)
             {
-                logger.Debug("Fetching player with tracking for update: {Username}", username);
-                var playerToUpdate = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
-
-                if (playerToUpdate == null)
-                {
-                    logger.Warn("Update profile failed: Player {Username} not found.", username);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-                logger.Debug("Player {Username} found. Applying updates.", username);
-
-                applyProfileUpdates(playerToUpdate, updatedProfileData);
-
-                logger.Debug("Saving profile changes for User: {Username}", username);
-                await playerRepository.saveChangesAsync();
-                logger.Info("Profile updated successfully for User: {Username}", username);
-
-                return new OperationResultDto { Success = true, Message = Lang.ProfileUpdatedSuccessfully };
+                logger.Warn("Update profile failed: Player {Username} not found.", username);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during updateProfileAsync for User: {Username}", username ?? "NULL");
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+            logger.Debug("Player {Username} found. Applying updates.", username);
+
+            applyProfileUpdates(playerToUpdate, updatedProfileData);
+
+            logger.Debug("Saving profile changes for User: {Username}", username);
+            await playerRepository.saveChangesAsync();
+            logger.Info("Profile updated successfully for User: {Username}", username);
+
+            return new OperationResultDto { Success = true, Message = Lang.ProfileUpdatedSuccessfully };
+            
         }
 
 
@@ -167,47 +148,41 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorAvatarPathCannotBeEmpty };
             }
 
-            try
+            
+            logger.Debug("Fetching player with tracking for avatar update: {Username}", username);
+            var playerToUpdate = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
+
+            if (playerToUpdate == null)
             {
-                logger.Debug("Fetching player with tracking for avatar update: {Username}", username);
-                var playerToUpdate = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
-
-                if (playerToUpdate == null)
-                {
-                    logger.Warn("Update avatar path failed: Player {Username} not found.", username);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-
-                logger.Debug("Player {Username} found. Updating avatar path.", username);
-                playerToUpdate.avatar_path = newAvatarPath; 
-
-                logger.Debug("Saving avatar path change for User: {Username}", username);
-                int changes = await playerRepository.saveChangesAsync();
-                logger.Debug("SaveChanges result for avatar update: {ChangesCount}", changes);
-
-                bool success = changes > 0;
-                if (success)
-                    logger.Info("Avatar path updated successfully for User: {Username}", username);
-                else
-                    logger.Warn("Avatar path update for User {Username} reported 0 changes saved.", username);
-
-
-                return new OperationResultDto
-                {
-                    Success = success,
-                    Message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
-                };
+                logger.Warn("Update avatar path failed: Player {Username} not found.", username);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            catch (Exception ex)
+
+            logger.Debug("Player {Username} found. Updating avatar path.", username);
+            playerToUpdate.avatar_path = newAvatarPath; 
+
+            logger.Debug("Saving avatar path change for User: {Username}", username);
+            int changes = await playerRepository.saveChangesAsync();
+            logger.Debug("SaveChanges result for avatar update: {ChangesCount}", changes);
+
+            bool success = changes > 0;
+            if (success)
+                logger.Info("Avatar path updated successfully for User: {Username}", username);
+            else
+                logger.Warn("Avatar path update for User {Username} reported 0 changes saved.", username);
+
+
+            return new OperationResultDto
             {
-                logger.Error(ex, "Exception during updateAvatarPathAsync for User: {Username}", username);
-                return new OperationResultDto { Success = false, Message = Lang.ErrorAvatarUpdateFailed };
-            }
+                Success = success,
+                Message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
+            };
+
         }
 
         public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
         {
-            logger.Info("changePasswordAsync called for User: {Username}", username ?? "NULL");
+            logger.Info("changePasswordAsync logic called for User: {Username}", username ?? "NULL");
 
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
             {
@@ -215,55 +190,45 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired };
             }
 
-            try
+            logger.Debug("Fetching player with tracking for password change: {Username}", username);
+            var player = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
+
+            if (player == null)
             {
-                logger.Debug("Fetching player with tracking for password change: {Username}", username);
-                var player = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
-
-                if (player == null)
-                {
-                    logger.Warn("Change password failed: Player {Username} not found.", username);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-
-                bool currentPasswordVerified = passwordService.verifyPassword(currentPassword, player.password_hash);
-
-                if (!currentPasswordVerified)
-                {
-                    logger.Warn("Change password failed for {Username}: Current password verification failed.", username);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorCurrentPasswordIncorrect };
-                }
-
-                var policyValidation = passwordPolicyValidator.validate(newPassword);
-
-                if (!policyValidation.Success)
-                {
-                    logger.Warn("Change password failed for {Username}: New password does not meet policy. Reason: {Reason}", username, policyValidation.Message);
-                    return policyValidation; 
-                }
-
-                logger.Debug("Hashing new password for User: {Username}", username);
-                string newPasswordHash = passwordService.hashPassword(newPassword);
-                player.password_hash = newPasswordHash;
-                int changes = await playerRepository.saveChangesAsync();
-                logger.Debug("SaveChanges result for password change: {ChangesCount}", changes);
-
-                bool success = changes > 0;
-                if (success)
-                    logger.Info("Password changed successfully for User: {Username}", username);
-                else
-                    logger.Warn("Password change for User {Username} reported 0 changes saved.", username);
-
-                return new OperationResultDto
-                {
-                    Success = success,
-                    Message = success ? Lang.PasswordChangedSuccessfully : Lang.PasswordChangedFailed
-                };
+                logger.Warn("Change password failed: Player {Username} not found.", username);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            catch (Exception ex)
+
+            bool currentPasswordVerified = passwordService.verifyPassword(currentPassword, player.password_hash);
+
+            if (!currentPasswordVerified)
             {
-                logger.Error(ex, "Exception during changePasswordAsync for User: {Username}", username);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Warn("Change password failed for {Username}: Current password verification failed.", username);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorCurrentPasswordIncorrect };
+            }
+
+            var policyValidation = passwordPolicyValidator.validate(newPassword);
+            if (!policyValidation.Success)
+            {
+                logger.Warn("Change password failed for {Username}: New password does not meet policy.", username);
+                return policyValidation;
+            }
+
+            logger.Debug("Hashing new password for User: {Username}", username);
+            string newPasswordHash = passwordService.hashPassword(newPassword);
+            player.password_hash = newPasswordHash;
+            
+            int changes = await playerRepository.saveChangesAsync();
+
+            if (changes > 0)
+            {
+                logger.Info("Password changed successfully for User: {Username}", username);
+                return new OperationResultDto { Success = true, Message = Lang.PasswordChangedSuccessfully };
+            }
+            else
+            {
+                logger.Warn("Password change for User {Username} reported 0 changes saved.", username);
+                return new OperationResultDto { Success = false, Message = Lang.PasswordChangedFailed };
             }
         }
 

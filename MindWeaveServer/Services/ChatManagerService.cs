@@ -65,9 +65,18 @@ namespace MindWeaveServer.Services
                 chatLogic.joinLobbyChat(currentUsername, currentLobbyId, currentUserCallback);
                 logger.Info("User {Username} successfully joined chat for lobby {LobbyId}", currentUsername, currentLobbyId);
             }
+            catch (TimeoutException ex)
+            {
+                logger.Error(ex, "Chat Service Timeout: Operation timed out for {Username}", username);
+                Task.Run(() => handleDisconnect());
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.Warn(ex, "Chat Service Validation Error: Invalid data provided by {Username}", username);
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Exception in joinLobbyChat for {Username}, lobby {LobbyId}. Triggering disconnect.", currentUsername ?? "NULL", currentLobbyId ?? "NULL");
+                logger.Error(ex, "Chat Service Unexpected Error inside joinLobbyChat for User: {Username}", username);
                 Task.Run(() => handleDisconnect());
             }
         }
@@ -94,9 +103,13 @@ namespace MindWeaveServer.Services
                 chatLogic.leaveLobbyChat(username, lobbyId);
                 logger.Info("User {Username} successfully left chat for lobby {LobbyId}", username, lobbyId);
             }
+            catch (KeyNotFoundException ex)
+            {
+                logger.Warn(ex, "Chat Service Warning: User {Username} tried to leave non-existent lobby {LobbyId}", username, lobbyId);
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "[ChatService LEAVE EXCEPTION] User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
+                logger.Error(ex, "Chat Service Error inside leaveLobbyChat for User: {Username}", username);
             }
         }
 
@@ -119,9 +132,17 @@ namespace MindWeaveServer.Services
                 chatLogic.processAndBroadcastMessage(senderUsername, lobbyId, messageContent);
                 logger.Debug("sendLobbyMessage processed for {Username} in lobby {LobbyId}", senderUsername, lobbyId);
             }
+            catch (ArgumentException ex)
+            {
+                logger.Warn(ex, "Chat Message Validation Failed for {Username}: {Message}", senderUsername, ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                logger.Warn(ex, "Chat Message Error: Lobby {LobbyId} not found for message from {Username}", lobbyId, senderUsername);
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "[ChatService SEND EXCEPTION] Sender: {SenderUsername}, Lobby: {LobbyId}.", senderUsername, lobbyId);
+                logger.Error(ex, "Chat Service Critical Error processing message from {Username}", senderUsername);
             }
         }
 

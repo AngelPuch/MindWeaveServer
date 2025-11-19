@@ -8,6 +8,7 @@ using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Validators;
+using System.Data.Entity.Core;
 using System;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -56,12 +57,28 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Profile Fatal: Database unavailable getting view for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during getPlayerProfileView for user: {Username}", userForContext);
-                return null;
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Profile Critical: Unhandled exception getting view for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
+
 
         public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
         {
@@ -80,10 +97,25 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Profile Fatal: Database unavailable getting edit data for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during getPlayerProfileForEdit for user: {Username}", userForContext);
-                return null;
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Profile Critical: Unhandled exception getting edit data for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -104,10 +136,25 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Profile Fatal: Database unavailable updating profile for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during updateProfile for user: {Username}", userForContext);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Profile Critical: Unhandled exception updating profile for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -128,10 +175,25 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Profile Fatal: Database unavailable updating avatar for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during updateAvatarPath for user: {Username}", userForContext);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Profile Critical: Unhandled exception updating avatar for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -152,10 +214,25 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Lang.ErrorMsgServerOffline,
+                    "Database");
+
+                logger.Fatal(ex, "Profile Fatal: Database unavailable changing password for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "An unexpected error occurred during changePassword for user: {Username}", userForContext);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server");
+
+                logger.Fatal(ex, "Profile Critical: Unhandled exception changing password for {Username}", userForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
     }

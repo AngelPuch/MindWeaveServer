@@ -36,26 +36,19 @@ namespace MindWeaveServer.BusinessLogic
                 return new List<PlayerSearchResultDto>();
             }
 
-            try
-            {
                 logger.Debug("Fetching requester player data for search: {RequesterUsername}", requesterUsername);
                 var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
-                if (requester == null)
-                {
-                    logger.Warn("Search players failed: Requester player {RequesterUsername} not found.", requesterUsername);
-                    return new List<PlayerSearchResultDto>();
-                }
-
-                logger.Debug("Performing player search in repository. RequesterID: {PlayerId}, Query: '{Query}', Limit: {Limit}", requester.idPlayer, query, SEARCH_RESULT_LIMIT);
-                var results = await playerRepository.searchPlayersAsync(requester.idPlayer, query, SEARCH_RESULT_LIMIT);
-                logger.Info("Player search completed for User: {RequesterUsername}, Query: '{Query}'. Found {Count} results.", requesterUsername, query, results?.Count ?? 0); 
-                return results ?? new List<PlayerSearchResultDto>();
-            }
-            catch (Exception ex)
+            if (requester == null)
             {
-                logger.Error(ex, "Exception during searchPlayersAsync for User: {RequesterUsername}, Query: '{Query}'", requesterUsername, query);
+                logger.Warn("Search players failed: Requester player {RequesterUsername} not found.", requesterUsername);
                 return new List<PlayerSearchResultDto>();
             }
+
+            logger.Debug("Performing player search in repository. RequesterID: {PlayerId}, Query: '{Query}', Limit: {Limit}", requester.idPlayer, query, SEARCH_RESULT_LIMIT);
+            var results = await playerRepository.searchPlayersAsync(requester.idPlayer, query, SEARCH_RESULT_LIMIT);
+            logger.Info("Player search completed for User: {RequesterUsername}, Query: '{Query}'. Found {Count} results.", requesterUsername, query, results?.Count ?? 0); 
+            return results ?? new List<PlayerSearchResultDto>();
+            
         }
 
         public async Task<OperationResultDto> sendFriendRequestAsync(string requesterUsername, string targetUsername)
@@ -73,38 +66,32 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorCannotSelfFriend };
             }
 
-            try
+            
+            logger.Debug("Fetching requester ({RequesterUsername}) and target ({TargetUsername}) player data.", requesterUsername, targetUsername);
+            var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
+            var target = await playerRepository.getPlayerByUsernameAsync(targetUsername);
+
+            if (requester == null || target == null)
             {
-                logger.Debug("Fetching requester ({RequesterUsername}) and target ({TargetUsername}) player data.", requesterUsername, targetUsername);
-                var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
-                var target = await playerRepository.getPlayerByUsernameAsync(targetUsername);
-
-                if (requester == null || target == null)
-                {
-                    logger.Warn("Send friend request failed: Requester (Found={RequesterFound}) or Target (Found={TargetFound}) player not found.", requester != null, target != null);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-                logger.Debug("Both players found. RequesterID: {RequesterId}, TargetID: {TargetId}", requester.idPlayer, target.idPlayer);
-
-                logger.Debug("Checking for existing friendship between PlayerID {RequesterId} and PlayerID {TargetId}", requester.idPlayer, target.idPlayer);
-                var existingFriendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, target.idPlayer);
-
-                if (existingFriendship != null)
-                {
-                    logger.Info("Existing friendship record found (ID: {FriendshipId}, Status: {StatusId}). Handling existing friendship logic.", existingFriendship.friendships_id, existingFriendship.status_id);
-                    return await handleExistingFriendshipAsync(existingFriendship, requester, target);
-                }
-                else
-                {
-                    logger.Info("No existing friendship record found. Creating new friend request.");
-                    return await createNewFriendshipAsync(requester, target);
-                }
+                logger.Warn("Send friend request failed: Requester (Found={RequesterFound}) or Target (Found={TargetFound}) player not found.", requester != null, target != null);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            catch (Exception ex)
+            logger.Debug("Both players found. RequesterID: {RequesterId}, TargetID: {TargetId}", requester.idPlayer, target.idPlayer);
+
+            logger.Debug("Checking for existing friendship between PlayerID {RequesterId} and PlayerID {TargetId}", requester.idPlayer, target.idPlayer);
+            var existingFriendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, target.idPlayer);
+
+            if (existingFriendship != null)
             {
-                logger.Error(ex, "Unhandled exception during sendFriendRequestAsync from {RequesterUsername} to {TargetUsername} (likely during player/friendship lookup)", requesterUsername, targetUsername);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Info("Existing friendship record found (ID: {FriendshipId}, Status: {StatusId}). Handling existing friendship logic.", existingFriendship.friendships_id, existingFriendship.status_id);
+                return await handleExistingFriendshipAsync(existingFriendship, requester, target);
             }
+            else
+            {
+                logger.Info("No existing friendship record found. Creating new friend request.");
+                return await createNewFriendshipAsync(requester, target);
+            }
+            
         }
 
 
@@ -117,42 +104,35 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ValidationUsernameRequired };
             }
 
-            try
+            logger.Debug("Fetching responder ({ResponderUsername}) and requester ({RequesterUsername}) player data.", responderUsername, requesterUsername);
+            var responder = await playerRepository.getPlayerByUsernameAsync(responderUsername);
+            var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
+
+            if (responder == null || requester == null)
             {
-                logger.Debug("Fetching responder ({ResponderUsername}) and requester ({RequesterUsername}) player data.", responderUsername, requesterUsername);
-                var responder = await playerRepository.getPlayerByUsernameAsync(responderUsername);
-                var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
-
-                if (responder == null || requester == null)
-                {
-                    logger.Warn("Respond friend request failed: Responder (Found={ResponderFound}) or Requester (Found={RequesterFound}) player not found.", responder != null, requester != null);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-                logger.Debug("Both players found. ResponderID: {ResponderId}, RequesterID: {RequesterId}", responder.idPlayer, requester.idPlayer);
-
-
-                var friendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, responder.idPlayer);
-
-                if (friendship == null || friendship.status_id != FriendshipStatusConstants.PENDING || friendship.addressee_id != responder.idPlayer)
-                {
-                    logger.Warn("Respond friend request failed: No matching PENDING request found directed to {ResponderUsername} from {RequesterUsername}. (Found={Found}, Status={StatusId}, Addressee={AddresseeId})",
-                        responderUsername, requesterUsername, friendship != null, friendship?.status_id, friendship?.addressee_id);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorNoPendingRequestFound };
-                }
-                logger.Debug("Matching pending request found (ID: {FriendshipId}). Updating status.", friendship.friendships_id);
-
-                friendship.status_id = accepted ? FriendshipStatusConstants.ACCEPTED : FriendshipStatusConstants.REJECTED;
-                friendshipRepository.updateFriendship(friendship);
-
-                await friendshipRepository.saveChangesAsync();
-                logger.Info("Friend request from {RequesterUsername} to {ResponderUsername} processed. Status set to: {Status}", requesterUsername, responderUsername, friendship.status_id);
-                return new OperationResultDto { Success = true, Message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
+                logger.Warn("Respond friend request failed: Responder (Found={ResponderFound}) or Requester (Found={RequesterFound}) player not found.", responder != null, requester != null);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            catch (Exception ex)
+            logger.Debug("Both players found. ResponderID: {ResponderId}, RequesterID: {RequesterId}", responder.idPlayer, requester.idPlayer);
+
+
+            var friendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, responder.idPlayer);
+
+            if (friendship == null || friendship.status_id != FriendshipStatusConstants.PENDING || friendship.addressee_id != responder.idPlayer)
             {
-                logger.Error(ex, "Exception during respondToFriendRequestAsync for Responder: {ResponderUsername}, Requester: {RequesterUsername}", responderUsername, requesterUsername);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Warn("Respond friend request failed: No matching PENDING request found directed to {ResponderUsername} from {RequesterUsername}. (Found={Found}, Status={StatusId}, Addressee={AddresseeId})",
+                    responderUsername, requesterUsername, friendship != null, friendship?.status_id, friendship?.addressee_id);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorNoPendingRequestFound };
             }
+            logger.Debug("Matching pending request found (ID: {FriendshipId}). Updating status.", friendship.friendships_id);
+
+            friendship.status_id = accepted ? FriendshipStatusConstants.ACCEPTED : FriendshipStatusConstants.REJECTED;
+            friendshipRepository.updateFriendship(friendship);
+
+            await friendshipRepository.saveChangesAsync();
+            logger.Info("Friend request from {RequesterUsername} to {ResponderUsername} processed. Status set to: {Status}", requesterUsername, responderUsername, friendship.status_id);
+            return new OperationResultDto { Success = true, Message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
+            
         }
 
         public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string> connectedUsernames)
@@ -200,8 +180,7 @@ namespace MindWeaveServer.BusinessLogic
         public async Task<List<FriendRequestInfoDto>> getFriendRequestsAsync(string username)
         {
             logger.Info("getFriendRequestsAsync called for User: {Username}", username ?? "NULL");
-            try
-            {
+
                 logger.Debug("Fetching player data for {Username}", username);
                 var player = await playerRepository.getPlayerByUsernameAsync(username);
                 if (player == null)
@@ -233,12 +212,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 logger.Info("Successfully retrieved {Count} friend requests for User: {Username}", requestInfoDtos.Count, username);
                 return requestInfoDtos;
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during getFriendRequestsAsync for User: {Username}", username ?? "NULL");
-                return new List<FriendRequestInfoDto>();
-            }
+         
         }
 
         public async Task<OperationResultDto> removeFriendAsync(string username, string friendToRemoveUsername)
@@ -255,87 +229,73 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorCannotRemoveSelf };
             }
 
-            try
+            logger.Debug("Fetching player ({Username}) and friend ({FriendToRemove}) data.", username, friendToRemoveUsername);
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
+            var friendToRemove = await playerRepository.getPlayerByUsernameAsync(friendToRemoveUsername);
+
+            if (player == null || friendToRemove == null)
             {
-                logger.Debug("Fetching player ({Username}) and friend ({FriendToRemove}) data.", username, friendToRemoveUsername);
-                var player = await playerRepository.getPlayerByUsernameAsync(username);
-                var friendToRemove = await playerRepository.getPlayerByUsernameAsync(friendToRemoveUsername);
-
-                if (player == null || friendToRemove == null)
-                {
-                    logger.Warn("Remove friend failed: Player (Found={PlayerFound}) or Friend (Found={FriendFound}) not found.", player != null, friendToRemove != null);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-                logger.Debug("Both players found. PlayerID: {PlayerId}, FriendID: {FriendId}", player.idPlayer, friendToRemove.idPlayer);
-
-                var friendship = await friendshipRepository.findFriendshipAsync(player.idPlayer, friendToRemove.idPlayer);
-
-                if (friendship == null || friendship.status_id != FriendshipStatusConstants.ACCEPTED)
-                {
-                    logger.Warn("Remove friend failed: No ACCEPTED friendship found between {Username} and {FriendToRemove}. (Found={Found}, Status={StatusId})", username, friendToRemoveUsername, friendship != null, friendship?.status_id);
-                    return new OperationResultDto { Success = false, Message = Lang.ErrorFriendshipNotFound };
-                }
-                logger.Debug("Accepted friendship found (ID: {FriendshipId}). Removing from DB.", friendship.friendships_id);
-
-                friendshipRepository.removeFriendship(friendship);
-
-                await friendshipRepository.saveChangesAsync();
-                logger.Info("Friendship between {Username} and {FriendToRemove} removed successfully.", username, friendToRemoveUsername);
-                return new OperationResultDto { Success = true, Message = Lang.FriendRemovedSuccessfully };
+                logger.Warn("Remove friend failed: Player (Found={PlayerFound}) or Friend (Found={FriendFound}) not found.", player != null, friendToRemove != null);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            catch (Exception ex)
+            logger.Debug("Both players found. PlayerID: {PlayerId}, FriendID: {FriendId}", player.idPlayer, friendToRemove.idPlayer);
+
+            var friendship = await friendshipRepository.findFriendshipAsync(player.idPlayer, friendToRemove.idPlayer);
+
+            if (friendship == null || friendship.status_id != FriendshipStatusConstants.ACCEPTED)
             {
-                logger.Error(ex, "Exception during removeFriendAsync for User: {Username}, Friend: {FriendToRemove}", username, friendToRemoveUsername);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Warn("Remove friend failed: No ACCEPTED friendship found between {Username} and {FriendToRemove}. (Found={Found}, Status={StatusId})", username, friendToRemoveUsername, friendship != null, friendship?.status_id);
+                return new OperationResultDto { Success = false, Message = Lang.ErrorFriendshipNotFound };
             }
+            logger.Debug("Accepted friendship found (ID: {FriendshipId}). Removing from DB.", friendship.friendships_id);
+
+            friendshipRepository.removeFriendship(friendship);
+
+            await friendshipRepository.saveChangesAsync();
+            logger.Info("Friendship between {Username} and {FriendToRemove} removed successfully.", username, friendToRemoveUsername);
+            return new OperationResultDto { Success = true, Message = Lang.FriendRemovedSuccessfully };
+            
         }
 
         private async Task<OperationResultDto> handleExistingFriendshipAsync(Friendships existingFriendship, Player requester, Player target)
         {
             logger.Debug("Handling existing friendship (ID: {FriendshipId}, Status: {StatusId}) between Requester: {RequesterUsername} and Target: {TargetUsername}",
                 existingFriendship.friendships_id, existingFriendship.status_id, requester.username, target.username);
-            try
-            {
                 switch (existingFriendship.status_id)
                 {
-                    case FriendshipStatusConstants.ACCEPTED:
-                        logger.Warn("Send request failed: Friendship already exists and is ACCEPTED.");
-                        return new OperationResultDto { Success = false, Message = Lang.FriendshipAlreadyExists };
+                case FriendshipStatusConstants.ACCEPTED:
+                    logger.Warn("Send request failed: Friendship already exists and is ACCEPTED.");
+                    return new OperationResultDto { Success = false, Message = Lang.FriendshipAlreadyExists };
 
-                    case FriendshipStatusConstants.PENDING:
-                        if (existingFriendship.requester_id == requester.idPlayer)
-                        {
-                            logger.Warn("Send request failed: A PENDING request from {RequesterUsername} to {TargetUsername} already exists.", requester.username, target.username);
-                            return new OperationResultDto { Success = false, Message = Lang.FriendRequestAlreadySent };
-                        }
-                        else
-                        {
-                            logger.Warn("Send request failed: A PENDING request from {TargetUsername} to {RequesterUsername} already exists. User should respond instead.", target.username, requester.username);
-                            return new OperationResultDto { Success = false, Message = Lang.FriendRequestReceivedFromUser };
-                        }
+                case FriendshipStatusConstants.PENDING:
+                    if (existingFriendship.requester_id == requester.idPlayer)
+                    {
+                        logger.Warn("Send request failed: A PENDING request from {RequesterUsername} to {TargetUsername} already exists.", requester.username, target.username);
+                        return new OperationResultDto { Success = false, Message = Lang.FriendRequestAlreadySent };
+                    }
+                    else
+                    {
+                        logger.Warn("Send request failed: A PENDING request from {TargetUsername} to {RequesterUsername} already exists. User should respond instead.", target.username, requester.username);
+                        return new OperationResultDto { Success = false, Message = Lang.FriendRequestReceivedFromUser };
+                    }
 
-                    case FriendshipStatusConstants.REJECTED:
-                        logger.Info("Found REJECTED friendship. Re-sending request from {RequesterUsername} to {TargetUsername}.", requester.username, target.username);
-                        existingFriendship.requester_id = requester.idPlayer;
-                        existingFriendship.addressee_id = target.idPlayer;
-                        existingFriendship.status_id = FriendshipStatusConstants.PENDING;
-                        existingFriendship.request_date = DateTime.UtcNow;
-                        friendshipRepository.updateFriendship(existingFriendship);
-                        logger.Debug("Saving updated (rejected to pending) friendship request to DB.");
-                        await friendshipRepository.saveChangesAsync();
-                        logger.Info("Successfully re-sent friend request (updated rejected status to pending)."); 
-                        return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
+                case FriendshipStatusConstants.REJECTED:
+                    logger.Info("Found REJECTED friendship. Re-sending request from {RequesterUsername} to {TargetUsername}.", requester.username, target.username);
+                    existingFriendship.requester_id = requester.idPlayer;
+                    existingFriendship.addressee_id = target.idPlayer;
+                    existingFriendship.status_id = FriendshipStatusConstants.PENDING;
+                    existingFriendship.request_date = DateTime.UtcNow;
+                    friendshipRepository.updateFriendship(existingFriendship);
+                    logger.Debug("Saving updated (rejected to pending) friendship request to DB.");
+                    await friendshipRepository.saveChangesAsync();
+                    logger.Info("Successfully re-sent friend request (updated rejected status to pending)."); 
+                    return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
 
-                    default:
-                        logger.Error("Send request failed: Unknown or unhandled friendship status ({StatusId}) between {RequesterUsername} and {TargetUsername}.", existingFriendship.status_id, requester.username, target.username);
-                        return new OperationResultDto { Success = false, Message = Lang.FriendshipStatusPreventsRequest };
+                default:
+                    logger.Error("Send request failed: Unknown or unhandled friendship status ({StatusId}) between {RequesterUsername} and {TargetUsername}.", existingFriendship.status_id, requester.username, target.username);
+                    return new OperationResultDto { Success = false, Message = Lang.FriendshipStatusPreventsRequest };
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception saving updated (rejected to pending) friendship request.");
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+            
         }
 
         private async Task<OperationResultDto> createNewFriendshipAsync(Player requester, Player target)
@@ -350,8 +310,7 @@ namespace MindWeaveServer.BusinessLogic
             };
             friendshipRepository.addFriendship(newFriendship);
 
-            try
-            {
+           
                 logger.Debug("Saving new friendship request to DB.");
                 await friendshipRepository.saveChangesAsync();
                 if (newFriendship.friendships_id > 0)
@@ -363,12 +322,7 @@ namespace MindWeaveServer.BusinessLogic
                     logger.Warn("New friendship request saved, but ID was not assigned or is zero.");
                 }
                 return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception saving new friendship request from {RequesterUsername} to {TargetUsername}", requester.username, target.username);
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+            
         }
 
         private FriendDto mapFriendshipToDto(Friendships f, int ownPlayerId, HashSet<string> onlineUsersSet) 

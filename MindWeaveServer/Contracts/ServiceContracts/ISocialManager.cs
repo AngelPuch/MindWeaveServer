@@ -16,21 +16,27 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void disconnect(string username);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         Task<List<PlayerSearchResultDto>> searchPlayers(string requesterUsername, string query);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         Task<OperationResultDto> sendFriendRequest(string requesterUsername, string targetUsername);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         Task<OperationResultDto> respondToFriendRequest(string responderUsername, string requesterUsername, bool accepted);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         Task<OperationResultDto> removeFriend(string username, string friendToRemoveUsername);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         Task<List<FriendDto>> getFriendsList(string username);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         Task<List<FriendRequestInfoDto>> getFriendRequests(string username);
     }
 

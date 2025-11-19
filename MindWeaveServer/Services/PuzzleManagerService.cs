@@ -1,14 +1,17 @@
 ﻿using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.Contracts.DataContracts.Puzzle;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
+using NLog;
 using System;
 using System.Collections.Generic;
+using System.Data.Entity.Core; 
+using System.IO;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Puzzle;
-using NLog;
 
 namespace MindWeaveServer.Services
 {
@@ -35,10 +38,17 @@ namespace MindWeaveServer.Services
             {
                 return await puzzleLogic.getAvailablePuzzlesAsync();
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Puzzle Service DB Error in getAvailablePuzzlesAsync");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error in getAvailablePuzzlesAsync service call.");
-                return new List<PuzzleInfoDto>();
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Puzzle Service Critical Error in getAvailablePuzzlesAsync");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -49,10 +59,28 @@ namespace MindWeaveServer.Services
             {
                 return await puzzleLogic.getPuzzleDefinitionAsync(puzzleId, difficultyId);
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
+            catch (FileNotFoundException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.NotFound, Lang.ErrorPuzzleFileNotFound, "FileSystem");
+                logger.Error(ex, "Puzzle Service File Error: Image missing for puzzleId {PuzzleId}", puzzleId);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Resource Missing"));
+            }
+            catch (IOException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.ErrorReadingPuzzleFile, "FileSystem");
+                logger.Error(ex, "Puzzle Service IO Error in getPuzzleDefinitionAsync");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("File System Error"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error in GetPuzzleDefinitionAsync service call for puzzleId: {PuzzleId}", puzzleId);
-                return null;
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Puzzle Service Critical Error in getPuzzleDefinitionAsync");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -63,10 +91,23 @@ namespace MindWeaveServer.Services
             {
                 return await puzzleLogic.uploadPuzzleImageAsync(username, imageBytes, fileName);
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Puzzle Service DB Error during upload for {Username}", username);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
+            catch (IOException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.ErrorPuzzleUploadFailed, "FileSystem");
+                logger.Error(ex, "Puzzle Service IO Error during upload for {Username}", username);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Storage Error"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Generic Error in uploadPuzzleImageAsync service call for {Username}", username ?? "NULL");
-                return new UploadResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Puzzle Service Critical Error during upload for {Username}", username);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
     }

@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
-using System.ServiceModel;
+﻿using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
+using System.Collections.Generic;
+using System.ServiceModel;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
@@ -8,9 +9,11 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     public interface IStatsManager
     {
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         PlayerStatsDto getPlayerStats(string username);
 
         [OperationContract]
+        [FaultContract(typeof(ServiceFaultDto))]
         List<MatchHistoryDto> getMatchHistory(string username, int pageNumber, int pageSize);
     }
 

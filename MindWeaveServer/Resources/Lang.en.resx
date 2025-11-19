@@ -219,6 +219,9 @@
   <data name="ErrorPlayerNotFound" xml:space="preserve">
     <value>Player not found</value>
   </data>
+  <data name="ErrorPuzzleFileNotFound" xml:space="preserve">
+    <value>Puzzle image file is missing on server</value>
+  </data>
   <data name="ErrorPuzzleUploadFailed" xml:space="preserve">
     <value>Server error during upload.</value>
   </data>
@@ -227,6 +230,9 @@
   </data>
   <data name="ErrorPuzzleUploadPlayerNotFound" xml:space="preserve">
     <value>Uploading player not found.</value>
+  </data>
+  <data name="ErrorReadingPuzzleFile" xml:space="preserve">
+    <value>Error reading puzzle file from storage.</value>
   </data>
   <data name="ErrorSavingDifficultyChange" xml:space="preserve">
     <value>Error saving difficulty change.</value>

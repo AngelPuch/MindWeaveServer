@@ -46,24 +46,19 @@ namespace MindWeaveServer.BusinessLogic
 
                 if (dto.IsUploaded)
                 {
-                    try
+
+                    string filePath = Path.Combine(uploadPath, p.image_path);
+                    if (File.Exists(filePath))
                     {
-                        string filePath = Path.Combine(uploadPath, p.image_path);
-                        if (File.Exists(filePath))
-                        {
-                            dto.ImageBytes = File.ReadAllBytes(filePath);
-                        }
-                        else
-                        {
-                            logger.Warn("Uploaded puzzle file not found, will not be sent to client: {Path}", filePath);
-                        }
+                        dto.ImageBytes = File.ReadAllBytes(filePath);
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        logger.Error(ex, "Failed to read bytes for uploaded puzzle: {Path}", p.image_path);
+                        logger.Warn("Uploaded puzzle file not found, will not be sent to client: {Path}", filePath);
                     }
                 }
-                puzzles.Add(dto);
+
+            puzzles.Add(dto);
             }
 
             logger.Info("getAvailablePuzzlesAsync logic: Found {Count} puzzles.", puzzles.Count);
@@ -81,57 +76,49 @@ namespace MindWeaveServer.BusinessLogic
 
             string uploadPath = getUploadFolderPath();
 
-            try
+            if (!Directory.Exists(uploadPath))
             {
-                if (!Directory.Exists(uploadPath))
-                {
-                    Directory.CreateDirectory(uploadPath);
-                    logger.Info("Created upload directory: {UploadPath}", uploadPath);
-                }
-
-                string uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
-                uniqueFileName = string.Join("_", uniqueFileName.Split(Path.GetInvalidFileNameChars()));
-                string filePath = Path.Combine(uploadPath, uniqueFileName);
-
-                File.WriteAllBytes(filePath, imageBytes);
-                logger.Info("Image saved successfully to: {FilePath}", filePath);
-
-                var player = await playerRepository.getPlayerByUsernameAsync(username);
-                if (player == null)
-                {
-                    logger.Warn("Upload Error: Player {Username} not found.", username);
-                    tryDeleteFile(filePath);
-                    return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadPlayerNotFound };
-                }
-
-                var newPuzzle = new Puzzles
-                {
-                    image_path = uniqueFileName,
-                    upload_date = DateTime.UtcNow,
-                    player_id = player.idPlayer
-                };
-
-                puzzleRepository.addPuzzle(newPuzzle);
-                await puzzleRepository.saveChangesAsync();
-                logger.Info("New puzzle record created with ID: {PuzzleId} for user {Username}", newPuzzle.puzzle_id, username);
-
-                return new UploadResultDto
-                {
-                    Success = true,
-                    Message = Lang.SuccessPuzzleUpload,
-                    NewPuzzleId = newPuzzle.puzzle_id
-                };
+                Directory.CreateDirectory(uploadPath);
+                logger.Info("Created upload directory: {UploadPath}", uploadPath);
             }
-            catch (IOException ioEx)
+
+            string uniqueFileName = $"{Guid.NewGuid()}_{Path.GetFileName(fileName)}";
+            foreach (char c in Path.GetInvalidFileNameChars())
             {
-                logger.Error(ioEx, "I/O Error in uploadPuzzleImageAsync for {Username}", username);
-                return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadFailed };
+                uniqueFileName = uniqueFileName.Replace(c, '_');
             }
-            catch (Exception ex)
+
+            string filePath = Path.Combine(uploadPath, uniqueFileName);
+
+            File.WriteAllBytes(filePath, imageBytes);
+            logger.Info("Image saved successfully to: {FilePath}", filePath);
+
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
+            if (player == null)
             {
-                logger.Error(ex, "Generic Error in uploadPuzzleImageAsync for {Username}", username);
-                return new UploadResultDto { Success = false, Message = Lang.GenericServerError };
+                logger.Warn("Upload Error: Player {Username} not found. Cleaning up file.", username);
+                tryDeleteFile(filePath); 
+                return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadPlayerNotFound };
             }
+
+            var newPuzzle = new Puzzles
+            {
+                image_path = uniqueFileName,
+                upload_date = DateTime.UtcNow,
+                player_id = player.idPlayer
+            };
+
+            puzzleRepository.addPuzzle(newPuzzle);
+            await puzzleRepository.saveChangesAsync();
+
+            logger.Info("New puzzle record created with ID: {PuzzleId} for user {Username}", newPuzzle.puzzle_id, username);
+
+            return new UploadResultDto
+            {
+                Success = true,
+                Message = Lang.SuccessPuzzleUpload,
+                NewPuzzleId = newPuzzle.puzzle_id
+            };
         }
 
         private string getUploadFolderPath()
@@ -157,8 +144,7 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<PuzzleDefinitionDto> getPuzzleDefinitionAsync(int puzzleId, int difficultyId)
         {
-            try
-            {
+
                 var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
                 if (puzzleData == null)
                 {
@@ -205,12 +191,7 @@ namespace MindWeaveServer.BusinessLogic
 
                 PuzzleDefinitionDto puzzleDefinition = puzzleGenerator.generatePuzzle(imageBytes, difficulty);
                 return puzzleDefinition;
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Failed to generate puzzle definition for puzzleId {PuzzleId}", puzzleId);
-                return null;
-            }
+
         }
 
     }

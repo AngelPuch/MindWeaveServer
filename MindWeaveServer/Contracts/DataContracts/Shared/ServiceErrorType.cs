@@ -36,5 +36,10 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
 
         [EnumMember]
         PlayerBanned = 10
+
+
+
+
+
     }
 }

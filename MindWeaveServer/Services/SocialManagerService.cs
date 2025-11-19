@@ -1,17 +1,18 @@
 ﻿using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
+using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data.Entity.Core;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Shared;
-using NLog;
 
 namespace MindWeaveServer.Services
 {
@@ -122,10 +123,17 @@ namespace MindWeaveServer.Services
                 logger.Info("SearchPlayers found {Count} results for query '{Query}' by {RequesterUsername}", results?.Count ?? 0, query ?? "", requesterUsername);
                 return results ?? new List<PlayerSearchResultDto>();
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Social Service DB Error in searchPlayers");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error during searchPlayers for query '{Query}' by {RequesterUsername}", query ?? "", requesterUsername);
-                return new List<PlayerSearchResultDto>();
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Social Service Critical Error in searchPlayers");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -151,10 +159,17 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Social Service DB Error in sendFriendRequest");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error during sendFriendRequest from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername ?? "NULL");
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Social Service Critical Error in sendFriendRequest");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -185,10 +200,17 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Social Service DB Error in respondToFriendRequest");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error during respondToFriendRequest by {ResponderUsername} for request from {RequesterUsername}", responderUsername, requesterUsername ?? "NULL");
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Social Service Critical Error in respondToFriendRequest");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -214,10 +236,17 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Social Service DB Error in removeFriend");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error during removeFriend by {Username} for {FriendToRemoveUsername}", username, friendToRemoveUsername ?? "NULL");
-                return new OperationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Social Service Critical Error in removeFriend");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -235,10 +264,17 @@ namespace MindWeaveServer.Services
                 logger.Info("Retrieved {Count} friends for user {Username}", friends?.Count ?? 0, username);
                 return friends ?? new List<FriendDto>();
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Social Service DB Error in getFriendsList");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error during getFriendsList for user: {Username}", username);
-                return new List<FriendDto>();
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Social Service Critical Error in getFriendsList");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -256,10 +292,17 @@ namespace MindWeaveServer.Services
                 logger.Info("Retrieved {Count} friend requests for user {Username}", requests?.Count ?? 0, username);
                 return requests ?? new List<FriendRequestInfoDto>();
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Social Service DB Error in getFriendRequests");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error during getFriendRequests for user: {Username}", username);
-                return new List<FriendRequestInfoDto>();
+                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
+                logger.Fatal(ex, "Social Service Critical Error in getFriendRequests");
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 

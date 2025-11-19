@@ -127,6 +127,7 @@
     <Compile Include="BusinessLogic\PuzzleGenerator.cs" />
     <Compile Include="BusinessLogic\PuzzleLogic.cs" />
     <Compile Include="BusinessLogic\SocialLogic.cs" />
+    <Compile Include="BusinessLogic\StatsLogic.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
@@ -245,6 +246,7 @@
     <Compile Include="Services\ProfileManagerService.cs" />
     <Compile Include="Services\PuzzleManagerService.cs" />
     <Compile Include="Services\SocialManagerService.cs" />
+    <Compile Include="Services\StatsManagerService.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordPolicyValidator.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordService.cs" />
     <Compile Include="Utilities\Abstractions\IVerificationCodeService.cs" />

@@ -33,7 +33,6 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword);
 
         [OperationContract(IsOneWay = true)]
-        [FaultContract(typeof(ServiceFaultDto))]
         void logOut(string username);
     }
 }

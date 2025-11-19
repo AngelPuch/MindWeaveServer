@@ -30,15 +30,13 @@ namespace MindWeaveServer.BusinessLogic
 
         public void joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
         {
-            logger.Info("joinLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+            logger.Info("joinLobbyChat logic called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
 
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(lobbyId) || userCallback == null)
-            {
-                logger.Warn("joinLobbyChat ignored: Invalid parameters (username, lobbyId, or callback is null/whitespace).");
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(username)) throw new ArgumentNullException(nameof(username));
+            if (string.IsNullOrWhiteSpace(lobbyId)) throw new ArgumentNullException(nameof(lobbyId));
+            if (userCallback == null) throw new ArgumentNullException(nameof(userCallback));
 
-            registerUserCallback(username, lobbyId, userCallback); 
+            registerUserCallback(username, lobbyId, userCallback);
             sendLobbyHistoryToUser(username, lobbyId, userCallback);
         }
 
@@ -54,8 +52,8 @@ namespace MindWeaveServer.BusinessLogic
 
             if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {
-                logger.Warn("[ChatLogic LEAVE] Lobby '{LobbyId}' not found during leave attempt for user '{Username}'.", lobbyId, username);
-                return;
+                throw new KeyNotFoundException($"Lobby '{lobbyId}' not found during leave attempt.");
+
             }
 
             if (!usersInLobby.TryRemove(username, out _))
@@ -76,15 +74,12 @@ namespace MindWeaveServer.BusinessLogic
         {
             logger.Info("processAndBroadcastMessage called by User: {Username} in Lobby: {LobbyId}", senderUsername ?? "NULL", lobbyId ?? "NULL");
 
-            if (string.IsNullOrWhiteSpace(senderUsername) || string.IsNullOrWhiteSpace(lobbyId) || string.IsNullOrWhiteSpace(messageContent))
-            {
-                logger.Warn("[ChatLogic SEND FAILED] Invalid parameters for sending message (sender, lobby, or content is null/whitespace).");
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(senderUsername)) throw new ArgumentNullException(nameof(senderUsername));
+            if (string.IsNullOrWhiteSpace(lobbyId)) throw new ArgumentNullException(nameof(lobbyId));
+            if (string.IsNullOrWhiteSpace(messageContent)) throw new ArgumentException("Message content cannot be empty.", nameof(messageContent));
 
             if (messageContent.Length > MAX_MESSAGE_LENGTH)
             {
-                logger.Debug("Message from {Username} in lobby {LobbyId} exceeds max length ({MaxLength}). Truncating.", senderUsername, lobbyId, MAX_MESSAGE_LENGTH);
                 messageContent = messageContent.Substring(0, MAX_MESSAGE_LENGTH) + "...";
             }
 
@@ -92,7 +87,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 SenderUsername = senderUsername,
                 Content = messageContent,
-                Timestamp = DateTime.UtcNow 
+                Timestamp = DateTime.UtcNow
             };
 
             addMessageToHistory(lobbyId, messageDto);
@@ -125,8 +120,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {
-                logger.Warn("[ChatLogic BROADCAST WARNING] Lobby '{LobbyId}' not found for broadcast (might have been cleaned up).", lobbyId);
-                return;
+                throw new KeyNotFoundException($"Lobby '{lobbyId}' not found for broadcast.");
             }
 
             var currentUsersSnapshot = usersInLobby.ToList();

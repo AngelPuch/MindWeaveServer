@@ -367,6 +367,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Falta el archivo de imagen del rompecabezas del servidor..
+        /// </summary>
+        public static string ErrorPuzzleFileNotFound {
+            get {
+                return ResourceManager.GetString("ErrorPuzzleFileNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Error del servidor durante la subida..
         /// </summary>
         public static string ErrorPuzzleUploadFailed {
@@ -390,6 +399,15 @@ namespace MindWeaveServer.Resources {
         public static string ErrorPuzzleUploadPlayerNotFound {
             get {
                 return ResourceManager.GetString("ErrorPuzzleUploadPlayerNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Busca una cadena traducida similar a Error al leer el archivo del rompecabezas desde el almacenamiento..
+        /// </summary>
+        public static string ErrorReadingPuzzleFile {
+            get {
+                return ResourceManager.GetString("ErrorReadingPuzzleFile", resourceCulture);
             }
         }
         
