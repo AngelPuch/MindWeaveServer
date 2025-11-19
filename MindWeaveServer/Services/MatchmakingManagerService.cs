@@ -1,5 +1,6 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
@@ -9,6 +10,7 @@ using MindWeaveServer.Utilities.Email;
 using NLog;
 using System;
 using System.Collections.Concurrent;
+using System.Data.Entity.Core;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -96,10 +98,28 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto
+                (
+                    ServiceErrorType.DatabaseError,
+                   Lang.GenericServerError,
+                    "Database"
+                );
+
+                logger.Fatal(ex, "createLobby Fatal: Database unavailable for {Username}", hostUsername);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Service Exception in createLobby for {Username}", hostUsername ?? "NULL");
-                return new LobbyCreationResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server"
+                );
+
+                logger.Fatal(ex, "createLobby Critical: Unhandled exception for {Username}", hostUsername);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
 
@@ -340,18 +360,27 @@ namespace MindWeaveServer.Services
                 }
                 return result;
             }
+            catch (EntityException ex)
+            {
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.DatabaseError,
+                    Lang.GenericServerError,
+                    "Database"
+                );
+
+                logger.Fatal(ex, "joinLobbyAsGuest Fatal: Database unavailable for Lobby {LobbyCode}", codeForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Service Exception in joinLobbyAsGuest for code {LobbyCode}", codeForContext);
-                try
-                {
-                    guestCallback?.lobbyCreationFailed(Lang.GenericServerError);
-                }
-                catch (Exception cbEx)
-                {
-                    logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback after error in joinLobbyAsGuest for code {LobbyCode}", codeForContext);
-                }
-                return new GuestJoinResultDto { Success = false, Message = Lang.GenericServerError };
+                var fault = new ServiceFaultDto(
+                    ServiceErrorType.Unknown,
+                    Lang.GenericServerError,
+                    "Server"
+                );
+
+                logger.Fatal(ex, "joinLobbyAsGuest Critical: Unhandled exception for Lobby {LobbyCode}", codeForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
         private int getPlayerIdFromContext()

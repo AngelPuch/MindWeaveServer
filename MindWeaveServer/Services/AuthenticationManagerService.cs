@@ -256,6 +256,7 @@ namespace MindWeaveServer.Services
                 return result;
 
             }
+            
             catch (System.Data.Entity.Core.EntityException ex)
             {
                 var fault = new ServiceFaultDto(
@@ -266,15 +267,15 @@ namespace MindWeaveServer.Services
                 logger.Fatal(ex, "RecoveryCode Fatal: Database unavailable for {Email}", emailForContext);
                 throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
-            catch (System.Net.Mail.SmtpException ex)
+            catch (System.Net.Sockets.SocketException ex)
             {
                 var fault = new ServiceFaultDto(
                     ServiceErrorType.CommunicationError,
-                    "Failed to send recovery email. Please check the email address.",
+                    "Error sending email. Please try again later.", 
                     "EmailService");
 
-                logger.Error(ex, "RecoveryCode Error: SMTP failed for {Email}", emailForContext);
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Email Delivery Failed"));
+                logger.Error(ex, "RecoveryCode Error: Email service failed (SocketException) for {Email}", emailForContext);
+                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Email Service Failed"));
             }
             catch (Exception ex)
             {

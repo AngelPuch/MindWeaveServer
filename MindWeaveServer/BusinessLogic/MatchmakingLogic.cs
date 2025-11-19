@@ -80,8 +80,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new LobbyCreationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired };
             }
 
-            try
-            {
+         
                 logger.Debug("Fetching host player data for {Username}", hostUsername);
                 var hostPlayer = await playerRepository.getPlayerByUsernameAsync(hostUsername);
                 if (hostPlayer == null)
@@ -156,13 +155,8 @@ namespace MindWeaveServer.BusinessLogic
                     return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyRegistrationFailed };
                 }
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during createLobbyAsync for User: {Username}", hostUsername);
-                return new LobbyCreationResultDto { Success = false, Message = Lang.GenericServerError };
-            }
 
-        }
+   
 
         public async Task joinLobbyAsync(string username, string lobbyCode, IMatchmakingCallback callback)
         {
@@ -533,8 +527,7 @@ namespace MindWeaveServer.BusinessLogic
             string desiredUsername = joinRequest.DesiredGuestUsername;
             logger.Info("JoinLobbyAsGuestAsync called for Email: {GuestEmail}, Lobby: {LobbyCode}, Desired Username: {DesiredUsername}", guestEmailLower, lobbyCode, desiredUsername);
 
-            try
-            {
+         
                 var (isValid, _, invitation, lobbyState, errorResult) = await validateGuestJoinPrerequisitesAsync(lobbyCode, guestEmailLower);
                 if (!isValid)
                 {
@@ -562,12 +555,7 @@ namespace MindWeaveServer.BusinessLogic
                     InitialLobbyState = lobbyState,
                     PlayerId = guestPlayerId
                 };
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Exception during JoinLobbyAsGuestAsync for Email: {GuestEmail}, Lobby: {LobbyCode}", guestEmailLower, lobbyCode);
-                return new GuestJoinResultDto { Success = false, Message = Lang.GenericServerError };
-            }
+           
         }
 
         public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction)
@@ -682,11 +670,7 @@ namespace MindWeaveServer.BusinessLogic
                     logger.Warn(dbEx, "DB unique key constraint violation for lobby code {LobbyCode} on attempt {Attempt}. Retrying.", lobbyCode, attempts);
                     newMatch = null;
                 }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Failed to create match record or add host participant for lobby code {LobbyCode} on attempt {Attempt}", lobbyCode, attempts);
-                    return null;
-                }
+                
             }
             if (newMatch == null) { logger.Error("Exceeded max attempts ({MaxAttempts}) to generate a unique lobby code.", MAX_LOBBY_CODE_GENERATION_ATTEMPTS); }
             return newMatch;
