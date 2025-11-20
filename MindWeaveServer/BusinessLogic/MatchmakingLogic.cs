@@ -79,84 +79,82 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Lobby creation failed: Host username or settings are null/whitespace.");
                 return new LobbyCreationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired };
             }
+            logger.Debug("Fetching host player data for {Username}", hostUsername);
+            var hostPlayer = await playerRepository.getPlayerByUsernameAsync(hostUsername);
+            if (hostPlayer == null)
+            {
+                logger.Warn("Lobby creation failed for {Username}: Player not found in DB.", hostUsername);
+                return new LobbyCreationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
+            }
 
-         
-                logger.Debug("Fetching host player data for {Username}", hostUsername);
-                var hostPlayer = await playerRepository.getPlayerByUsernameAsync(hostUsername);
-                if (hostPlayer == null)
+            logger.Debug("Attempting to create a unique lobby and match record for {Username}", hostUsername);
+            Matches newMatch = await tryCreateUniqueLobbyAsync(settings, hostPlayer);
+
+            if (newMatch == null)
+            {
+                logger.Error("Lobby creation failed for {Username}: Could not create unique lobby/match record (check previous logs).", hostUsername);
+                return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyCodeGenerationFailed };
+            }
+            logger.Info("Match record created successfully (ID: {MatchId}, Code: {LobbyCode}) for host {Username}", newMatch.matches_id, newMatch.lobby_code, hostUsername);
+
+            string puzzleImagePath = null;
+            byte[] puzzleBytes = settings.CustomPuzzleImage;
+            if (puzzleBytes == null || puzzleBytes.Length == 0)
+            {
+                var puzzle = await puzzleRepository.getPuzzleByIdAsync(newMatch.puzzle_id);
+                if (puzzle != null)
                 {
-                    logger.Warn("Lobby creation failed for {Username}: Player not found in DB.", hostUsername);
-                    return new LobbyCreationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
-                }
-
-                logger.Debug("Attempting to create a unique lobby and match record for {Username}", hostUsername);
-                Matches newMatch = await tryCreateUniqueLobbyAsync(settings, hostPlayer);
-
-                if (newMatch == null)
-                {
-                    logger.Error("Lobby creation failed for {Username}: Could not create unique lobby/match record (check previous logs).", hostUsername);
-                    return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyCodeGenerationFailed };
-                }
-                logger.Info("Match record created successfully (ID: {MatchId}, Code: {LobbyCode}) for host {Username}", newMatch.matches_id, newMatch.lobby_code, hostUsername);
-
-                string puzzleImagePath = null;
-                byte[] puzzleBytes = settings.CustomPuzzleImage;
-                if (puzzleBytes == null || puzzleBytes.Length == 0)
-                {
-                    var puzzle = await puzzleRepository.getPuzzleByIdAsync(newMatch.puzzle_id);
-                    if (puzzle != null)
+                    if (puzzle.image_path.StartsWith("puzzleDefault"))
                     {
-                        if (puzzle.image_path.StartsWith("puzzleDefault"))
-                        {
-                            puzzleImagePath = puzzle.image_path;
+                        puzzleImagePath = puzzle.image_path;
 
+                    }
+                    else
+                    {
+                        string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UploadedPuzzles", puzzle.image_path);
+                        if (File.Exists(filePath))
+                        {
+                            puzzleBytes = File.ReadAllBytes(filePath);
+                            logger.Debug("Loaded {Bytes} bytes for custom puzzle file: {Path}", puzzleBytes.Length, filePath);
                         }
                         else
                         {
-                            string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UploadedPuzzles", puzzle.image_path);
-                            if (File.Exists(filePath))
-                            {
-                                puzzleBytes = File.ReadAllBytes(filePath);
-                                logger.Debug("Loaded {Bytes} bytes for custom puzzle file: {Path}", puzzleBytes.Length, filePath);
-                            }
-                            else
-                            {
-                                logger.Warn("Uploaded puzzle file not found at: {Path}. Lobby will fallback.", filePath);
-                            }
+                            logger.Warn("Uploaded puzzle file not found at: {Path}. Lobby will fallback.", filePath);
                         }
                     }
                 }
-
-                if (puzzleImagePath == null && (puzzleBytes == null || puzzleBytes.Length == 0))
-                {
-                    var defaultPuzzle = await puzzleRepository.getPuzzleByIdAsync(DEFAULT_PUZZLE_ID);
-                    puzzleImagePath = defaultPuzzle?.image_path ?? "puzzleDefault.png";
-                    logger.Warn("Using fallback puzzle path '{PuzzlePath}'", puzzleImagePath);
-                }
-
-                settings.CustomPuzzleImage = puzzleBytes;
-
-                var initialState = buildInitialLobbyState(newMatch, hostUsername, settings, puzzleImagePath);
-
-                if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
-                {
-                    logger.Info("Lobby {LobbyCode} successfully registered in active lobbies.", newMatch.lobby_code);
-                    return new LobbyCreationResultDto
-                    {
-                        Success = true,
-                        Message = Lang.lobbyCreatedSuccessfully,
-                        LobbyCode = newMatch.lobby_code,
-                        InitialLobbyState = initialState
-                    };
-                }
-                else
-                {
-                    logger.Error("Lobby creation failed for {Username} with code {LobbyCode}: Failed to add to activeLobbies dictionary (race condition?).", hostUsername, newMatch.lobby_code);
-                    return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyRegistrationFailed };
-                }
             }
 
-   
+            if (puzzleImagePath == null && (puzzleBytes == null || puzzleBytes.Length == 0))
+            {
+                var defaultPuzzle = await puzzleRepository.getPuzzleByIdAsync(DEFAULT_PUZZLE_ID);
+                puzzleImagePath = defaultPuzzle?.image_path ?? "puzzleDefault.png";
+                logger.Warn("Using fallback puzzle path '{PuzzlePath}'", puzzleImagePath);
+            }
+
+            settings.CustomPuzzleImage = puzzleBytes;
+
+            var initialState = buildInitialLobbyState(newMatch, hostUsername, settings, puzzleImagePath);
+
+            if (activeLobbies.TryAdd(newMatch.lobby_code, initialState))
+            {
+                logger.Info("Lobby {LobbyCode} successfully registered in active lobbies.", newMatch.lobby_code);
+                return new LobbyCreationResultDto
+                {
+                    Success = true,
+                    Message = Lang.lobbyCreatedSuccessfully,
+                    LobbyCode = newMatch.lobby_code,
+                    InitialLobbyState = initialState
+                };
+            }
+            else
+            {
+                logger.Error("Lobby creation failed for {Username} with code {LobbyCode}: Failed to add to activeLobbies dictionary (race condition?).", hostUsername, newMatch.lobby_code);
+                return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyRegistrationFailed };
+            }
+        }
+
+
 
         public async Task joinLobbyAsync(string username, string lobbyCode, IMatchmakingCallback callback)
         {
@@ -282,7 +280,8 @@ namespace MindWeaveServer.BusinessLogic
             logger.Warn("[HandleDisconnect] Processing disconnect for user: '{Username}'", username);
 
             List<string> lobbiesToLeave = activeLobbies
-                .Where(kvp => {
+                .Where(kvp =>
+                {
                     lock (kvp.Value)
                     {
                         return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
@@ -527,35 +526,35 @@ namespace MindWeaveServer.BusinessLogic
             string desiredUsername = joinRequest.DesiredGuestUsername;
             logger.Info("JoinLobbyAsGuestAsync called for Email: {GuestEmail}, Lobby: {LobbyCode}, Desired Username: {DesiredUsername}", guestEmailLower, lobbyCode, desiredUsername);
 
-         
-                var (isValid, _, invitation, lobbyState, errorResult) = await validateGuestJoinPrerequisitesAsync(lobbyCode, guestEmailLower);
-                if (!isValid)
-                {
-                    return errorResult;
-                }
 
-                (bool addedToMemory, string finalGuestUsername, int guestPlayerId, GuestJoinResultDto memoryErrorResult) =
-                    tryAddGuestToLobbyState(lobbyState, lobbyCode, desiredUsername, callback);
+            var (isValid, _, invitation, lobbyState, errorResult) = await validateGuestJoinPrerequisitesAsync(lobbyCode, guestEmailLower);
+            if (!isValid)
+            {
+                return errorResult;
+            }
 
-                if (!addedToMemory)
-                {
-                    return memoryErrorResult;
-                }
+            (bool addedToMemory, string finalGuestUsername, int guestPlayerId, GuestJoinResultDto memoryErrorResult) =
+                tryAddGuestToLobbyState(lobbyState, lobbyCode, desiredUsername, callback);
 
-                await markInvitationAsUsedAsync(invitation, finalGuestUsername);
+            if (!addedToMemory)
+            {
+                return memoryErrorResult;
+            }
 
-                logger.Info("Guest {FinalGuestUsername} successfully joined lobby {LobbyCode}. Broadcasting update.", finalGuestUsername, lobbyCode);
-                notifyLobbyStateChanged(lobbyState);
+            await markInvitationAsUsedAsync(invitation, finalGuestUsername);
 
-                return new GuestJoinResultDto
-                {
-                    Success = true,
-                    Message = Lang.SuccessGuestJoinedLobby,
-                    AssignedGuestUsername = finalGuestUsername,
-                    InitialLobbyState = lobbyState,
-                    PlayerId = guestPlayerId
-                };
-           
+            logger.Info("Guest {FinalGuestUsername} successfully joined lobby {LobbyCode}. Broadcasting update.", finalGuestUsername, lobbyCode);
+            notifyLobbyStateChanged(lobbyState);
+
+            return new GuestJoinResultDto
+            {
+                Success = true,
+                Message = Lang.SuccessGuestJoinedLobby,
+                AssignedGuestUsername = finalGuestUsername,
+                InitialLobbyState = lobbyState,
+                PlayerId = guestPlayerId
+            };
+
         }
 
         public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction)
@@ -670,7 +669,7 @@ namespace MindWeaveServer.BusinessLogic
                     logger.Warn(dbEx, "DB unique key constraint violation for lobby code {LobbyCode} on attempt {Attempt}. Retrying.", lobbyCode, attempts);
                     newMatch = null;
                 }
-                
+
             }
             if (newMatch == null) { logger.Error("Exceeded max attempts ({MaxAttempts}) to generate a unique lobby code.", MAX_LOBBY_CODE_GENERATION_ATTEMPTS); }
             return newMatch;
@@ -1200,7 +1199,8 @@ namespace MindWeaveServer.BusinessLogic
                 }
             }
 
-            Task.Run(async () => {
+            Task.Run(async () =>
+            {
                 logger.Info("[HandleDisconnect] Initiating LeaveLobbyAsync background task for '{Username}' from lobby '{LobbyCode}'.", username, lobbyCode);
                 try
                 {

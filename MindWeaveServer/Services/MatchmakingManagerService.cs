@@ -133,9 +133,9 @@ namespace MindWeaveServer.Services
                 {
                     currentUserCallback?.lobbyCreationFailed(Lang.ErrorCommunicationChannelFailed);
                 }
-                catch (Exception cbEx)
+                catch (Exception ex)
                 {
-                    logger.Warn(cbEx, "Exception sending lobbyCreationFailed callback during joinLobby session check for {Username}", username ?? "NULL");
+                    logger.Warn(ex, "Exception sending lobbyCreationFailed callback during joinLobby session check for {Username}", username ?? "NULL");
                 }
                 return;
             }
@@ -154,9 +154,9 @@ namespace MindWeaveServer.Services
                     {
                         currentUserCallback?.lobbyCreationFailed(Lang.GenericServerError);
                     }
-                    catch (Exception cbEx)
+                    catch (Exception e)
                     {
-                        logger.Warn(cbEx, "Exception sending LobbyCreationFailed callback after error in JoinLobby for {Username}", username ?? "NULL");
+                        logger.Warn(e, "Exception sending LobbyCreationFailed callback after error in JoinLobby for {Username}", username ?? "NULL");
                     }
 
                     await handleDisconnect();
@@ -334,10 +334,9 @@ namespace MindWeaveServer.Services
                 { Success = false, Message = Lang.ErrorServiceConnectionClosing };
             }
 
-            IMatchmakingCallback guestCallback = null;
             try
             {
-                guestCallback = OperationContext.Current?.GetCallbackChannel<IMatchmakingCallback>();
+                var guestCallback = OperationContext.Current?.GetCallbackChannel<IMatchmakingCallback>();
                 if (guestCallback == null)
                 {
                     logger.Error("joinLobbyAsGuest failed for code {LobbyCode}: Could not retrieve callback channel for guest.", codeForContext);
