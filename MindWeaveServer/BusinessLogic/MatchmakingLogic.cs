@@ -37,7 +37,7 @@ namespace MindWeaveServer.BusinessLogic
 
 
         private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
-        private const int MAX_PLAYERS_PER_LOBBY = 1;
+        private const int MAX_PLAYERS_PER_LOBBY = 4;
         private const int MATCH_STATUS_WAITING = 1;
         private const int MATCH_STATUS_IN_PROGRESS = 3;
         private const int MATCH_STATUS_CANCELED = 4;
@@ -889,7 +889,7 @@ namespace MindWeaveServer.BusinessLogic
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.notHost));
                     return (false, null);
                 }
-                if (lobbyState.Players.Count != MAX_PLAYERS_PER_LOBBY)
+                if (lobbyState.Players.Count > MAX_PLAYERS_PER_LOBBY)
                 {
                     logger.Warn("Start game validation failed: Lobby {LobbyId} does not have exactly {RequiredCount} players (Current: {CurrentCount}).", lobbyState.LobbyId, MAX_PLAYERS_PER_LOBBY, lobbyState.Players.Count);
                     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.NotEnoughPlayersToStart));

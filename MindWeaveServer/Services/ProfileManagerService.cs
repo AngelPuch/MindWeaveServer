@@ -234,6 +234,6 @@ namespace MindWeaveServer.Services
                 logger.Fatal(ex, "Profile Critical: Unhandled exception changing password for {Username}", userForContext);
                 throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
-        }
+        }     
     }
 }

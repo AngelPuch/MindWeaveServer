@@ -47,8 +47,8 @@ namespace MindWeaveServer.BusinessLogic
                 int pieceWidth = img.Width / columns;
                 int pieceHeight = img.Height / rows;
 
-                int scatterAreaWidth = (int)(img.Width * 1.5);
-                int scatterAreaHeight = (int)(img.Height * 1.5);
+                int scatterAreaWidth = (int)(img.Width * .5);
+                int scatterAreaHeight = (int)(img.Height * .5);
 
                 int pieceId = 0;
 
