@@ -14,9 +14,8 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
+        private static readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
         private readonly IMatchmakingRepository matchmakingRepository;
-
         private readonly IPuzzleRepository puzzleRepository;
         private readonly PuzzleGenerator puzzleGenerator;
 

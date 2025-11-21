@@ -714,16 +714,13 @@ namespace MindWeaveServer.BusinessLogic
         {
             lock (lobbyState)
             {
-                /* --- INICIO DE PRUEBA TEMPORAL ---
-            Comentamos esta validación para forzar el inicio con 1 jugador
-            y confirmar que el problema es una build antigua.
-         */
                 // if (lobbyState.players.Count != MAX_PLAYERS_PER_LOBBY) 
                 // {
                 //     logger.Warn("Start game validation failed: Lobby {LobbyId} does not have exactly {RequiredCount} players (Current: {CurrentCount}).", lobbyState.lobbyId, MAX_PLAYERS_PER_LOBBY, lobbyState.players.Count);
                 //     sendCallbackToUser(hostUsername, cb => cb.lobbyCreationFailed(Lang.NotEnoughPlayersToStart));
                 //     return (false, null);
                 // }
+
                 /* --- FIN DE PRUEBA TEMPORAL --- */
                 if (lobbyState.Players.Contains(username, StringComparer.OrdinalIgnoreCase))
                 {
