@@ -58,7 +58,7 @@ namespace MindWeaveServer.BusinessLogic
                     }
                 }
 
-            puzzles.Add(dto);
+                puzzles.Add(dto);
             }
 
             logger.Info("getAvailablePuzzlesAsync logic: Found {Count} puzzles.", puzzles.Count);
@@ -97,7 +97,7 @@ namespace MindWeaveServer.BusinessLogic
             if (player == null)
             {
                 logger.Warn("Upload Error: Player {Username} not found. Cleaning up file.", username);
-                tryDeleteFile(filePath); 
+                tryDeleteFile(filePath);
                 return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadPlayerNotFound };
             }
 
@@ -145,52 +145,52 @@ namespace MindWeaveServer.BusinessLogic
         public async Task<PuzzleDefinitionDto> getPuzzleDefinitionAsync(int puzzleId, int difficultyId)
         {
 
-                var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
-                if (puzzleData == null)
-                {
-                    logger.Warn("Puzzle definition requested for non-existent puzzleId: {puzzleId}", puzzleId);
-                    return null;
-                }
+            var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
+            if (puzzleData == null)
+            {
+                logger.Warn("Puzzle definition requested for non-existent puzzleId: {puzzleId}", puzzleId);
+                return null;
+            }
 
-                byte[] imageBytes;
-                if (!puzzleData.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase))
+            byte[] imageBytes;
+            if (!puzzleData.image_path.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase))
+            {
+                string uploadPath = getUploadFolderPath();
+                string filePath = Path.Combine(uploadPath, puzzleData.image_path);
+                if (File.Exists(filePath))
                 {
-                    string uploadPath = getUploadFolderPath();
-                    string filePath = Path.Combine(uploadPath, puzzleData.image_path);
-                    if (File.Exists(filePath))
-                    {
-                        imageBytes = File.ReadAllBytes(filePath);
-                    }
-                    else
-                    {
-                        logger.Error("Puzzle file not found for {puzzleId} at path: {filePath}", puzzleId, filePath);
-                        return null;
-                    }
+                    imageBytes = File.ReadAllBytes(filePath);
                 }
                 else
                 {
-                    string defaultPuzzlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DefaultPuzzles");
-                    string filePath = Path.Combine(defaultPuzzlePath, puzzleData.image_path);
-                    if (File.Exists(filePath))
-                    {
-                        imageBytes = File.ReadAllBytes(filePath);
-                    }
-                    else
-                    {
-                        logger.Error("DEFAULT PUZZLE FILE NOT FOUND at path: {filePath}", filePath);
-                        return null;
-                    }
-                }
-
-                var difficulty = await puzzleRepository.getDifficultyByIdAsync(difficultyId);
-                if (difficulty == null)
-                {
-                    logger.Warn("Invalid difficultyId {DifficultyId} requested.", difficultyId);
+                    logger.Error("Puzzle file not found for {puzzleId} at path: {filePath}", puzzleId, filePath);
                     return null;
                 }
+            }
+            else
+            {
+                string defaultPuzzlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DefaultPuzzles");
+                string filePath = Path.Combine(defaultPuzzlePath, puzzleData.image_path);
+                if (File.Exists(filePath))
+                {
+                    imageBytes = File.ReadAllBytes(filePath);
+                }
+                else
+                {
+                    logger.Error("DEFAULT PUZZLE FILE NOT FOUND at path: {filePath}", filePath);
+                    return null;
+                }
+            }
 
-                PuzzleDefinitionDto puzzleDefinition = puzzleGenerator.generatePuzzle(imageBytes, difficulty);
-                return puzzleDefinition;
+            var difficulty = await puzzleRepository.getDifficultyByIdAsync(difficultyId);
+            if (difficulty == null)
+            {
+                logger.Warn("Invalid difficultyId {DifficultyId} requested.", difficultyId);
+                return null;
+            }
+
+            PuzzleDefinitionDto puzzleDefinition = puzzleGenerator.generatePuzzle(imageBytes, difficulty);
+            return puzzleDefinition;
 
         }
 

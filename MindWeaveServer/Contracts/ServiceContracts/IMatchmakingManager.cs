@@ -80,18 +80,18 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         
         [OperationContract(IsOneWay = true)]
-        void onPieceDragStarted(int pieceId, int playerId);
+        void onPieceDragStarted(int pieceId, string username);
 
         [OperationContract(IsOneWay = true)]
-        void onPiecePlaced(int pieceId, double correctX, double correctY, int scoringPlayerId, int newScore);
-
-      
-        [OperationContract(IsOneWay = true)]
-        void onPieceMoved(int pieceId, double newX, double newY);
+        void onPiecePlaced(int pieceId, double correctX, double correctY, string username, int newScore);
 
       
         [OperationContract(IsOneWay = true)]
-        void onPieceDragReleased(int pieceId);
+        void onPieceMoved(int pieceId, double newX, double newY, string username);
+
+      
+        [OperationContract(IsOneWay = true)]
+        void onPieceDragReleased(int pieceId, string username);
 
 
     }

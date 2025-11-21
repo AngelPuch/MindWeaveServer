@@ -96,7 +96,9 @@ namespace MindWeaveServer.BusinessLogic
             {
                 piece.HeldByPlayerId = null;
                 logger.Warn("Piece {PieceId} was force-released due to player {PlayerId} disconnect.", piece.PieceId, playerId);
-                broadcast(callback => callback.onPieceDragReleased(piece.PieceId));
+                string username = Players[playerId].Username;
+                broadcast(callback => callback.onPieceDragReleased(piece.PieceId, username));
+
             }
         }
         
@@ -118,7 +120,8 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.HeldByPlayerId = playerId;
 
             logger.Info("GameSession {LobbyCode}: Player {PlayerId} started dragging piece {PieceId}", LobbyCode, playerId, pieceId);
-            broadcast(callback => callback.onPieceDragStarted(pieceId, playerId));
+            string username = Players[playerId].Username;
+            broadcast(callback => callback.onPieceDragStarted(pieceId, username));
         }
 
         public async Task handlePieceDrop(int playerId, int pieceId, double newX, double newY)
@@ -135,15 +138,14 @@ namespace MindWeaveServer.BusinessLogic
                     playerId, pieceId, pieceState.HeldByPlayerId);
                 return; 
             }
-
-            pieceState.HeldByPlayerId = null;
-
+            
             bool isCorrect = !pieceState.IsPlaced &&
                              Math.Abs(pieceState.FinalX - newX) < SNAP_TOLERANCE &&
                              Math.Abs(pieceState.FinalY - newY) < SNAP_TOLERANCE;
 
             if (isCorrect)
             {
+                pieceState.HeldByPlayerId = null;
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} SNAPPED piece {PieceId}", LobbyCode, playerId, pieceId);
 
                 pieceState.IsPlaced = true;
@@ -158,23 +160,25 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Error(ex, "Failed to update score in DB for Match {MatchId}, Player {PlayerId}", MatchId, playerId);
                 }
-
+                string username = Players[playerId].Username;
                 broadcast(callback => callback.onPiecePlaced(
                     pieceId,
                     pieceState.FinalX,
                     pieceState.FinalY,
-                    playerId,
+                    username,
                     player.Score
                 ));
             }
             else
             {
+                pieceState.HeldByPlayerId = null;
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} moved piece {PieceId} to ({NewX}, {NewY})", LobbyCode, playerId, newX, newY);
 
                 pieceState.CurrentX = newX;
                 pieceState.CurrentY = newY;
-
-                broadcast(callback => callback.onPieceMoved(pieceId, newX, newY));
+                string username = Players[playerId].Username;
+                broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, username));
+                broadcast(callback => callback.onPieceDragReleased(pieceId, username));
             }
         }
 
@@ -189,8 +193,8 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} released piece {PieceId}", LobbyCode, playerId, pieceId);
                 pieceState.HeldByPlayerId = null;
-
-                broadcast(callback => callback.onPieceDragReleased(pieceId));
+                string username = Players[playerId].Username;
+                broadcast(callback => callback.onPieceDragReleased(pieceId, username));
             }
         }
 
