@@ -436,6 +436,25 @@ namespace MindWeaveServer.Services
             }
         }
 
+        public void requestPieceMove(string lobbyCode, int pieceId, double newX, double newY)
+        {
+            if (!ensureSessionIsRegistered(this.currentUsername))
+            {
+                logger.Warn("requestPieceMove: Session not registered for {Username}", this.currentUsername);
+                return;
+            }
+
+            try
+            {
+                var playerId = getPlayerIdFromContext();
+                gameSessionManager.handlePieceMove(lobbyCode, playerId, pieceId, newX, newY);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Exception in RequestPieceMove for player {Username}", this.currentUsername);
+            }
+        }
+
         public void requestPieceDrop(string lobbyCode, int pieceId, double newX, double newY)
         {
             if (!ensureSessionIsRegistered(this.currentUsername))

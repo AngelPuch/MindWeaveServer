@@ -14,7 +14,7 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private static readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
+        private readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
         private readonly IMatchmakingRepository matchmakingRepository;
         private readonly IPuzzleRepository puzzleRepository;
         private readonly PuzzleGenerator puzzleGenerator;
@@ -76,6 +76,14 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
+        public void handlePieceMove(string lobbyCode, int playerId, int pieceId, double newX, double newY)
+        {
+            var session = getSession(lobbyCode);
+            if (session != null)
+            {
+                session.handlePieceMove(playerId, pieceId, newX, newY);
+            }
+        }
         public async Task handlePieceDrop(string lobbyCode, int playerId, int pieceId, double newX, double newY)
         {
             var session = getSession(lobbyCode);

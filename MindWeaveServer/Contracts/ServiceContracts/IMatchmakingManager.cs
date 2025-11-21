@@ -43,7 +43,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void requestPieceDrag(string lobbyCode, int pieceId);
 
-       
+        [OperationContract(IsOneWay = true)]
+        void requestPieceMove(string lobbyCode, int pieceId, double newX, double newY);
+
         [OperationContract(IsOneWay = true)]
         void requestPieceDrop(string lobbyCode, int pieceId, double newX, double newY);
 

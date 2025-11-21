@@ -109,29 +109,39 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            // VALIDACIÓN CRÍTICA: Solo permitir si la pieza no está colocada y no está siendo sostenida por otro
-            if (pieceState.IsPlaced)
+            if (pieceState.IsPlaced || pieceState.HeldByPlayerId != null)
             {
-                logger.Debug("Player {PlayerId} cannot drag piece {PieceId}: Already placed", playerId, pieceId);
+                logger.Debug("Player {PlayerId} failed to drag piece {PieceId}: IsPlaced={IsPlaced}, HeldBy={HeldBy}",
+                    playerId, pieceId, pieceState.IsPlaced, pieceState.HeldByPlayerId);
                 return;
             }
 
-            if (pieceState.HeldByPlayerId != null && pieceState.HeldByPlayerId != playerId)
-            {
-                logger.Debug("Player {PlayerId} cannot drag piece {PieceId}: Held by player {HeldBy}",
-                    playerId, pieceId, pieceState.HeldByPlayerId);
-                return;
-            }
-
-            // Marcar como sostenida por este jugador
             pieceState.HeldByPlayerId = playerId;
 
             logger.Info("GameSession {LobbyCode}: Player {PlayerId} started dragging piece {PieceId}",
                 LobbyCode, playerId, pieceId);
 
             string username = Players[playerId].Username;
-            // Broadcast a TODOS (incluyendo el que arrastra, para confirmar)
             broadcast(callback => callback.onPieceDragStarted(pieceId, username));
+        }
+
+        public void handlePieceMove(int playerId, int pieceId, double newX, double newY)
+        {
+            if (!PieceStates.TryGetValue(pieceId, out var pieceState))
+            {
+                return;
+            }
+
+            if (pieceState.HeldByPlayerId != playerId)
+            {
+                return;
+            }
+
+            pieceState.CurrentX = newX;
+            pieceState.CurrentY = newY;
+
+            string username = Players[playerId].Username;
+            broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, username));
         }
 
         public async Task handlePieceDrop(int playerId, int pieceId, double newX, double newY)
@@ -142,7 +152,6 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            // VALIDACIÓN: Solo el jugador que sostiene la pieza puede soltarla
             if (pieceState.HeldByPlayerId != playerId)
             {
                 logger.Warn("Player {PlayerId} tried to drop piece {PieceId} but it's held by {HeldBy}",
@@ -150,10 +159,8 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            // Liberar la pieza
             pieceState.HeldByPlayerId = null;
 
-            // Verificar si está cerca de su posición correcta
             bool isCorrect = !pieceState.IsPlaced &&
                              Math.Abs(pieceState.FinalX - newX) < SNAP_TOLERANCE &&
                              Math.Abs(pieceState.FinalY - newY) < SNAP_TOLERANCE;
@@ -162,14 +169,10 @@ namespace MindWeaveServer.BusinessLogic
 
             if (isCorrect)
             {
-                // SNAP CORRECTO: La pieza se coloca en su lugar final
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} SNAPPED piece {PieceId}",
                     LobbyCode, playerId, pieceId);
 
                 pieceState.IsPlaced = true;
-                pieceState.CurrentX = pieceState.FinalX;
-                pieceState.CurrentY = pieceState.FinalY;
-
                 var player = Players[playerId];
                 player.Score += 10;
 
@@ -183,7 +186,6 @@ namespace MindWeaveServer.BusinessLogic
                         MatchId, playerId);
                 }
 
-                // Broadcast: Pieza colocada correctamente
                 broadcast(callback => callback.onPiecePlaced(
                     pieceId,
                     pieceState.FinalX,
@@ -194,18 +196,13 @@ namespace MindWeaveServer.BusinessLogic
             }
             else
             {
-                // MOVIMIENTO NORMAL: Actualizar posición sin colocar
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} moved piece {PieceId} to ({NewX}, {NewY})",
                     LobbyCode, playerId, newX, newY);
 
                 pieceState.CurrentX = newX;
                 pieceState.CurrentY = newY;
 
-                // Broadcast: Pieza movida a nueva posición
                 broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, username));
-
-                // Broadcast: Pieza liberada (ya no está siendo arrastrada)
-                broadcast(callback => callback.onPieceDragReleased(pieceId, username));
             }
         }
 
@@ -216,7 +213,6 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            // Solo liberar si este jugador la tiene sostenida
             if (pieceState.HeldByPlayerId == playerId)
             {
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} released piece {PieceId}",
