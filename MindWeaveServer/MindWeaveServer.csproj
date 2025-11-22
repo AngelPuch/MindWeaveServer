@@ -256,6 +256,7 @@
     <Compile Include="Utilities\Email\IEmailService.cs" />
     <Compile Include="Utilities\Email\IEmailTemplate.cs" />
     <Compile Include="Utilities\FriendshipStatusConstants.cs" />
+    <Compile Include="Utilities\ImageUtilities.cs" />
     <Compile Include="Utilities\LobbyCodeGenerator.cs" />
     <Compile Include="Utilities\PasswordHasher.cs" />
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />

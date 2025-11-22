@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
+using MindWeaveServer.Utilities;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -73,6 +74,10 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("uploadPuzzleImageAsync logic failed for {Username}: Invalid data provided.", username ?? "NULL");
                 return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadInvalidData };
             }
+            byte[] optimizedBytes = ImageUtilities.optimizeImage(imageBytes);
+
+            logger.Info("Image optimized successfully. Original size: {Old} bytes, New size: {New} bytes.", imageBytes.Length, optimizedBytes.Length);
+
 
             string uploadPath = getUploadFolderPath();
 
@@ -90,7 +95,7 @@ namespace MindWeaveServer.BusinessLogic
 
             string filePath = Path.Combine(uploadPath, uniqueFileName);
 
-            File.WriteAllBytes(filePath, imageBytes);
+            File.WriteAllBytes(filePath, optimizedBytes);
             logger.Info("Image saved successfully to: {FilePath}", filePath);
 
             var player = await playerRepository.getPlayerByUsernameAsync(username);

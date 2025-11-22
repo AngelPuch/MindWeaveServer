@@ -3,16 +3,24 @@ using MindWeaveServer.DataAccess;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
-
+using MindWeaveServer.Utilities;
 namespace MindWeaveServer.BusinessLogic
 {
     public class PuzzleGenerator
     {
         private static readonly Random random = new Random();
+        private const int MAX_WIDTH = 1024; 
+        private const int MAX_HEIGHT = 768;
+        private const long JPEG_QUALITY = 75L;
         public PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
         {
+
+            byte[] optimizedImageBytes = ImageUtilities.optimizeImage(imageBytes);
+
             int columns, rows;
             switch (difficulty.piece_count)
             {
@@ -32,7 +40,7 @@ namespace MindWeaveServer.BusinessLogic
 
             var puzzleDef = new PuzzleDefinitionDto
             {
-                FullImageBytes = imageBytes,
+                FullImageBytes = optimizedImageBytes,
                 Pieces = new List<PuzzlePieceDefinitionDto>()
             };
 
@@ -96,5 +104,7 @@ namespace MindWeaveServer.BusinessLogic
          
             return puzzleDef;
         }
+
+
     }
 }
