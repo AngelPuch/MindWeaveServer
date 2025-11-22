@@ -996,6 +996,7 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Error("Failed to add player {Username} (ID {PlayerId}) to session data. Duplicate ID?", username, playerId);
                 }
+                logger.Info("Added player {Username} with PlayerId {PlayerId} to game session data", username, playerId);
             }
 
             if (playerSessionDataDict.IsEmpty)
@@ -1025,6 +1026,7 @@ namespace MindWeaveServer.BusinessLogic
                     difficulty,
                     playerSessionDataDict
                 );
+                logger.Info("GameSession created successfully with {Count} players", newGameSession.Players.Count);
             }
             catch (Exception ex)
             {
@@ -1047,7 +1049,7 @@ namespace MindWeaveServer.BusinessLogic
             {
 
                 sendCallbackToUser(player.Username, cb => cb.onGameStarted(newGameSession.PuzzleDefinition));
-                removeCallback(player.Username);
+                logger.Info("Sent onGameStarted to {Username}", player.Username);
             }
 
             if (activeLobbies.TryRemove(lobbyState.LobbyId, out _))

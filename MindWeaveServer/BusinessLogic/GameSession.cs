@@ -59,7 +59,9 @@ namespace MindWeaveServer.BusinessLogic
                     FinalX = pieceDef.CorrectX,
                     FinalY = pieceDef.CorrectY,
                     CurrentX = pieceDef.InitialX,
-                    CurrentY = pieceDef.InitialY
+                    CurrentY = pieceDef.InitialY,
+                    IsPlaced = false,
+                    HeldByPlayerId = null
                 };
                 PieceStates.TryAdd(pieceDef.PieceId, pieceState);
             }
@@ -96,23 +98,41 @@ namespace MindWeaveServer.BusinessLogic
             {
                 piece.HeldByPlayerId = null;
                 logger.Warn("Piece {PieceId} was force-released due to player {PlayerId} disconnect.", piece.PieceId, playerId);
-                string username = Players[playerId].Username;
-                broadcast(callback => callback.onPieceDragReleased(piece.PieceId, username));
+
+                if (Players.TryGetValue(playerId, out var player))
+                {
+                    broadcast(callback => callback.onPieceDragReleased(piece.PieceId, player.Username));
+                }
             }
         }
 
         public void handlePieceDrag(int playerId, int pieceId)
         {
+            logger.Info("handlePieceDrag called: PlayerId={PlayerId}, PieceId={PieceId}. Players in session: [{PlayerIds}]",
+                playerId, pieceId, string.Join(", ", Players.Keys));
+
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
                 logger.Warn("Player {PlayerId} tried to drag non-existent piece {PieceId}", playerId, pieceId);
                 return;
             }
 
-            if (pieceState.IsPlaced || pieceState.HeldByPlayerId != null)
+            if (!Players.TryGetValue(playerId, out var player))
             {
-                logger.Debug("Player {PlayerId} failed to drag piece {PieceId}: IsPlaced={IsPlaced}, HeldBy={HeldBy}",
-                    playerId, pieceId, pieceState.IsPlaced, pieceState.HeldByPlayerId);
+                logger.Error("Player {PlayerId} not found in session", playerId);
+                return;
+            }
+
+            if (pieceState.IsPlaced)
+            {
+                logger.Warn("Player {PlayerId} tried to drag placed piece {PieceId}", playerId, pieceId);
+                return;
+            }
+
+            if (pieceState.HeldByPlayerId.HasValue && pieceState.HeldByPlayerId.Value != playerId)
+            {
+                logger.Warn("Player {PlayerId} tried to drag piece {PieceId} already held by {OtherPlayerId}",
+                    playerId, pieceId, pieceState.HeldByPlayerId.Value);
                 return;
             }
 
@@ -121,8 +141,8 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("GameSession {LobbyCode}: Player {PlayerId} started dragging piece {PieceId}",
                 LobbyCode, playerId, pieceId);
 
-            string username = Players[playerId].Username;
-            broadcast(callback => callback.onPieceDragStarted(pieceId, username));
+            broadcast(callback => callback.onPieceDragStarted(pieceId, player.Username));
+
         }
 
         public void handlePieceMove(int playerId, int pieceId, double newX, double newY)
@@ -140,8 +160,11 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.CurrentX = newX;
             pieceState.CurrentY = newY;
 
-            string username = Players[playerId].Username;
-            broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, username));
+            if (!Players.TryGetValue(playerId, out var player))
+            {
+                return;
+            }
+            broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, player.Username));
         }
 
         public async Task handlePieceDrop(int playerId, int pieceId, double newX, double newY)
@@ -159,21 +182,25 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
+            if (!Players.TryGetValue(playerId, out var player))
+            {
+                return;
+            }
+
             pieceState.HeldByPlayerId = null;
 
             bool isCorrect = !pieceState.IsPlaced &&
                              Math.Abs(pieceState.FinalX - newX) < SNAP_TOLERANCE &&
                              Math.Abs(pieceState.FinalY - newY) < SNAP_TOLERANCE;
-
-            string username = Players[playerId].Username;
-
+            
             if (isCorrect)
             {
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} SNAPPED piece {PieceId}",
                     LobbyCode, playerId, pieceId);
 
                 pieceState.IsPlaced = true;
-                var player = Players[playerId];
+                pieceState.CurrentX = pieceState.FinalX;
+                pieceState.CurrentY = pieceState.FinalY;
                 player.Score += 10;
 
                 try
@@ -190,7 +217,7 @@ namespace MindWeaveServer.BusinessLogic
                     pieceId,
                     pieceState.FinalX,
                     pieceState.FinalY,
-                    username,
+                    player.Username,
                     player.Score
                 ));
             }
@@ -202,7 +229,7 @@ namespace MindWeaveServer.BusinessLogic
                 pieceState.CurrentX = newX;
                 pieceState.CurrentY = newY;
 
-                broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, username));
+                broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, player.Username));
             }
         }
 
@@ -213,15 +240,24 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            if (pieceState.HeldByPlayerId == playerId)
+            if (pieceState.HeldByPlayerId != playerId)
             {
-                logger.Info("GameSession {LobbyCode}: Player {PlayerId} released piece {PieceId}",
-                    LobbyCode, playerId, pieceId);
-
-                pieceState.HeldByPlayerId = null;
-                string username = Players[playerId].Username;
-                broadcast(callback => callback.onPieceDragReleased(pieceId, username));
+                logger.Warn("Player {PlayerId} tried to release piece {PieceId} held by {OtherPlayerId}",
+                    playerId, pieceId, pieceState.HeldByPlayerId);
+                return;
             }
+
+            logger.Info("GameSession {LobbyCode}: Player {PlayerId} released piece {PieceId}",
+                LobbyCode, playerId, pieceId);
+
+            pieceState.HeldByPlayerId = null;
+
+            if (!Players.TryGetValue(playerId, out var player))
+            {
+                return;
+            }
+
+            broadcast(callback => callback.onPieceDragReleased(pieceId, player.Username));
         }
 
         public void broadcast(Action<IMatchmakingCallback> action)

@@ -141,6 +141,8 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Info("Handling disconnect for {Username} in GameSession {LobbyId}", username, session.LobbyCode);
 
+                    session.releaseHeldPieces(playerId);
+
                     if (!session.Players.Any())
                     {
                         activeSessions.TryRemove(session.LobbyCode, out _);

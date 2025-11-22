@@ -24,8 +24,8 @@ namespace MindWeaveServer.Services
         private int? currentPlayerId;
 
         private readonly MatchmakingLogic matchmakingLogic;
-        private readonly GameSessionManager gameSessionManager;
 
+        private static readonly GameSessionManager gameSessionManager;
         private static readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies =
             new ConcurrentDictionary<string, LobbyStateDto>(StringComparer.OrdinalIgnoreCase);
 
@@ -36,6 +36,15 @@ namespace MindWeaveServer.Services
         private IMatchmakingCallback currentUserCallback;
         private bool isDisconnected;
 
+        static MatchmakingManagerService()
+        {
+            var dbContext = new MindWeaveDBEntities1();
+            var puzzleRepository = new PuzzleRepository(dbContext);
+            var matchmakingRepository = new MatchmakingRepository(dbContext);
+            gameSessionManager = new GameSessionManager(puzzleRepository, matchmakingRepository);
+            logger.Info("Static GameSessionManager initialized.");
+        }
+
         public MatchmakingManagerService()
         {
             var dbContext = new MindWeaveDBEntities1();
@@ -44,10 +53,7 @@ namespace MindWeaveServer.Services
             this.playerRepository = playerRepositoryDb;
             var guestInvitationRepository = new GuestInvitationRepository(dbContext);
             var emailService = new SmtpEmailService();
-
             var puzzleRepository = new PuzzleRepository(dbContext);
-
-            this.gameSessionManager = new GameSessionManager(puzzleRepository, matchmakingRepository);
 
 
             matchmakingLogic = new MatchmakingLogic(
@@ -58,7 +64,7 @@ namespace MindWeaveServer.Services
                 activeLobbies,
                 userCallbacks,
                 puzzleRepository,
-                this.gameSessionManager
+                gameSessionManager
 
                 );
 
@@ -382,6 +388,7 @@ namespace MindWeaveServer.Services
                 throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
         }
+
         private int getPlayerIdFromContext()
         {
             if (currentPlayerId.HasValue)
@@ -397,14 +404,14 @@ namespace MindWeaveServer.Services
 
             try
             {
-                var player = playerRepository.getPlayerByUsernameAsync(currentUsername);
+                var player = playerRepository.getPlayerByUsernameAsync(currentUsername).Result;
                 if (player == null)
                 {
                     logger.Error("GetPlayerIdFromContext: No player found with username {Username}", currentUsername);
                     throw new InvalidOperationException("Player not found in database.");
                 }
 
-                currentPlayerId = player.Id;
+                currentPlayerId = player.idPlayer;
                 return currentPlayerId.Value;
             }
             catch (Exception ex)
