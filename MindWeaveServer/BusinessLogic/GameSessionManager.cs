@@ -1,6 +1,8 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Puzzle;
+using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
+using System.Collections.Generic;
 using NLog;
 using System;
 using System.Collections.Concurrent;
@@ -17,13 +19,15 @@ namespace MindWeaveServer.BusinessLogic
         private readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
         private readonly IMatchmakingRepository matchmakingRepository;
         private readonly IPuzzleRepository puzzleRepository;
+        private readonly StatsLogic statsLogic;
         private readonly PuzzleGenerator puzzleGenerator;
 
-        public GameSessionManager(IPuzzleRepository puzzleRepository, IMatchmakingRepository matchmakingRepository)
+        public GameSessionManager(IPuzzleRepository puzzleRepository, IMatchmakingRepository matchmakingRepository, StatsLogic statsLogic)
         {
             this.puzzleRepository = puzzleRepository;
             this.matchmakingRepository = matchmakingRepository;
             this.puzzleGenerator = new PuzzleGenerator();
+            this.statsLogic = statsLogic;
         }
 
         public async Task<GameSession> createGameSession(string lobbyId, int matchId, int puzzleId, 
@@ -90,10 +94,68 @@ namespace MindWeaveServer.BusinessLogic
             if (session != null)
             {
                 await session.handlePieceDrop(playerId, pieceId, newX, newY);
+                int totalPieces = session.PieceStates.Count;
+                int placedPieces = session.PieceStates.Values.Count(p => p.IsPlaced);
+
+                Console.WriteLine($"[DEBUG PUZZLE] Lobby {lobbyCode}: Piezas colocadas {placedPieces}/{totalPieces}. Acaba de mover pieza {pieceId}.");
+                if (session.isPuzzleComplete())
+                {
+                    logger.Info("Puzzle completed for Lobby {LobbyCode}! Processing end of game.", lobbyCode);
+
+                    await processGameEndAsync(session);
+                }
             }
             else
             {
                 logger.Warn("HandlePieceDrop: No active session found for lobby {LobbyCode}", lobbyCode);
+            }
+        }
+
+        private async Task processGameEndAsync(GameSession session)
+        {
+            var duration = DateTime.UtcNow - session.StartTime;
+            int minutesPlayed = (int)duration.TotalMinutes;
+            if (minutesPlayed < 1) minutesPlayed = 1;
+
+
+            var rankedPlayers = session.Players.Values
+                .OrderByDescending(p => p.Score)
+                .ToList();
+
+            int currentRank = 1;
+            foreach (var player in rankedPlayers)
+            {
+               
+                if (player.PlayerId > 0)
+                {
+                    var statsDto = new PlayerMatchStatsDto
+                    {
+                        PlayerId = player.PlayerId,
+                        Score = player.Score,
+                        Rank = currentRank,
+                        IsWin = (currentRank == 1), 
+                        PlaytimeMinutes = minutesPlayed
+                    };
+
+                    try
+                    {
+                        await statsLogic.processMatchResultsAsync(statsDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Error processing stats for player {Username} (ID: {Id})", player.Username, player.PlayerId);
+                    }
+                }
+
+                currentRank++;
+            }
+
+            
+            session.broadcast(cb => cb.onGameEnded(session.MatchId));
+
+            if (activeSessions.TryRemove(session.LobbyCode, out _))
+            {
+                logger.Info("GameSession {LobbyCode} ended and removed from manager.", session.LobbyCode);
             }
         }
 

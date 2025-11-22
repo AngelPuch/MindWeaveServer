@@ -1,4 +1,5 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
@@ -55,7 +56,8 @@ namespace MindWeaveServer.BusinessLogic
             ConcurrentDictionary<string, LobbyStateDto> lobbies,
             ConcurrentDictionary<string, IMatchmakingCallback> callbacks,
             IPuzzleRepository puzzleRepository,
-            GameSessionManager gameSessionManager)
+            GameSessionManager gameSessionManager
+            )
 
         {
             this.matchmakingRepository = matchmakingRepository ?? throw new ArgumentNullException(nameof(matchmakingRepository));
@@ -66,6 +68,7 @@ namespace MindWeaveServer.BusinessLogic
             this.userCallbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
             this.gameSessionManager = gameSessionManager;
             this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
+        
             logger.Info("MatchmakingLogic instance created.");
         }
 
@@ -1426,5 +1429,8 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn(dbEx, "[JoinGuest WARN] Failed to mark invitation {InvitationId} as used. User {FinalGuestUsername} is already in memory lobby.", invitation.invitation_id, finalGuestUsername);
             }
         }
+
+
+       
     }
 }

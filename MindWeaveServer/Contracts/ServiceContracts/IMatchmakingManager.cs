@@ -95,6 +95,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void onPieceDragReleased(int pieceId, string username);
 
+        [OperationContract(IsOneWay = true)]
+        void onGameEnded(int matchId);
+
 
     }
 }

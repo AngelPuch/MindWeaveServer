@@ -35,12 +35,13 @@ namespace MindWeaveServer.BusinessLogic
         public string LobbyCode { get; }
         public int MatchId { get; }
         public PuzzleDefinitionDto PuzzleDefinition { get; }
+        public DateTime StartTime { get; }
 
         public ConcurrentDictionary<int, PlayerSessionData> Players { get; } = new ConcurrentDictionary<int, PlayerSessionData>();
         public ConcurrentDictionary<int, PuzzlePieceState> PieceStates { get; } = new ConcurrentDictionary<int, PuzzlePieceState>();
         private readonly IMatchmakingRepository matchmakingRepository;
 
-        private const double SNAP_TOLERANCE = 10.0;
+        private const double SNAP_TOLERANCE = 30.0;
 
         public GameSession(string lobbyCode, int matchId, PuzzleDefinitionDto puzzleDefinition, IMatchmakingRepository matchmakingRepository)
         {
@@ -48,6 +49,7 @@ namespace MindWeaveServer.BusinessLogic
             MatchId = matchId;
             this.matchmakingRepository = matchmakingRepository;
             this.PuzzleDefinition = puzzleDefinition;
+            this.StartTime = DateTime.UtcNow;
 
             logger.Info("Initializing GameSession for Lobby {LobbyCode}", LobbyCode);
 
@@ -192,7 +194,9 @@ namespace MindWeaveServer.BusinessLogic
             bool isCorrect = !pieceState.IsPlaced &&
                              Math.Abs(pieceState.FinalX - newX) < SNAP_TOLERANCE &&
                              Math.Abs(pieceState.FinalY - newY) < SNAP_TOLERANCE;
-            
+
+            Console.WriteLine($"[DEBUG DROP] Pieza {pieceId}: ClientPos({newX:F2}, {newY:F2}) vs ServerTarget({pieceState.FinalX:F2}, {pieceState.FinalY:F2}). DiffX: {Math.Abs(pieceState.FinalX - newX):F2}, DiffY: {Math.Abs(pieceState.FinalY - newY):F2}. Tolerance: {SNAP_TOLERANCE}. Resultado: {(isCorrect ? "ENCJAÓ" : "FALLÓ")}");
+
             if (isCorrect)
             {
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} SNAPPED piece {PieceId}",
@@ -277,6 +281,13 @@ namespace MindWeaveServer.BusinessLogic
                         player.Username, ex.Message);
                 }
             }
+        }
+
+
+
+        public bool isPuzzleComplete()
+        {
+            return PieceStates.Values.All(p => p.IsPlaced);
         }
     }
 }

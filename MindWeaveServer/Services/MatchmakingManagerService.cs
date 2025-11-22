@@ -41,7 +41,9 @@ namespace MindWeaveServer.Services
             var dbContext = new MindWeaveDBEntities1();
             var puzzleRepository = new PuzzleRepository(dbContext);
             var matchmakingRepository = new MatchmakingRepository(dbContext);
-            gameSessionManager = new GameSessionManager(puzzleRepository, matchmakingRepository);
+            var statsRepository = new StatsRepository(dbContext);
+            var statsLogic = new StatsLogic(statsRepository);
+            gameSessionManager = new GameSessionManager(puzzleRepository, matchmakingRepository, statsLogic);
             logger.Info("Static GameSessionManager initialized.");
         }
 

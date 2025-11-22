@@ -151,6 +151,7 @@
     <Compile Include="Contracts\DataContracts\Stats\AchievementDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\MatchHistoryDto.cs" />
     <Compile Include="Contracts\DataContracts\Shared\OperationResultDto.cs" />
+    <Compile Include="Contracts\DataContracts\Stats\PlayerMatchStatsDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\PlayerProfileViewDto.cs" />
     <Compile Include="Contracts\DataContracts\Stats\PlayerStatsDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\UserProfileDto.cs" />
@@ -168,6 +169,7 @@
     <Compile Include="DataAccess\Abstractions\IMatchmakingRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IPlayerRepository.cs" />
     <Compile Include="DataAccess\Abstractions\IPuzzleRepository.cs" />
+    <Compile Include="DataAccess\Abstractions\IStatsRepository.cs" />
     <Compile Include="DataAccess\Achievements.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
@@ -231,6 +233,7 @@
     <Compile Include="DataAccess\Repositories\MatchmakingRepository.cs" />
     <Compile Include="DataAccess\Repositories\PlayerRepository.cs" />
     <Compile Include="DataAccess\Repositories\PuzzleRepository.cs" />
+    <Compile Include="DataAccess\Repositories\StatsRepository.cs" />
     <Compile Include="DataAccess\RequestStatus.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>

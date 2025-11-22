@@ -1,12 +1,7 @@
-﻿/*
-using MindWeaveServer.Contracts.DataContracts.Stats;
-using MindWeaveServer.DataAccess;
+﻿using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
 using NLog;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic
@@ -14,90 +9,46 @@ namespace MindWeaveServer.BusinessLogic
     public class StatsLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-        private readonly IPlayerRepository playerRepository;
-        private readonly IMatchmakingRepository matchmakingRepository; // Para historial de partidas
+        private readonly IStatsRepository statsRepository;
 
-        public StatsLogic(IPlayerRepository playerRepo, IMatchmakingRepository matchmakingRepo)
+        private const int ACHIEVEMENT_FIRST_WIN = 1;
+        private const int ACHIEVEMENT_VETERAN = 2; 
+        private const int ACHIEVEMENT_HIGH_SCORE = 3; 
+
+        public StatsLogic(IStatsRepository statsRepository)
         {
-            this.playerRepository = playerRepo ?? throw new ArgumentNullException(nameof(playerRepo));
-            this.matchmakingRepository = matchmakingRepo ?? throw new ArgumentNullException(nameof(matchmakingRepo));
-            logger.Info("StatsLogic instance created.");
+            this.statsRepository = statsRepository ?? throw new ArgumentNullException(nameof(statsRepository));
         }
 
-        public async Task<List<PlayerStatsDto>> getGlobalLeaderboardAsync()
+        public async Task processMatchResultsAsync(PlayerMatchStatsDto matchStats)
         {
-            logger.Info("getGlobalLeaderboardAsync logic called.");
+            if (matchStats == null) throw new ArgumentNullException(nameof(matchStats));
 
-            // Lógica: Obtener jugadores ordenados por puntuación más alta o victorias
-            // Asumimos que playerRepository tiene un método para esto, o lo hacemos con LINQ sobre los DbSets si el repo lo permite.
-            // Si no tienes un método específico en el repo, aquí simulo la llamada lógica.
+            logger.Info("processMatchResultsAsync called for PlayerID: {PlayerId}, Rank: {Rank}",
+                matchStats.PlayerId, matchStats.Rank);
 
-            // Imaginemos que agregaste 'getTopPlayersAsync' a tu repositorio, 
-            // o usamos una consulta directa si tu arquitectura lo permite. 
-            // Por limpieza, deberías tener: playerRepository.getTopPlayersByScoreAsync(10);
+            await statsRepository.updatePlayerStatsAsync(matchStats);
 
-            var topPlayers = await playerRepository.getTopPlayersByScoreAsync(10); // Top 10
+            await checkAchievementsAsync(matchStats);
 
-            var leaderboard = topPlayers.Select(p => new PlayerStatsDto
-            {
-                // Asumiendo que p es una entidad Player con PlayerStats nav property
-                Username = p.username,
-                HighestScore = p.PlayerStats?.highest_score ?? 0,
-                PuzzlesWon = p.PlayerStats?.puzzles_won ?? 0,
-                PuzzlesCompleted = p.PlayerStats?.puzzles_completed ?? 0,
-                // Puedes agregar AvatarPath si el DTO lo requiere para mostrar la foto en el ranking
-            }).ToList();
-
-            logger.Info("Leaderboard retrieved with {Count} entries.", leaderboard.Count);
-            return leaderboard;
+            await statsRepository.saveChangesAsync();
         }
 
-        public async Task<List<MatchHistoryDto>> getPlayerMatchHistoryAsync(string username)
+        private async Task checkAchievementsAsync(PlayerMatchStatsDto stats)
         {
-            logger.Info("getPlayerMatchHistoryAsync called for User: {Username}", username ?? "NULL");
+            var currentAchievements = await statsRepository.getPlayerAchievementIdsAsync(stats.PlayerId);
 
-            if (string.IsNullOrWhiteSpace(username))
+            
+            if (stats.IsWin && !currentAchievements.Contains(ACHIEVEMENT_FIRST_WIN))
             {
-                return new List<MatchHistoryDto>();
+                await statsRepository.unlockAchievementAsync(stats.PlayerId, ACHIEVEMENT_FIRST_WIN);
             }
 
-            var player = await playerRepository.getPlayerByUsernameAsync(username);
-            if (player == null)
+            
+            if (stats.Score >= 1000 && !currentAchievements.Contains(ACHIEVEMENT_HIGH_SCORE))
             {
-                logger.Warn("Get match history failed: Player {Username} not found.", username);
-                return new List<MatchHistoryDto>();
+                await statsRepository.unlockAchievementAsync(stats.PlayerId, ACHIEVEMENT_HIGH_SCORE);
             }
-
-            // Consultar historial
-            var matches = await matchmakingRepository.getMatchesByPlayerIdAsync(player.idPlayer);
-
-            var history = matches.Select(m => new MatchHistoryDto
-            {
-                MatchId = m.matches_id,
-                PuzzleName = m.Puzzles?.image_path ?? "Unknown Puzzle", // O lógica para sacar nombre limpio
-                DatePlayed = m.start_time ?? m.creation_time,
-                Difficulty = m.DifficultyLevels?.name ?? "Unknown",
-                IsWin = determineIfWin(m, player.idPlayer), // Lógica auxiliar
-                Score = getPlayerScoreInMatch(m, player.idPlayer)
-            }).OrderByDescending(h => h.DatePlayed).ToList();
-
-            logger.Info("Found {Count} history records for User: {Username}", history.Count, username);
-            return history;
-        }
-
-        // Métodos auxiliares privados para lógica de mapeo
-        private bool determineIfWin(Matches match, int playerId)
-        {
-            // Ejemplo: Si hay tabla de ganadores o rank en MatchParticipants
-            var participant = match.MatchParticipants.FirstOrDefault(p => p.player_id == playerId);
-            return participant?.final_rank == 1;
-        }
-
-        private int getPlayerScoreInMatch(Matches match, int playerId)
-        {
-            var participant = match.MatchParticipants.FirstOrDefault(p => p.player_id == playerId);
-            return participant?.score ?? 0;
         }
     }
 }
-*/
