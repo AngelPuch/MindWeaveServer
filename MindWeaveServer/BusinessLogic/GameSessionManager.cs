@@ -63,6 +63,12 @@ namespace MindWeaveServer.BusinessLogic
 
         public GameSession getSession(string lobbyCode)
         {
+            if (string.IsNullOrWhiteSpace(lobbyCode))
+            {
+                Console.WriteLine("[GameSessionManager] getSession called with a NULL or empty lobbyCode. Ignoring request.");
+                return null;
+            }
+
             activeSessions.TryGetValue(lobbyCode, out var session);
             return session;
         }
@@ -70,8 +76,12 @@ namespace MindWeaveServer.BusinessLogic
         public void handlePieceDrag(string lobbyCode, int playerId, int pieceId)
         {
             var session = getSession(lobbyCode);
+
             if (session != null)
             {
+                int totalPieces = session.PieceStates.Count;
+                int placedPieces = session.PieceStates.Values.Count(p => p.IsPlaced);
+                Console.WriteLine($"[PUZZLE STATUS] Lobby {lobbyCode}: {placedPieces}/{totalPieces} pieces placed.");
                 session.handlePieceDrag(playerId, pieceId);
             }
             else
