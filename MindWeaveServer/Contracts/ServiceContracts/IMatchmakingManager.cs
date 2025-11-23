@@ -85,7 +85,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void onPieceDragStarted(int pieceId, string username);
 
         [OperationContract(IsOneWay = true)]
-        void onPiecePlaced(int pieceId, double correctX, double correctY, string username, int newScore);
+        void onPiecePlaced(int pieceId, double correctX, double correctY, string username, int newScore, string bonusType);
 
       
         [OperationContract(IsOneWay = true)]

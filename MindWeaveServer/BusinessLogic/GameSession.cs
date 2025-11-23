@@ -4,6 +4,7 @@ using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -15,6 +16,8 @@ namespace MindWeaveServer.BusinessLogic
         public string Username { get; set; }
         public IMatchmakingCallback Callback { get; set; }
         public int Score { get; set; }
+        public int CurrentStreak { get; set; }
+        public List<DateTime> RecentPlacementTimestamps { get; set; } = new List<DateTime>();
     }
 
     public class PuzzlePieceState
@@ -42,6 +45,18 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IMatchmakingRepository matchmakingRepository;
 
         private const double SNAP_TOLERANCE = 30.0;
+        private bool isFirstBloodClaimed = false;
+
+        private const int SCORE_EDGE_PIECE = 5;
+        private const int SCORE_CENTER_PIECE = 10;
+        private const int SCORE_STREAK_BONUS = 10;
+        private const int SCORE_FRENZY_BONUS = 40;
+        private const int SCORE_FIRST_BLOOD = 25;
+        private const int SCORE_LAST_HIT = 50;
+
+        private const int STREAK_THRESHOLD = 3;
+        private const int FRENZY_COUNT = 5;
+        private const int FRENZY_TIME_WINDOW_SECONDS = 60;
 
         public GameSession(string lobbyCode, int matchId, PuzzleDefinitionDto puzzleDefinition, IMatchmakingRepository matchmakingRepository)
         {
@@ -76,7 +91,9 @@ namespace MindWeaveServer.BusinessLogic
                 PlayerId = playerId,
                 Username = username,
                 Callback = callback,
-                Score = 0
+                Score = 0,
+                CurrentStreak = 0,
+                RecentPlacementTimestamps = new List<DateTime>()
             };
             Players.TryAdd(playerId, playerData);
             logger.Debug("Player {Username} (ID: {PlayerId}) added to GameSession {LobbyCode}", username, playerId, LobbyCode);
@@ -89,6 +106,15 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Debug("Player {Username} (ID: {PlayerId}) removed from GameSession {LobbyCode}", playerData.Username, playerId, LobbyCode);
                 releaseHeldPieces(playerId);
+                
+                // Opcional: Si un jugador se va antes de terminar, ¿guardamos su score parcial?
+                // Si quisieras guardarlo al salir, descomenta esto:
+                /*
+                Task.Run(async () => {
+                    try { await matchmakingRepository.updatePlayerScoreAsync(MatchId, playerId, playerData.Score); }
+                    catch(Exception ex) { logger.Error(ex, "Error saving score on disconnect"); }
+                });
+                */
             }
             return playerData;
         }
@@ -205,25 +231,27 @@ namespace MindWeaveServer.BusinessLogic
                 pieceState.IsPlaced = true;
                 pieceState.CurrentX = pieceState.FinalX;
                 pieceState.CurrentY = pieceState.FinalY;
-                player.Score += 10;
 
-                try
-                {
-                    await matchmakingRepository.updatePlayerScoreAsync(MatchId, playerId, player.Score);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Failed to update score in DB for Match {MatchId}, Player {PlayerId}",
-                        MatchId, playerId);
-                }
+                var (points, bonusType) = calculatePointsForPlacement(player, pieceId);
+                player.Score += points;
 
                 broadcast(callback => callback.onPiecePlaced(
                     pieceId,
                     pieceState.FinalX,
                     pieceState.FinalY,
                     player.Username,
-                    player.Score
+                    player.Score,
+                    bonusType
                 ));
+
+                if (isPuzzleComplete())
+                {
+                    logger.Info("Puzzle completed in Lobby {LobbyCode}. Saving all scores to DB.", LobbyCode);
+
+                    await saveAllScoresToDatabase();
+
+                    broadcast(callback => callback.onGameEnded(MatchId));
+                }
             }
             else
             {
@@ -283,6 +311,92 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
+        private (int points, string bonusType) calculatePointsForPlacement(PlayerSessionData player, int pieceId)
+        {
+            int points = 0;
+            List<string> bonuses = new List<string>();
+            DateTime now = DateTime.UtcNow;
+
+            bool isEdge = isEdgePiece(pieceId);
+            if (isEdge)
+            {
+                points += SCORE_EDGE_PIECE;
+            }
+            else
+            {
+                points += SCORE_CENTER_PIECE;
+            }
+
+            if (!isFirstBloodClaimed)
+            {
+                points += SCORE_FIRST_BLOOD;
+                isFirstBloodClaimed = true;
+                bonuses.Add("FIRST_BLOOD");
+            }
+
+            player.CurrentStreak++;
+            if (player.CurrentStreak % STREAK_THRESHOLD == 0)
+            {
+                points += SCORE_STREAK_BONUS;
+                bonuses.Add("STREAK");
+            }
+
+            player.RecentPlacementTimestamps.Add(now);
+            if (player.RecentPlacementTimestamps.Count >= FRENZY_COUNT)
+            {
+                int count = player.RecentPlacementTimestamps.Count;
+                DateTime startWindow = player.RecentPlacementTimestamps[count - FRENZY_COUNT];
+
+                if ((now - startWindow).TotalSeconds <= FRENZY_TIME_WINDOW_SECONDS)
+                {
+                    points += SCORE_FRENZY_BONUS;
+                    bonuses.Add("FRENZY");
+                    player.RecentPlacementTimestamps.Clear();
+                }
+            }
+
+            if (isPuzzleComplete())
+            {
+                points += SCORE_LAST_HIT;
+                bonuses.Add("LAST_HIT");
+            }
+
+            string bonusString = bonuses.Count > 0 ? string.Join(",", bonuses) : null;
+            return (points, bonusString);
+        }
+
+        private bool isEdgePiece(int pieceId)
+        {
+            var pieceDef = PuzzleDefinition.Pieces.FirstOrDefault(p => p.PieceId == pieceId);
+            if (pieceDef == null) return false;
+
+            return pieceDef.TopNeighborId == null ||
+                   pieceDef.BottomNeighborId == null ||
+                   pieceDef.LeftNeighborId == null ||
+                   pieceDef.RightNeighborId == null;
+        }
+
+        private async Task saveAllScoresToDatabase()
+        {
+            var saveTasks = new List<Task>();
+
+            foreach (var p in Players.Values)
+            {
+                saveTasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        await matchmakingRepository.updatePlayerScoreAsync(MatchId, p.PlayerId, p.Score);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Failed to save final score for Player {PlayerId} in Match {MatchId}", p.PlayerId, MatchId);
+                    }
+                }));
+            }
+
+            await Task.WhenAll(saveTasks);
+        }
 
 
         public bool isPuzzleComplete()
