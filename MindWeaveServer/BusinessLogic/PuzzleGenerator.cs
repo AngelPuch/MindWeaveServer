@@ -13,9 +13,7 @@ namespace MindWeaveServer.BusinessLogic
     public class PuzzleGenerator
     {
         private static readonly Random random = new Random();
-        private const int MAX_WIDTH = 1024; 
-        private const int MAX_HEIGHT = 768;
-        private const long JPEG_QUALITY = 75L;
+       
         public PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
         {
 

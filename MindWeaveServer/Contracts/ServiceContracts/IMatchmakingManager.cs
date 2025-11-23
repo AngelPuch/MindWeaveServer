@@ -98,6 +98,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void onGameEnded(int matchId);
 
+        [OperationContract(IsOneWay = true)]
+        void onPlayerPenalty(string username, int pointsLost, int newScore, string reason);
+
 
     }
 }
