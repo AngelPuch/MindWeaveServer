@@ -14,6 +14,8 @@ namespace MindWeaveServer.DataAccess.Abstractions
         void updateMatchStartTime(Matches match);
         void updateMatchDifficulty(Matches match, int newDifficultyId);
         Task updatePlayerScoreAsync(int matchId, int playerId, int newScore);
+        Task finishMatchAsync(int matchId);
+        int getMatchDuration(int matchId);
         Task<int> saveChangesAsync();
     }
 }

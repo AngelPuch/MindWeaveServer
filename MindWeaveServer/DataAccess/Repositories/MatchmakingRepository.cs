@@ -1,6 +1,7 @@
 ﻿using MindWeaveServer.DataAccess.Abstractions;
 using System;
 using System.Data.Entity;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.DataAccess.Repositories
@@ -23,7 +24,7 @@ namespace MindWeaveServer.DataAccess.Repositories
         {
             context.Matches.Add(match);
             await saveChangesAsync();
-            return match; 
+            return match;
         }
 
         public async Task<MatchParticipants> addParticipantAsync(MatchParticipants participant)
@@ -78,14 +79,48 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public async Task updatePlayerScoreAsync(int matchId, int playerId, int newScore)
         {
-            var participant = await context.MatchParticipants
-                .FirstOrDefaultAsync(mp => mp.match_id == matchId && mp.player_id == playerId);
-
-            if (participant != null)
+            using (var freshContext = new MindWeaveDBEntities1())
             {
-                participant.score = newScore;
-                await saveChangesAsync();
+                var participant = await freshContext.MatchParticipants
+                    .FirstOrDefaultAsync(mp => mp.match_id == matchId && mp.player_id == playerId);
+
+                if (participant != null)
+                {
+                    participant.score = newScore;
+                    await freshContext.SaveChangesAsync();
+                }
             }
+        }
+
+        public async Task finishMatchAsync(int matchId)
+        {
+            using (var freshContext = new MindWeaveDBEntities1())
+            {
+                var match = await freshContext.Matches.FirstOrDefaultAsync(m => m.matches_id == matchId);
+                if (match != null)
+                {
+                    match.end_time = DateTime.Now;
+                    match.match_status_id = 2;
+                    await freshContext.SaveChangesAsync();
+                }
+            }
+        }
+
+        public int getMatchDuration(int matchId)
+        {
+            var match = context.Matches.FirstOrDefault(m => m.matches_id == matchId);
+
+            if (match != null)
+            {
+                var difficulty = context.DifficultyLevels.FirstOrDefault(d => d.idDifficulty == match.difficulty_id);
+
+                if (difficulty != null)
+                {
+                    return difficulty.time_limit_seconds;
+                }
+            }
+
+            return 300;
         }
 
         public async Task<int> saveChangesAsync()

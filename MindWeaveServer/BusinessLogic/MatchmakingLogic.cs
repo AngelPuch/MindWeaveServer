@@ -1012,6 +1012,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             GameSession newGameSession;
+            int matchDurationSeconds = 300;
             try
             {
                 var difficulty = startedMatch.DifficultyLevels;
@@ -1021,6 +1022,7 @@ namespace MindWeaveServer.BusinessLogic
                     logger.Error("Critical: DifficultyLevels navigation property was null for MatchID {MatchId}. Cannot start game.", startedMatch.matches_id);
                     throw new InvalidOperationException("Match data is missing difficulty information.");
                 }
+                matchDurationSeconds = difficulty.time_limit_seconds;
 
                 newGameSession = await gameSessionManager.createGameSession(
                     lobbyState.LobbyId,
@@ -1029,6 +1031,7 @@ namespace MindWeaveServer.BusinessLogic
                     difficulty,
                     playerSessionDataDict
                 );
+                newGameSession.startMatchTimer(matchDurationSeconds);
                 logger.Info("GameSession created successfully with {Count} players", newGameSession.Players.Count);
             }
             catch (Exception ex)
@@ -1051,7 +1054,7 @@ namespace MindWeaveServer.BusinessLogic
             foreach (var player in newGameSession.Players.Values)
             {
 
-                sendCallbackToUser(player.Username, cb => cb.onGameStarted(newGameSession.PuzzleDefinition));
+                sendCallbackToUser(player.Username, cb => cb.onGameStarted(newGameSession.PuzzleDefinition, matchDurationSeconds));
                 logger.Info("Sent onGameStarted to {Username}", player.Username);
             }
 

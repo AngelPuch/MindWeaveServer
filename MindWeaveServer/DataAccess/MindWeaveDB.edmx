@@ -21,6 +21,7 @@
           <Property Name="idDifficulty" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="name" Type="varchar" MaxLength="50" Nullable="false" />
           <Property Name="piece_count" Type="int" Nullable="false" />
+          <Property Name="time_limit_seconds" Type="int" Nullable="false" />
         </EntityType>
         <EntityType Name="ExpulsionReasons">
           <Key>
@@ -569,6 +570,7 @@
           <Property Name="name" Type="String" MaxLength="50" FixedLength="false" Unicode="false" Nullable="false" />
           <Property Name="piece_count" Type="Int32" Nullable="false" />
           <NavigationProperty Name="Matches" Relationship="Self.FK_Matches_DifficultyLevels" FromRole="DifficultyLevels" ToRole="Matches" />
+          <Property Name="time_limit_seconds" Type="Int32" Nullable="false" />
         </EntityType>
         <EntityType Name="ExpulsionReasons">
           <Key>
@@ -1117,6 +1119,7 @@
           <EntitySetMapping Name="DifficultyLevels">
             <EntityTypeMapping TypeName="MindWeaveDBModel.DifficultyLevels">
               <MappingFragment StoreEntitySet="DifficultyLevels">
+                <ScalarProperty Name="time_limit_seconds" ColumnName="time_limit_seconds" />
                 <ScalarProperty Name="idDifficulty" ColumnName="idDifficulty" />
                 <ScalarProperty Name="name" ColumnName="name" />
                 <ScalarProperty Name="piece_count" ColumnName="piece_count" />

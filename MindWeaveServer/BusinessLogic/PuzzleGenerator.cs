@@ -53,8 +53,8 @@ namespace MindWeaveServer.BusinessLogic
                 int pieceWidth = img.Width / columns;
                 int pieceHeight = img.Height / rows;
 
-                int scatterAreaWidth = (int)(img.Width * .5);
-                int scatterAreaHeight = (int)(img.Height * .5);
+                int sideBarStart = img.Width + 20;
+                int sideBarWidth = 150;
 
                 int pieceId = 0;
 
@@ -74,9 +74,8 @@ namespace MindWeaveServer.BusinessLogic
                             CorrectX = c * pieceWidth,
                             CorrectY = r * pieceHeight,
 
-                            InitialX = random.Next(0, scatterAreaWidth - pieceWidth),
-                            InitialY = random.Next(0, scatterAreaHeight - pieceHeight)
-
+                            InitialX = random.Next(sideBarStart, sideBarStart + sideBarWidth),
+                            InitialY = random.Next(0, Math.Max(pieceHeight, img.Height - pieceHeight))
                         };
 
                         pieceGrid[r, c] = piece;

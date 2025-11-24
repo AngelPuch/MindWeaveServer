@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
+using MindWeaveServer.Contracts.DataContracts.Stats;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -17,6 +18,7 @@ namespace MindWeaveServer.BusinessLogic
         public string Username { get; set; }
         public IMatchmakingCallback Callback { get; set; }
         public int Score { get; set; }
+        public int PiecesPlaced { get; set; }
         public int CurrentStreak { get; set; }
         public int NegativeStreak { get; set; }
         public List<DateTime> RecentPlacementTimestamps { get; set; } = new List<DateTime>();
@@ -46,10 +48,16 @@ namespace MindWeaveServer.BusinessLogic
         public ConcurrentDictionary<int, PlayerSessionData> Players { get; } = new ConcurrentDictionary<int, PlayerSessionData>();
         public ConcurrentDictionary<int, PuzzlePieceState> PieceStates { get; } = new ConcurrentDictionary<int, PuzzlePieceState>();
         private readonly IMatchmakingRepository matchmakingRepository;
+
         private readonly Timer hoardingTimer;
+        private Timer gameDurationTimer;
+        private bool isGameEnded = false;
+        private readonly object endGameLock = new object();
+        private readonly StatsLogic statsLogic;
+        private readonly Action<string> onSessionEndedCleanup;
 
         private const double SNAP_TOLERANCE = 30.0;
-        private const double PENALTY_TOLERANCE = 100.0;
+        private const double PENALTY_TOLERANCE = 60.0;
         private const int HOARDING_LIMIT_SECONDS = 10;
 
         private const int SCORE_EDGE_PIECE = 5;
@@ -67,12 +75,20 @@ namespace MindWeaveServer.BusinessLogic
         private const int FRENZY_COUNT = 5;
         private const int FRENZY_TIME_WINDOW_SECONDS = 60;
 
-        public GameSession(string lobbyCode, int matchId, PuzzleDefinitionDto puzzleDefinition, IMatchmakingRepository matchmakingRepository)
+        public GameSession(
+            string lobbyCode, 
+            int matchId, 
+            PuzzleDefinitionDto puzzleDefinition, 
+            IMatchmakingRepository matchmakingRepository,
+            StatsLogic statsLogic,              // <--- Nuevo
+            Action<string> onSessionEndedCleanup)
         {
             LobbyCode = lobbyCode;
             MatchId = matchId;
             this.matchmakingRepository = matchmakingRepository;
             this.PuzzleDefinition = puzzleDefinition;
+            this.statsLogic = statsLogic;
+            this.onSessionEndedCleanup = onSessionEndedCleanup;
             this.StartTime = DateTime.UtcNow;
 
             logger.Info("Initializing GameSession for Lobby {LobbyCode}", LobbyCode);
@@ -94,13 +110,27 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             hoardingTimer = new Timer(1000);
-            hoardingTimer.Elapsed += CheckHoarding;
+            hoardingTimer.Elapsed += checkHoarding;
             hoardingTimer.AutoReset = true;
             hoardingTimer.Start();
         }
 
-        private void CheckHoarding(object sender, ElapsedEventArgs e)
+        public void startMatchTimer(int durationSeconds)
         {
+            if (durationSeconds <= 0) durationSeconds = 300; // Fallback 5 min
+
+            logger.Info($"Starting Match Timer for Lobby {LobbyCode}: {durationSeconds} seconds.");
+
+            gameDurationTimer = new Timer(durationSeconds * 1000);
+            gameDurationTimer.Elapsed += (s, e) => endGame("TimeOut");
+            gameDurationTimer.AutoReset = false;
+            gameDurationTimer.Enabled = true;
+        }
+
+        private void checkHoarding(object sender, ElapsedEventArgs e)
+        {
+            if (isGameEnded) return;
+
             var now = DateTime.UtcNow;
             var hoardingPieces = PieceStates.Values
                 .Where(p => p.HeldByPlayerId.HasValue && p.GrabTime.HasValue &&
@@ -122,7 +152,6 @@ namespace MindWeaveServer.BusinessLogic
                     logger.Info($"Player {player.Username} penalized for Hoarding piece {piece.PieceId}");
 
                     broadcast(cb => cb.onPieceDragReleased(piece.PieceId, player.Username));
-
                     broadcast(cb => cb.onPlayerPenalty(player.Username, PENALTY_HOARDING, player.Score, "HOARDING"));
                 }
             }
@@ -136,6 +165,7 @@ namespace MindWeaveServer.BusinessLogic
                 Username = username,
                 Callback = callback,
                 Score = 0,
+                PiecesPlaced = 0,
                 CurrentStreak = 0,
                 NegativeStreak = 0,
                 RecentPlacementTimestamps = new List<DateTime>()
@@ -182,8 +212,8 @@ namespace MindWeaveServer.BusinessLogic
 
         public void handlePieceDrag(int playerId, int pieceId)
         {
-            logger.Info("handlePieceDrag called: PlayerId={PlayerId}, PieceId={PieceId}. Players in session: [{PlayerIds}]",
-                playerId, pieceId, string.Join(", ", Players.Keys));
+            if (isGameEnded) return;
+
 
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
@@ -212,16 +242,13 @@ namespace MindWeaveServer.BusinessLogic
 
             pieceState.HeldByPlayerId = playerId;
             pieceState.GrabTime = DateTime.UtcNow;
-
-            logger.Info("GameSession {LobbyCode}: Player {PlayerId} started dragging piece {PieceId}",
-                LobbyCode, playerId, pieceId);
-
             broadcast(callback => callback.onPieceDragStarted(pieceId, player.Username));
 
         }
 
         public void handlePieceMove(int playerId, int pieceId, double newX, double newY)
         {
+            if (isGameEnded) return;
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
                 return;
@@ -244,6 +271,7 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task handlePieceDrop(int playerId, int pieceId, double newX, double newY)
         {
+            if (isGameEnded) return;
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
                 logger.Warn("Player {PlayerId} tried to drop non-existent piece {PieceId}", playerId, pieceId);
@@ -270,8 +298,6 @@ namespace MindWeaveServer.BusinessLogic
                              Math.Abs(pieceState.FinalX - newX) < SNAP_TOLERANCE &&
                              Math.Abs(pieceState.FinalY - newY) < SNAP_TOLERANCE;
 
-            Console.WriteLine($"[DEBUG DROP] Pieza {pieceId}: ClientPos({newX:F2}, {newY:F2}) vs ServerTarget({pieceState.FinalX:F2}, {pieceState.FinalY:F2}). DiffX: {Math.Abs(pieceState.FinalX - newX):F2}, DiffY: {Math.Abs(pieceState.FinalY - newY):F2}. Tolerance: {SNAP_TOLERANCE}. Resultado: {(isCorrect ? "ENCJAÓ" : "FALLÓ")}");
-
             if (isCorrect)
             {
                 logger.Info("GameSession {LobbyCode}: Player {PlayerId} SNAPPED piece {PieceId}",
@@ -280,8 +306,8 @@ namespace MindWeaveServer.BusinessLogic
                 pieceState.IsPlaced = true;
                 pieceState.CurrentX = pieceState.FinalX;
                 pieceState.CurrentY = pieceState.FinalY;
-
                 player.NegativeStreak = 0;
+                player.PiecesPlaced++;
 
                 var (points, bonusType) = calculatePointsForPlacement(player, pieceId);
                 player.Score += points;
@@ -299,9 +325,7 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Info("Puzzle completed in Lobby {LobbyCode}. Saving all scores to DB.", LobbyCode);
 
-                    await saveAllScoresToDatabase();
-                    broadcast(callback => callback.onGameEnded(MatchId));
-                    hoardingTimer.Stop();
+                    endGame("PuzzleSolved");
                 }
             }
             else
@@ -330,6 +354,73 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
+        private async void endGame(string reason)
+        {
+            lock (endGameLock)
+            {
+                if (isGameEnded) return; // Evita doble ejecución
+                isGameEnded = true;
+            }
+
+            logger.Info($"Ending Game for Lobby {LobbyCode}. Reason: {reason}");
+
+            gameDurationTimer?.Stop();
+            hoardingTimer?.Stop();
+
+            var duration = DateTime.UtcNow - StartTime;
+            int minutesPlayed = (int)duration.TotalMinutes;
+            if (minutesPlayed < 1) minutesPlayed = 1;
+
+            var rankedPlayers = Players.Values
+                .OrderByDescending(p => p.Score)
+                .ThenByDescending(p => p.PiecesPlaced)
+                .ToList();
+
+            var winner = rankedPlayers.FirstOrDefault();
+            int winnerId = winner != null ? winner.PlayerId : 0;
+            int currentRank = 1;
+
+            foreach (var player in rankedPlayers)
+            {
+                if (player.PlayerId > 0) // Ignorar invitados si es necesario, o manejarlos
+                {
+                    var statsDto = new PlayerMatchStatsDto
+                    {
+                        PlayerId = player.PlayerId,
+                        Score = player.Score,
+                        Rank = currentRank,
+                        IsWin = (currentRank == 1),
+                        PlaytimeMinutes = minutesPlayed
+                    };
+
+                    try
+                    {
+                        // Usamos la instancia inyectada de StatsLogic
+                        await statsLogic.processMatchResultsAsync(statsDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Error processing stats for player {0}", player.Username);
+                    }
+                }
+                currentRank++;
+            }
+
+
+            try
+            {
+                await saveAllScoresToDatabase();
+                await matchmakingRepository.finishMatchAsync(MatchId);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error saving end game state to DB.");
+            }
+
+            broadcast(callback => callback.onGameEnded(MatchId, winnerId, reason));
+            onSessionEndedCleanup?.Invoke(LobbyCode);
+        }
+
         private bool checkIfDroppedOnWrongPiece(double x, double y, int currentPieceId)
         {
             foreach (var otherState in PieceStates.Values)
@@ -353,6 +444,8 @@ namespace MindWeaveServer.BusinessLogic
 
         public void handlePieceRelease(int playerId, int pieceId)
         {
+            if (isGameEnded) return;
+
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
                 return;

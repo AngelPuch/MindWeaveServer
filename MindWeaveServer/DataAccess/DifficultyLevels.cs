@@ -23,6 +23,7 @@ namespace MindWeaveServer.DataAccess
         public int idDifficulty { get; set; }
         public string name { get; set; }
         public int piece_count { get; set; }
+        public int time_limit_seconds { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<Matches> Matches { get; set; }

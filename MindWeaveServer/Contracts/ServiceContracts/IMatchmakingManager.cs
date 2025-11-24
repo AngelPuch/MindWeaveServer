@@ -78,7 +78,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
        
 
         [OperationContract(IsOneWay = true)]
-        void onGameStarted(PuzzleDefinitionDto puzzleDefinition);
+        void onGameStarted(PuzzleDefinitionDto puzzleDefinition, int matchDurationSeconds);
 
         
         [OperationContract(IsOneWay = true)]
@@ -96,7 +96,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void onPieceDragReleased(int pieceId, string username);
 
         [OperationContract(IsOneWay = true)]
-        void onGameEnded(int matchId);
+        void onGameEnded(int matchId, int winnerId, string reason);
 
         [OperationContract(IsOneWay = true)]
         void onPlayerPenalty(string username, int pointsLost, int newScore, string reason);

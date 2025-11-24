@@ -47,8 +47,14 @@ namespace MindWeaveServer.BusinessLogic
                 difficulty
             );
 
-            var gameSession = new GameSession(lobbyId, matchId, puzzleDto, matchmakingRepository);
-
+            var gameSession = new GameSession(
+                lobbyId,
+                matchId,
+                puzzleDto,
+                matchmakingRepository,
+                statsLogic, // Inyectamos
+                (code) => removeSession(code) // Callback para cuando acabe
+            );
             foreach (var player in players.Values)
             {
                 gameSession.addPlayer(player.PlayerId, player.Username, player.Callback);
@@ -59,6 +65,14 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("Game session created and ready for lobby {LobbyId}", lobbyId);
 
             return gameSession;
+        }
+
+        private void removeSession(string lobbyCode)
+        {
+            if (activeSessions.TryRemove(lobbyCode, out _))
+            {
+                logger.Info("GameSession {LobbyCode} removed from manager (Ended).", lobbyCode);
+            }
         }
 
         public GameSession getSession(string lobbyCode)
@@ -104,68 +118,10 @@ namespace MindWeaveServer.BusinessLogic
             if (session != null)
             {
                 await session.handlePieceDrop(playerId, pieceId, newX, newY);
-                int totalPieces = session.PieceStates.Count;
-                int placedPieces = session.PieceStates.Values.Count(p => p.IsPlaced);
-
-                Console.WriteLine($"[DEBUG PUZZLE] Lobby {lobbyCode}: Piezas colocadas {placedPieces}/{totalPieces}. Acaba de mover pieza {pieceId}.");
-                if (session.isPuzzleComplete())
-                {
-                    logger.Info("Puzzle completed for Lobby {LobbyCode}! Processing end of game.", lobbyCode);
-
-                    await processGameEndAsync(session);
-                }
             }
             else
             {
                 logger.Warn("HandlePieceDrop: No active session found for lobby {LobbyCode}", lobbyCode);
-            }
-        }
-
-        private async Task processGameEndAsync(GameSession session)
-        {
-            var duration = DateTime.UtcNow - session.StartTime;
-            int minutesPlayed = (int)duration.TotalMinutes;
-            if (minutesPlayed < 1) minutesPlayed = 1;
-
-
-            var rankedPlayers = session.Players.Values
-                .OrderByDescending(p => p.Score)
-                .ToList();
-
-            int currentRank = 1;
-            foreach (var player in rankedPlayers)
-            {
-               
-                if (player.PlayerId > 0)
-                {
-                    var statsDto = new PlayerMatchStatsDto
-                    {
-                        PlayerId = player.PlayerId,
-                        Score = player.Score,
-                        Rank = currentRank,
-                        IsWin = (currentRank == 1), 
-                        PlaytimeMinutes = minutesPlayed
-                    };
-
-                    try
-                    {
-                        await statsLogic.processMatchResultsAsync(statsDto);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Error processing stats for player {Username} (ID: {Id})", player.Username, player.PlayerId);
-                    }
-                }
-
-                currentRank++;
-            }
-
-            
-            session.broadcast(cb => cb.onGameEnded(session.MatchId));
-
-            if (activeSessions.TryRemove(session.LobbyCode, out _))
-            {
-                logger.Info("GameSession {LobbyCode} ended and removed from manager.", session.LobbyCode);
             }
         }
 
