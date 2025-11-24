@@ -1,4 +1,5 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+﻿using MindWeaveServer.Contracts.DataContracts.Game;
+using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using System.Collections.Generic;
@@ -96,7 +97,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void onPieceDragReleased(int pieceId, string username);
 
         [OperationContract(IsOneWay = true)]
-        void onGameEnded(int matchId, int winnerId, string reason);
+        void onGameEnded(MatchEndResultDto result);
 
         [OperationContract(IsOneWay = true)]
         void onPlayerPenalty(string username, int pointsLost, int newScore, string reason);

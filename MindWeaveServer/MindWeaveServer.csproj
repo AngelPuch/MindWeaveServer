@@ -131,6 +131,8 @@
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
+    <Compile Include="Contracts\DataContracts\Game\MatchEndResultDto.cs" />
+    <Compile Include="Contracts\DataContracts\Game\PlayerResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestInvitationDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestJoinRequestDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestJoinResultDto.cs" />

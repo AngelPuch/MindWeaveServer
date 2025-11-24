@@ -1,4 +1,6 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Puzzle;
+﻿using MindWeaveServer.Contracts.DataContracts.Game;
+using MindWeaveServer.Contracts.DataContracts.Puzzle;
+using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
@@ -8,7 +10,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
-using MindWeaveServer.Contracts.DataContracts.Stats;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -370,19 +371,33 @@ namespace MindWeaveServer.BusinessLogic
             var duration = DateTime.UtcNow - StartTime;
             int minutesPlayed = (int)duration.TotalMinutes;
             if (minutesPlayed < 1) minutesPlayed = 1;
+            double totalSeconds = duration.TotalSeconds;
 
             var rankedPlayers = Players.Values
                 .OrderByDescending(p => p.Score)
                 .ThenByDescending(p => p.PiecesPlaced)
                 .ToList();
-
-            var winner = rankedPlayers.FirstOrDefault();
-            int winnerId = winner != null ? winner.PlayerId : 0;
+            
+            var clientResults = new List<PlayerResultDto>();
             int currentRank = 1;
 
             foreach (var player in rankedPlayers)
             {
-                if (player.PlayerId > 0) // Ignorar invitados si es necesario, o manejarlos
+                bool isWinner = (currentRank == 1);
+
+                var playerResult = new PlayerResultDto
+                {
+                    PlayerId = player.PlayerId,
+                    Username = player.Username,
+                    Score = player.Score,
+                    PiecesPlaced = player.PiecesPlaced,
+                    Rank = currentRank,
+                    IsWinner = isWinner
+                };
+                clientResults.Add(playerResult);
+
+
+                if (player.PlayerId > 0)
                 {
                     var statsDto = new PlayerMatchStatsDto
                     {
@@ -417,7 +432,15 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Error(ex, "Error saving end game state to DB.");
             }
 
-            broadcast(callback => callback.onGameEnded(MatchId, winnerId, reason));
+            var matchEndResult = new MatchEndResultDto
+            {
+                MatchId = MatchId,
+                Reason = reason,
+                TotalTimeElapsedSeconds = totalSeconds,
+                PlayerResults = clientResults
+            };
+
+            broadcast(callback => callback.onGameEnded(matchEndResult));
             onSessionEndedCleanup?.Invoke(LobbyCode);
         }
 
