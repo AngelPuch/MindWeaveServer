@@ -17,26 +17,26 @@ namespace MindWeaveServer.BusinessLogic
 {
     public class ProfileLogic
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger(); 
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly IPlayerRepository playerRepository;
         private readonly IGenderRepository genderRepository;
-        private readonly IValidator<UserProfileForEditDto> profileEditValidator;
         private readonly IPasswordService passwordService;
         private readonly IPasswordPolicyValidator passwordPolicyValidator;
+        private readonly IValidator<UserProfileForEditDto> profileEditValidator;
 
         public ProfileLogic(
             IPlayerRepository playerRepository,
             IGenderRepository genderRepository,
             IPasswordService passwordService,
-            IPasswordPolicyValidator passwordPolicyValidator)
+            IPasswordPolicyValidator passwordPolicyValidator,
+            IValidator<UserProfileForEditDto> profileEditValidator)
         {
-            this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
-            this.genderRepository = genderRepository ?? throw new ArgumentNullException(nameof(genderRepository));
-            this.passwordService = passwordService ?? throw new ArgumentNullException(nameof(passwordService));
-            this.passwordPolicyValidator = passwordPolicyValidator ?? throw new ArgumentNullException(nameof(passwordPolicyValidator));
-            this.profileEditValidator = new UserProfileForEditDtoValidator();
-            logger.Info("ProfileLogic instance created.");
+            this.playerRepository = playerRepository;
+            this.genderRepository = genderRepository;
+            this.passwordService = passwordService;
+            this.passwordPolicyValidator = passwordPolicyValidator;
+            this.profileEditValidator = profileEditValidator;
         }
 
         public async Task<PlayerProfileViewDto> getPlayerProfileViewAsync(string username)

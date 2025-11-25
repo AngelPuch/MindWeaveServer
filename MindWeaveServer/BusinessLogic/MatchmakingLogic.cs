@@ -28,15 +28,9 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IPlayerRepository playerRepository;
         private readonly IGuestInvitationRepository guestInvitationRepository;
         private readonly IEmailService emailService;
-
-        private readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies;
-        private readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks;
-        private static readonly ConcurrentDictionary<string, HashSet<string>> guestUsernamesInLobby =
-            new ConcurrentDictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         private readonly IPuzzleRepository puzzleRepository;
-        private readonly GameSessionManager gameSessionManager;
-
-
+        private readonly IGameStateManager gameStateManager;
+        
         private const int MAX_LOBBY_CODE_GENERATION_ATTEMPTS = 10;
         private const int MAX_PLAYERS_PER_LOBBY = 4;
         private const int MATCH_STATUS_WAITING = 1;
@@ -53,24 +47,25 @@ namespace MindWeaveServer.BusinessLogic
             IPlayerRepository playerRepository,
             IGuestInvitationRepository guestInvitationRepository,
             IEmailService emailService,
-            ConcurrentDictionary<string, LobbyStateDto> lobbies,
-            ConcurrentDictionary<string, IMatchmakingCallback> callbacks,
             IPuzzleRepository puzzleRepository,
-            GameSessionManager gameSessionManager
-            )
+            IGameStateManager gameStateManager)
 
         {
-            this.matchmakingRepository = matchmakingRepository ?? throw new ArgumentNullException(nameof(matchmakingRepository));
-            this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
-            this.guestInvitationRepository = guestInvitationRepository ?? throw new ArgumentNullException(nameof(guestInvitationRepository));
-            this.emailService = emailService ?? throw new ArgumentNullException(nameof(emailService));
-            this.activeLobbies = lobbies ?? throw new ArgumentNullException(nameof(lobbies));
-            this.userCallbacks = callbacks ?? throw new ArgumentNullException(nameof(callbacks));
-            this.gameSessionManager = gameSessionManager;
-            this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
-        
+            this.matchmakingRepository = matchmakingRepository;
+            this.playerRepository = playerRepository;
+            this.guestInvitationRepository = guestInvitationRepository;
+            this.emailService = emailService;
+            this.puzzleRepository = puzzleRepository;
+            this.gameStateManager = gameStateManager;
+
+
             logger.Info("MatchmakingLogic instance created.");
         }
+
+        private ConcurrentDictionary<string, LobbyStateDto> activeLobbies => gameStateManager.ActiveLobbies;
+        private ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks => gameStateManager.MatchmakingCallbacks;
+        private ConcurrentDictionary<string, HashSet<string>> guestUsernamesInLobby => gameStateManager.GuestUsernamesInLobby;
+        private GameSessionManager gameSessionManager => gameStateManager.GameSessionManager;
 
 
         public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)

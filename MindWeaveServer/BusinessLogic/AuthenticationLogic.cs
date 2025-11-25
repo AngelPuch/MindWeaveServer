@@ -43,7 +43,6 @@ namespace MindWeaveServer.BusinessLogic
             this.verificationCodeService = verificationCodeService;
             this.profileValidator = profileValidator;
             this.loginValidator = loginValidator;
-            logger.Info("AuthenticationLogic instance created.");
         }
 
         public async Task<OperationResultDto> registerPlayerAsync(UserProfileDto userProfile, string password)
@@ -268,7 +267,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new LoginResultDto
                 {
                     OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginAccountNotVerified },
-                    ResultCode = "ACCOUNT_NOT_VERIFIED"
+                    ResultCode = RESULT_CODE_ACCOUNT_NOT_VERIFIED
                 };
             }
 

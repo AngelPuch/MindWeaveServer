@@ -1,8 +1,7 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Puzzle;
-using MindWeaveServer.Contracts.DataContracts.Stats;
+﻿using Autofac.Features.OwnedInstances;
+using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using System.Collections.Generic;
 using NLog;
 using System;
 using System.Collections.Concurrent;
@@ -17,30 +16,43 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
-        private readonly IMatchmakingRepository matchmakingRepository;
-        private readonly IPuzzleRepository puzzleRepository;
-        private readonly StatsLogic statsLogic;
+
+        private readonly Func<Owned<IMatchmakingRepository>> matchmakingRepositoryFactory;
+        private readonly Func<Owned<IPuzzleRepository>> puzzleRepositoryFactory;
+        private readonly Func<Owned<StatsLogic>> statsLogicFactory;
         private readonly PuzzleGenerator puzzleGenerator;
 
-        public GameSessionManager(IPuzzleRepository puzzleRepository, IMatchmakingRepository matchmakingRepository, StatsLogic statsLogic)
+        public GameSessionManager(
+            Func<Owned<IPuzzleRepository>> puzzleRepositoryFactory,
+            Func<Owned<IMatchmakingRepository>> matchmakingRepositoryFactory,
+            Func<Owned<StatsLogic>> statsLogicFactory)
         {
-            this.puzzleRepository = puzzleRepository;
-            this.matchmakingRepository = matchmakingRepository;
+            this.puzzleRepositoryFactory = puzzleRepositoryFactory;
+            this.matchmakingRepositoryFactory = matchmakingRepositoryFactory;
+            this.statsLogicFactory = statsLogicFactory;
             this.puzzleGenerator = new PuzzleGenerator();
-            this.statsLogic = statsLogic;
         }
 
         public async Task<GameSession> createGameSession(string lobbyId, int matchId, int puzzleId, 
             DifficultyLevels difficulty, ConcurrentDictionary<int, PlayerSessionData> players)
         {
-            var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
-            if (puzzleData == null)
+            string imagePath;
+
+            using (var puzzleScope = puzzleRepositoryFactory())
             {
-                logger.Error("Failed to create game: PuzzleId {PuzzleId} not found.", puzzleId);
-                throw new Exception("Puzzle not found.");
+                var puzzleRepo = puzzleScope.Value;
+                var puzzleData = await puzzleRepo.getPuzzleByIdAsync(puzzleId);
+
+                if (puzzleData == null)
+                {
+                    logger.Error("Failed to create game: PuzzleId {PuzzleId} not found.", puzzleId);
+                    throw new Exception("Puzzle not found.");
+                }
+
+                imagePath = puzzleData.image_path;
             }
 
-            byte[] puzzleBytes = await getPuzzleBytes(puzzleData.image_path);
+            byte[] puzzleBytes = await getPuzzleBytes(imagePath);
 
             PuzzleDefinitionDto puzzleDto = puzzleGenerator.generatePuzzle(
                 puzzleBytes,
@@ -51,9 +63,9 @@ namespace MindWeaveServer.BusinessLogic
                 lobbyId,
                 matchId,
                 puzzleDto,
-                matchmakingRepository,
-                statsLogic, // Inyectamos
-                (code) => removeSession(code) // Callback para cuando acabe
+                matchmakingRepositoryFactory, 
+                statsLogicFactory,
+                removeSession
             );
             foreach (var player in players.Values)
             {
@@ -79,7 +91,6 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (string.IsNullOrWhiteSpace(lobbyCode))
             {
-                Console.WriteLine("[GameSessionManager] getSession called with a NULL or empty lobbyCode. Ignoring request.");
                 return null;
             }
 
@@ -93,9 +104,6 @@ namespace MindWeaveServer.BusinessLogic
 
             if (session != null)
             {
-                int totalPieces = session.PieceStates.Count;
-                int placedPieces = session.PieceStates.Values.Count(p => p.IsPlaced);
-                Console.WriteLine($"[PUZZLE STATUS] Lobby {lobbyCode}: {placedPieces}/{totalPieces} pieces placed.");
                 session.handlePieceDrag(playerId, pieceId);
             }
             else

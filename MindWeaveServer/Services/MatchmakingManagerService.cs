@@ -2,17 +2,15 @@
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
-using MindWeaveServer.Utilities.Email;
 using NLog;
 using System;
-using System.Collections.Concurrent;
 using System.Data.Entity.Core;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using Autofac;
+using MindWeaveServer.AppStart;
 
 namespace MindWeaveServer.Services
 {
@@ -20,56 +18,40 @@ namespace MindWeaveServer.Services
     public class MatchmakingManagerService : IMatchmakingManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-        private readonly IPlayerRepository playerRepository;
-        private int? currentPlayerId;
 
         private readonly MatchmakingLogic matchmakingLogic;
-
-        private static readonly GameSessionManager gameSessionManager;
-        private static readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbies =
-            new ConcurrentDictionary<string, LobbyStateDto>(StringComparer.OrdinalIgnoreCase);
-
-        private static readonly ConcurrentDictionary<string, IMatchmakingCallback> userCallbacks =
-            new ConcurrentDictionary<string, IMatchmakingCallback>(StringComparer.OrdinalIgnoreCase);
+        private readonly GameSessionManager gameSessionManager;
+        private readonly IPlayerRepository playerRepository;
 
         private string currentUsername;
+        private int? currentPlayerId;
         private IMatchmakingCallback currentUserCallback;
         private bool isDisconnected;
 
-        static MatchmakingManagerService()
-        {
-            var dbContext = new MindWeaveDBEntities1();
-            var puzzleRepository = new PuzzleRepository(dbContext);
-            var matchmakingRepository = new MatchmakingRepository(dbContext);
-            var statsRepository = new StatsRepository(dbContext);
-            var statsLogic = new StatsLogic(statsRepository);
-            gameSessionManager = new GameSessionManager(puzzleRepository, matchmakingRepository, statsLogic);
-            logger.Info("Static GameSessionManager initialized.");
-        }
-
         public MatchmakingManagerService()
         {
-            var dbContext = new MindWeaveDBEntities1();
-            var matchmakingRepository = new MatchmakingRepository(dbContext);
-            var playerRepositoryDb = new PlayerRepository(dbContext);
-            this.playerRepository = playerRepositoryDb;
-            var guestInvitationRepository = new GuestInvitationRepository(dbContext);
-            var emailService = new SmtpEmailService();
-            var puzzleRepository = new PuzzleRepository(dbContext);
+            Bootstrapper.init();
 
+            this.matchmakingLogic = Bootstrapper.Container.Resolve<MatchmakingLogic>();
+            this.gameSessionManager = Bootstrapper.Container.Resolve<GameSessionManager>();
+            this.playerRepository = Bootstrapper.Container.Resolve<IPlayerRepository>();
 
-            matchmakingLogic = new MatchmakingLogic(
-                matchmakingRepository,
-                playerRepository,
-                guestInvitationRepository,
-                emailService,
-                activeLobbies,
-                userCallbacks,
-                puzzleRepository,
-                gameSessionManager
+            initializeService();
+        }
 
-                );
+        public MatchmakingManagerService(
+            MatchmakingLogic matchmakingLogic,
+            GameSessionManager gameSessionManager,
+            IPlayerRepository playerRepository)
+        {
+            this.matchmakingLogic = matchmakingLogic;
+            this.gameSessionManager = gameSessionManager;
+            this.playerRepository = playerRepository;
+            initializeService();
+        }
 
+        private void initializeService()
+        {
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {
                 OperationContext.Current.Channel.Faulted += channel_FaultedOrClosed;
@@ -80,7 +62,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
             }
-            logger.Info("MatchmakingManagerService instance created (PerSession).");
         }
 
         public async Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto)

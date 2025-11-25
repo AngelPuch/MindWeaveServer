@@ -1,11 +1,11 @@
 ﻿using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.ServiceContracts;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Chat;
+using Autofac;
+using MindWeaveServer.AppStart;
 using NLog;
 
 namespace MindWeaveServer.Services
@@ -14,14 +14,7 @@ namespace MindWeaveServer.Services
     public class ChatManagerService : IChatManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
-        private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers =
-            new ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>>(StringComparer.OrdinalIgnoreCase);
-        private static readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory =
-            new ConcurrentDictionary<string, List<ChatMessageDto>>(StringComparer.OrdinalIgnoreCase);
-
-        private static readonly ChatLogic chatLogicSingleton = new ChatLogic(lobbyChatUsers, lobbyChatHistory);
-
+        
         private readonly ChatLogic chatLogic;
         private string currentUsername;
         private string currentLobbyId;
@@ -29,8 +22,19 @@ namespace MindWeaveServer.Services
         private bool isDisconnected;
 
         public ChatManagerService()
+            : this(resolveDependencies())
         {
-            this.chatLogic = chatLogicSingleton;
+        }
+
+        private static ChatLogic resolveDependencies()
+        {
+            Bootstrapper.init();
+            return Bootstrapper.Container.Resolve<ChatLogic>();
+        }
+
+        public ChatManagerService(ChatLogic chatLogic)
+        {
+            this.chatLogic = chatLogic;
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {
@@ -42,7 +46,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
             }
-            logger.Info("ChatManagerService instance created (PerSession).");
         }
 
         public void joinLobbyChat(string username, string lobbyId)
@@ -68,7 +71,7 @@ namespace MindWeaveServer.Services
             catch (TimeoutException ex)
             {
                 logger.Error(ex, "Chat Service Timeout: Operation timed out for {Username}", username);
-                Task.Run(() => handleDisconnect());
+                Task.Run(handleDisconnect);
             }
             catch (ArgumentNullException ex)
             {
@@ -77,13 +80,14 @@ namespace MindWeaveServer.Services
             catch (Exception ex)
             {
                 logger.Error(ex, "Chat Service Unexpected Error inside joinLobbyChat for User: {Username}", username);
-                Task.Run(() => handleDisconnect());
+                Task.Run(handleDisconnect);
             }
         }
 
         public void leaveLobbyChat(string username, string lobbyId)
         {
             logger.Info("leaveLobbyChat attempt by user: {Username} from lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+
             if (string.IsNullOrEmpty(currentUsername) ||
                 !currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase) ||
                 !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
@@ -191,7 +195,7 @@ namespace MindWeaveServer.Services
         private void channel_FaultedOrClosed(object sender, EventArgs e)
         {
             logger.Warn("WCF channel Faulted or Closed for user: {Username}, lobby {LobbyId}. Initiating disconnect.", currentUsername, currentLobbyId);
-            Task.Run(() => handleDisconnect());
+            Task.Run(handleDisconnect);
         }
 
         private void handleDisconnect()

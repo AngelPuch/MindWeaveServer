@@ -13,6 +13,8 @@ using System.Data.Entity.Core;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using Autofac;
+using MindWeaveServer.AppStart;
 
 namespace MindWeaveServer.Services
 {
@@ -28,14 +30,17 @@ namespace MindWeaveServer.Services
         private string currentUsername;
         private ISocialCallback currentUserCallback;
 
-        public SocialManagerService()
-        {
-            var dbContext = new MindWeaveDBEntities1();
-            var playerRepository = new PlayerRepository(dbContext);
-            var friendshipRepository = new FriendshipRepository(dbContext);
-            this.socialLogic = new SocialLogic(playerRepository, friendshipRepository);
+        public SocialManagerService() : this(resolveDep()) { }
 
-            logger.Info("SocialManagerService instance created (PerSession). Waiting for connect call.");
+        private static SocialLogic resolveDep()
+        {
+            Bootstrapper.init();
+            return Bootstrapper.Container.Resolve<SocialLogic>();
+        }
+
+        public SocialManagerService(SocialLogic socialLogic)
+        {
+            this.socialLogic = socialLogic;
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {
@@ -427,7 +432,7 @@ namespace MindWeaveServer.Services
 
                 var onlineFriendUsernames = friendsToNotify
                     .Select(friend => friend.Username)
-                    .Where(username => SocialManagerService.isUserConnected(username));
+                    .Where(SocialManagerService.isUserConnected);
                 
                 foreach (var username in onlineFriendUsernames)
                 {

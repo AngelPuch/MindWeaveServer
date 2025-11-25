@@ -12,21 +12,19 @@ namespace MindWeaveServer.BusinessLogic
     public class ChatLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
-        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers;
-        private readonly ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory;
+        private readonly IGameStateManager gameStateManager;
 
         private const int MAX_HISTORY_PER_LOBBY = 50;
         private const int MAX_MESSAGE_LENGTH = 200;
 
 
-        public ChatLogic(
-            ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyUsers,
-            ConcurrentDictionary<string, List<ChatMessageDto>> lobbyHistory)
+        public ChatLogic(IGameStateManager gameStateManager)
         {
-            this.lobbyChatUsers = lobbyUsers;
-            this.lobbyChatHistory = lobbyHistory;
+            this.gameStateManager = gameStateManager;
         }
+
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers => gameStateManager.LobbyChatUsers;
+        private ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory => gameStateManager.LobbyChatHistory;
 
         public void joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
         {
@@ -149,15 +147,6 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Warn("Replacing existing non-opened chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
                     return userCallback;
-                }
-
-                if (existingVal != userCallback)
-                {
-                    logger.Debug("Keeping existing OPEN chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
-                }
-                else
-                {
-                    logger.Debug("Updating existing chat callback (same instance) for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
                 }
 
                 return existingVal;

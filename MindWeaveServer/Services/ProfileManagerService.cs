@@ -1,18 +1,16 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.DataAccess;
-using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
-using MindWeaveServer.Utilities;
-using MindWeaveServer.Utilities.Validators;
-using System.Data.Entity.Core;
+using NLog;
 using System;
+using System.Data.Entity.Core;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using NLog;
+using Autofac;
 
 namespace MindWeaveServer.Services
 {
@@ -20,25 +18,19 @@ namespace MindWeaveServer.Services
     public class ProfileManagerService : IProfileManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
         private readonly ProfileLogic profileLogic;
 
-        public ProfileManagerService()
+        public ProfileManagerService() : this(resolveDep()) { }
+
+        private static ProfileLogic resolveDep()
         {
-            var dbContext = new MindWeaveDBEntities1();
-            var playerRepository = new PlayerRepository(dbContext);
-            var genderRepository = new GenderRepository(dbContext);
-            var passwordService = new PasswordService();
-            var passwordPolicyValidator = new PasswordPolicyValidator();
-            this.profileLogic = new ProfileLogic(
-                playerRepository,
-                genderRepository,
-                passwordService,
-                passwordPolicyValidator);
-
-            logger.Info("ProfileManagerService instance created.");
+            Bootstrapper.init();
+            return Bootstrapper.Container.Resolve<ProfileLogic>();
         }
-
+        public ProfileManagerService(ProfileLogic profileLogic)
+        {
+            this.profileLogic = profileLogic;
+        }
 
         public async Task<PlayerProfileViewDto> getPlayerProfileView(string username)
         {

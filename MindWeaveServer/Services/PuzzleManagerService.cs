@@ -1,9 +1,8 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.DataAccess;
-using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
 using NLog;
 using System;
@@ -12,6 +11,7 @@ using System.Data.Entity.Core;
 using System.IO;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using Autofac;
 
 namespace MindWeaveServer.Services
 {
@@ -22,13 +22,16 @@ namespace MindWeaveServer.Services
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private readonly PuzzleLogic puzzleLogic;
 
-        public PuzzleManagerService()
-        {
-            var dbContext = new MindWeaveDBEntities1();
-            var playerRepository = new PlayerRepository(dbContext);
-            var puzzleRepository = new PuzzleRepository(dbContext);
+        public PuzzleManagerService() : this(resolveDep()) { }
 
-            puzzleLogic = new PuzzleLogic(puzzleRepository, playerRepository);
+        private static PuzzleLogic resolveDep()
+        {
+            Bootstrapper.init();
+            return Bootstrapper.Container.Resolve<PuzzleLogic>();
+        }
+        public PuzzleManagerService(PuzzleLogic puzzleLogic)
+        {
+            this.puzzleLogic = puzzleLogic;
         }
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()
@@ -62,6 +65,7 @@ namespace MindWeaveServer.Services
             catch (EntityException ex)
             {
                 var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
+                logger.Fatal(ex, "Puzzle Service DB Error during get {Puzzle}", puzzleId);
                 throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
             catch (FileNotFoundException ex)

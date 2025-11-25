@@ -1,51 +1,34 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.DataAccess;
-using MindWeaveServer.DataAccess.Repositories;
-using MindWeaveServer.Utilities;
-using MindWeaveServer.Utilities.Email;
-using MindWeaveServer.Utilities.Validators;
 using NLog;
 using System;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using Autofac;
 
 namespace MindWeaveServer.Services
 {
-
-    
-
-    internal class AuthenticationManagerService : IAuthenticationManager
+    public class AuthenticationManagerService : IAuthenticationManager
     {
-        private readonly AuthenticationLogic authenticationLogic;
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private readonly AuthenticationLogic authenticationLogic;
 
         public AuthenticationManagerService()
+            : this(resolveDependencies())
         {
-            var emailService = new SmtpEmailService();
-            var passwordService = new PasswordService();
-            var passwordPolicyValidator = new PasswordPolicyValidator();
-            var verificationCodeService = new VerificationCodeService();
-            var userProfileValidator = new UserProfileDtoValidator();
-            var loginValidator = new LoginDtoValidator();
-            var dbContext = new MindWeaveDBEntities1();
-            var playerRepository = new PlayerRepository(dbContext);
+        }
+        private static AuthenticationLogic resolveDependencies()
+        {
+            Bootstrapper.init();
+            return Bootstrapper.Container.Resolve<AuthenticationLogic>();
+        }
 
-            authenticationLogic = new AuthenticationLogic(
-                playerRepository,
-                emailService,
-                passwordService,
-                passwordPolicyValidator,
-                verificationCodeService,
-                userProfileValidator,
-                loginValidator
-
-            );
-
-            logger.Info("AuthenticationManagerService instance created.");
-
+        public AuthenticationManagerService(AuthenticationLogic authenticationLogic)
+        {
+            this.authenticationLogic = authenticationLogic;
         }
 
         public async Task<LoginResultDto> login(LoginDto loginCredentials)
@@ -89,7 +72,7 @@ namespace MindWeaveServer.Services
                 logger.Error(ex, "Login Error: Operation timed out for {Email}", emailForContext);
                 throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Service Timeout"));
             }
-           
+
             catch (Exception ex)
             {
                 var fault = new ServiceFaultDto(
@@ -256,7 +239,7 @@ namespace MindWeaveServer.Services
                 return result;
 
             }
-            
+
             catch (System.Data.Entity.Core.EntityException ex)
             {
                 var fault = new ServiceFaultDto(
@@ -271,7 +254,7 @@ namespace MindWeaveServer.Services
             {
                 var fault = new ServiceFaultDto(
                     ServiceErrorType.CommunicationError,
-                    "Error sending email. Please try again later.", 
+                    "Error sending email. Please try again later.",
                     "EmailService");
 
                 logger.Error(ex, "RecoveryCode Error: Email service failed (SocketException) for {Email}", emailForContext);
@@ -337,4 +320,3 @@ namespace MindWeaveServer.Services
 
     }
 }
- 

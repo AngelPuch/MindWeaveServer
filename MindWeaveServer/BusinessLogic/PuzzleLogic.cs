@@ -14,18 +14,21 @@ namespace MindWeaveServer.BusinessLogic
     public class PuzzleLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        
         private readonly IPuzzleRepository puzzleRepository;
         private readonly IPlayerRepository playerRepository;
         private readonly PuzzleGenerator puzzleGenerator;
 
         private readonly string uploadFolderName = "UploadedPuzzles";
 
-        public PuzzleLogic(IPuzzleRepository puzzleRepository, IPlayerRepository playerRepository)
+        public PuzzleLogic(
+            IPuzzleRepository puzzleRepository,
+            IPlayerRepository playerRepository,
+            PuzzleGenerator puzzleGenerator)
         {
-            this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
-            this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
-            this.puzzleGenerator = new PuzzleGenerator();
-            logger.Info("PuzzleLogic instance created.");
+            this.puzzleRepository = puzzleRepository;
+            this.playerRepository = playerRepository;
+            this.puzzleGenerator = puzzleGenerator;
         }
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()

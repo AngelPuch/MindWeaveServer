@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
+using Autofac.Features.OwnedInstances;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -48,13 +49,14 @@ namespace MindWeaveServer.BusinessLogic
 
         public ConcurrentDictionary<int, PlayerSessionData> Players { get; } = new ConcurrentDictionary<int, PlayerSessionData>();
         public ConcurrentDictionary<int, PuzzlePieceState> PieceStates { get; } = new ConcurrentDictionary<int, PuzzlePieceState>();
-        private readonly IMatchmakingRepository matchmakingRepository;
+
+        private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
+        private readonly Func<Owned<StatsLogic>> statsLogicFactory;
 
         private readonly Timer hoardingTimer;
         private Timer gameDurationTimer;
         private bool isGameEnded = false;
         private readonly object endGameLock = new object();
-        private readonly StatsLogic statsLogic;
         private readonly Action<string> onSessionEndedCleanup;
 
         private const double SNAP_TOLERANCE = 30.0;
@@ -79,16 +81,16 @@ namespace MindWeaveServer.BusinessLogic
         public GameSession(
             string lobbyCode, 
             int matchId, 
-            PuzzleDefinitionDto puzzleDefinition, 
-            IMatchmakingRepository matchmakingRepository,
-            StatsLogic statsLogic,              // <--- Nuevo
+            PuzzleDefinitionDto puzzleDefinition,
+            Func<Owned<IMatchmakingRepository>> matchmakingFactory,
+            Func<Owned<StatsLogic>> statsLogicFactory,
             Action<string> onSessionEndedCleanup)
         {
             LobbyCode = lobbyCode;
             MatchId = matchId;
-            this.matchmakingRepository = matchmakingRepository;
+            this.matchmakingFactory = matchmakingFactory;
             this.PuzzleDefinition = puzzleDefinition;
-            this.statsLogic = statsLogic;
+            this.statsLogicFactory = statsLogicFactory;
             this.onSessionEndedCleanup = onSessionEndedCleanup;
             this.StartTime = DateTime.UtcNow;
 
@@ -359,7 +361,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             lock (endGameLock)
             {
-                if (isGameEnded) return; // Evita doble ejecución
+                if (isGameEnded) return;
                 isGameEnded = true;
             }
 
@@ -381,51 +383,58 @@ namespace MindWeaveServer.BusinessLogic
             var clientResults = new List<PlayerResultDto>();
             int currentRank = 1;
 
-            foreach (var player in rankedPlayers)
+            using (var statsScope = statsLogicFactory())
             {
-                bool isWinner = (currentRank == 1);
+                var statsService = statsScope.Value;
 
-                var playerResult = new PlayerResultDto
+                foreach (var player in rankedPlayers)
                 {
-                    PlayerId = player.PlayerId,
-                    Username = player.Username,
-                    Score = player.Score,
-                    PiecesPlaced = player.PiecesPlaced,
-                    Rank = currentRank,
-                    IsWinner = isWinner
-                };
-                clientResults.Add(playerResult);
+                    bool isWinner = (currentRank == 1);
 
-
-                if (player.PlayerId > 0)
-                {
-                    var statsDto = new PlayerMatchStatsDto
+                    var playerResult = new PlayerResultDto
                     {
                         PlayerId = player.PlayerId,
+                        Username = player.Username,
                         Score = player.Score,
+                        PiecesPlaced = player.PiecesPlaced,
                         Rank = currentRank,
-                        IsWin = (currentRank == 1),
-                        PlaytimeMinutes = minutesPlayed
+                        IsWinner = isWinner
                     };
+                    clientResults.Add(playerResult);
 
-                    try
+                    if (player.PlayerId > 0)
                     {
-                        // Usamos la instancia inyectada de StatsLogic
-                        await statsLogic.processMatchResultsAsync(statsDto);
+                        var statsDto = new PlayerMatchStatsDto
+                        {
+                            PlayerId = player.PlayerId,
+                            Score = player.Score,
+                            Rank = currentRank,
+                            IsWin = isWinner,
+                            PlaytimeMinutes = minutesPlayed
+                        };
+
+                        try
+                        {
+                            await statsService.processMatchResultsAsync(statsDto);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error(ex, "Error processing stats for player {0}", player.Username);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Error processing stats for player {0}", player.Username);
-                    }
+                    currentRank++;
                 }
-                currentRank++;
             }
 
 
             try
             {
                 await saveAllScoresToDatabase();
-                await matchmakingRepository.finishMatchAsync(MatchId);
+                using (var matchScope = matchmakingFactory())
+                {
+                    var matchRepo = matchScope.Value;
+                    await matchRepo.finishMatchAsync(MatchId);
+                }
             }
             catch (Exception ex)
             {
@@ -575,24 +584,22 @@ namespace MindWeaveServer.BusinessLogic
 
         private async Task saveAllScoresToDatabase()
         {
-            var saveTasks = new List<Task>();
-
-            foreach (var p in Players.Values)
+            using (var scope = matchmakingFactory())
             {
-                saveTasks.Add(Task.Run(async () =>
+                var repo = scope.Value;
+
+                foreach (var p in Players.Values)
                 {
                     try
                     {
-                        await matchmakingRepository.updatePlayerScoreAsync(MatchId, p.PlayerId, p.Score);
+                        await repo.updatePlayerScoreAsync(MatchId, p.PlayerId, p.Score);
                     }
                     catch (Exception ex)
                     {
                         logger.Error(ex, "Failed to save final score for Player {PlayerId} in Match {MatchId}", p.PlayerId, MatchId);
                     }
-                }));
+                }
             }
-
-            await Task.WhenAll(saveTasks);
         }
 
 

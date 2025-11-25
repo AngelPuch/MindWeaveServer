@@ -22,9 +22,8 @@ namespace MindWeaveServer.BusinessLogic
 
         public SocialLogic(IPlayerRepository playerRepo, IFriendshipRepository friendshipRepo)
         {
-            this.playerRepository = playerRepo ?? throw new ArgumentNullException(nameof(playerRepo));
-            this.friendshipRepository = friendshipRepo ?? throw new ArgumentNullException(nameof(friendshipRepo));
-            logger.Info("SocialLogic instance created.");
+            this.playerRepository = playerRepo;
+            this.friendshipRepository = friendshipRepo;
         }
 
         public async Task<List<PlayerSearchResultDto>> searchPlayersAsync(string requesterUsername, string query)
@@ -36,8 +35,8 @@ namespace MindWeaveServer.BusinessLogic
                 return new List<PlayerSearchResultDto>();
             }
 
-                logger.Debug("Fetching requester player data for search: {RequesterUsername}", requesterUsername);
-                var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
+            logger.Debug("Fetching requester player data for search: {RequesterUsername}", requesterUsername);
+            var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
             if (requester == null)
             {
                 logger.Warn("Search players failed: Requester player {RequesterUsername} not found.", requesterUsername);
@@ -46,9 +45,9 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Debug("Performing player search in repository. RequesterID: {PlayerId}, Query: '{Query}', Limit: {Limit}", requester.idPlayer, query, SEARCH_RESULT_LIMIT);
             var results = await playerRepository.searchPlayersAsync(requester.idPlayer, query, SEARCH_RESULT_LIMIT);
-            logger.Info("Player search completed for User: {RequesterUsername}, Query: '{Query}'. Found {Count} results.", requesterUsername, query, results?.Count ?? 0); 
+            logger.Info("Player search completed for User: {RequesterUsername}, Query: '{Query}'. Found {Count} results.", requesterUsername, query, results?.Count ?? 0);
             return results ?? new List<PlayerSearchResultDto>();
-            
+
         }
 
         public async Task<OperationResultDto> sendFriendRequestAsync(string requesterUsername, string targetUsername)
@@ -66,7 +65,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorCannotSelfFriend };
             }
 
-            
+
             logger.Debug("Fetching requester ({RequesterUsername}) and target ({TargetUsername}) player data.", requesterUsername, targetUsername);
             var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
             var target = await playerRepository.getPlayerByUsernameAsync(targetUsername);
@@ -91,7 +90,7 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Info("No existing friendship record found. Creating new friend request.");
                 return await createNewFriendshipAsync(requester, target);
             }
-            
+
         }
 
 
@@ -132,7 +131,7 @@ namespace MindWeaveServer.BusinessLogic
             await friendshipRepository.saveChangesAsync();
             logger.Info("Friend request from {RequesterUsername} to {ResponderUsername} processed. Status set to: {Status}", requesterUsername, responderUsername, friendship.status_id);
             return new OperationResultDto { Success = true, Message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
-            
+
         }
 
         public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string> connectedUsernames)
@@ -152,7 +151,7 @@ namespace MindWeaveServer.BusinessLogic
                 var friendships = await friendshipRepository.getAcceptedFriendshipsAsync(player.idPlayer);
                 logger.Debug("Found {Count} accepted friendship records.", friendships?.Count ?? 0);
 
-                var onlineUsersSet = connectedUsernames != null 
+                var onlineUsersSet = connectedUsernames != null
                     ? new HashSet<string>(connectedUsernames, StringComparer.OrdinalIgnoreCase)
                     : new HashSet<string>();
                 var friendDtos = new List<FriendDto>();
@@ -181,38 +180,38 @@ namespace MindWeaveServer.BusinessLogic
         {
             logger.Info("getFriendRequestsAsync called for User: {Username}", username ?? "NULL");
 
-                logger.Debug("Fetching player data for {Username}", username);
-                var player = await playerRepository.getPlayerByUsernameAsync(username);
-                if (player == null)
+            logger.Debug("Fetching player data for {Username}", username);
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
+            if (player == null)
+            {
+                logger.Warn("Get friend requests failed: Player {Username} not found.", username ?? "NULL");
+                return new List<FriendRequestInfoDto>();
+            }
+
+            logger.Debug("Fetching pending friend requests for PlayerID: {PlayerId}", player.idPlayer);
+            var pendingRequests = await friendshipRepository.getPendingFriendRequestsAsync(player.idPlayer);
+            logger.Debug("Found {Count} pending friend request records.", pendingRequests?.Count ?? 0);
+
+            var requestInfoDtos = pendingRequests
+                .Where(req => req.Player1 != null)
+                .Select(req => new FriendRequestInfoDto
                 {
-                    logger.Warn("Get friend requests failed: Player {Username} not found.", username ?? "NULL");
-                    return new List<FriendRequestInfoDto>();
-                }
+                    RequesterUsername = req.Player1.username,
+                    RequestDate = req.request_date,
+                    AvatarPath = req.Player1.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+                })
+                .OrderByDescending(r => r.RequestDate)
+                .ToList();
 
-                logger.Debug("Fetching pending friend requests for PlayerID: {PlayerId}", player.idPlayer);
-                var pendingRequests = await friendshipRepository.getPendingFriendRequestsAsync(player.idPlayer);
-                logger.Debug("Found {Count} pending friend request records.", pendingRequests?.Count ?? 0);
+            int skippedCount = pendingRequests.Count - requestInfoDtos.Count;
+            if (skippedCount > 0)
+            {
+                logger.Warn("Skipped {Count} pending requests for User {Username} because requester data was null.", skippedCount, username);
+            }
 
-                var requestInfoDtos = pendingRequests
-                    .Where(req => req.Player1 != null)
-                    .Select(req => new FriendRequestInfoDto
-                    {
-                        RequesterUsername = req.Player1.username,
-                        RequestDate = req.request_date,
-                        AvatarPath = req.Player1.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
-                    })
-                    .OrderByDescending(r => r.RequestDate)
-                    .ToList();
+            logger.Info("Successfully retrieved {Count} friend requests for User: {Username}", requestInfoDtos.Count, username);
+            return requestInfoDtos;
 
-                int skippedCount = pendingRequests.Count - requestInfoDtos.Count;
-                if (skippedCount > 0)
-                {
-                    logger.Warn("Skipped {Count} pending requests for User {Username} because requester data was null.", skippedCount, username);
-                }
-
-                logger.Info("Successfully retrieved {Count} friend requests for User: {Username}", requestInfoDtos.Count, username);
-                return requestInfoDtos;
-         
         }
 
         public async Task<OperationResultDto> removeFriendAsync(string username, string friendToRemoveUsername)
@@ -254,15 +253,15 @@ namespace MindWeaveServer.BusinessLogic
             await friendshipRepository.saveChangesAsync();
             logger.Info("Friendship between {Username} and {FriendToRemove} removed successfully.", username, friendToRemoveUsername);
             return new OperationResultDto { Success = true, Message = Lang.FriendRemovedSuccessfully };
-            
+
         }
 
         private async Task<OperationResultDto> handleExistingFriendshipAsync(Friendships existingFriendship, Player requester, Player target)
         {
             logger.Debug("Handling existing friendship (ID: {FriendshipId}, Status: {StatusId}) between Requester: {RequesterUsername} and Target: {TargetUsername}",
                 existingFriendship.friendships_id, existingFriendship.status_id, requester.username, target.username);
-                switch (existingFriendship.status_id)
-                {
+            switch (existingFriendship.status_id)
+            {
                 case FriendshipStatusConstants.ACCEPTED:
                     logger.Warn("Send request failed: Friendship already exists and is ACCEPTED.");
                     return new OperationResultDto { Success = false, Message = Lang.FriendshipAlreadyExists };
@@ -288,14 +287,14 @@ namespace MindWeaveServer.BusinessLogic
                     friendshipRepository.updateFriendship(existingFriendship);
                     logger.Debug("Saving updated (rejected to pending) friendship request to DB.");
                     await friendshipRepository.saveChangesAsync();
-                    logger.Info("Successfully re-sent friend request (updated rejected status to pending)."); 
+                    logger.Info("Successfully re-sent friend request (updated rejected status to pending).");
                     return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
 
                 default:
                     logger.Error("Send request failed: Unknown or unhandled friendship status ({StatusId}) between {RequesterUsername} and {TargetUsername}.", existingFriendship.status_id, requester.username, target.username);
                     return new OperationResultDto { Success = false, Message = Lang.FriendshipStatusPreventsRequest };
-                }
-            
+            }
+
         }
 
         private async Task<OperationResultDto> createNewFriendshipAsync(Player requester, Player target)
@@ -310,22 +309,22 @@ namespace MindWeaveServer.BusinessLogic
             };
             friendshipRepository.addFriendship(newFriendship);
 
-           
-                logger.Debug("Saving new friendship request to DB.");
-                await friendshipRepository.saveChangesAsync();
-                if (newFriendship.friendships_id > 0)
-                {
-                    logger.Info("New friendship request (ID: {FriendshipId}) created successfully.", newFriendship.friendships_id);
-                }
-                else
-                {
-                    logger.Warn("New friendship request saved, but ID was not assigned or is zero.");
-                }
-                return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
-            
+
+            logger.Debug("Saving new friendship request to DB.");
+            await friendshipRepository.saveChangesAsync();
+            if (newFriendship.friendships_id > 0)
+            {
+                logger.Info("New friendship request (ID: {FriendshipId}) created successfully.", newFriendship.friendships_id);
+            }
+            else
+            {
+                logger.Warn("New friendship request saved, but ID was not assigned or is zero.");
+            }
+            return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
+
         }
 
-        private FriendDto mapFriendshipToDto(Friendships f, int ownPlayerId, HashSet<string> onlineUsersSet) 
+        private FriendDto mapFriendshipToDto(Friendships f, int ownPlayerId, HashSet<string> onlineUsersSet)
         {
             int friendId = (f.requester_id == ownPlayerId) ? f.addressee_id : f.requester_id;
             Player friendEntity = (f.Player1?.idPlayer == friendId) ? f.Player1 : f.Player;

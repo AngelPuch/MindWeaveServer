@@ -17,7 +17,7 @@ namespace MindWeaveServer.BusinessLogic
 
         public StatsLogic(IStatsRepository statsRepository)
         {
-            this.statsRepository = statsRepository ?? throw new ArgumentNullException(nameof(statsRepository));
+            this.statsRepository = statsRepository;
         }
 
         public async Task processMatchResultsAsync(PlayerMatchStatsDto matchStats)
