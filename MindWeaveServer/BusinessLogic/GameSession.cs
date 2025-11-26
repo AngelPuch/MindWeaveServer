@@ -1,8 +1,11 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Game;
+﻿using Autofac.Features.OwnedInstances;
+using MindWeaveServer.Contracts.DataContracts.Game;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
+using MindWeaveServer.BusinessLogic;
 using NLog;
 using System;
 using System.Collections.Concurrent;
@@ -10,7 +13,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Timers;
-using Autofac.Features.OwnedInstances;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -43,6 +45,7 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public string LobbyCode { get; }
+        public int PuzzleId { get; } 
         public int MatchId { get; }
         public PuzzleDefinitionDto PuzzleDefinition { get; }
         public DateTime StartTime { get; }
@@ -52,6 +55,7 @@ namespace MindWeaveServer.BusinessLogic
 
         private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
         private readonly Func<Owned<StatsLogic>> statsLogicFactory;
+        private readonly Func<Owned<IPuzzleRepository>> puzzleFactory; 
 
         private readonly Timer hoardingTimer;
         private Timer gameDurationTimer;
@@ -79,19 +83,23 @@ namespace MindWeaveServer.BusinessLogic
         private const int FRENZY_TIME_WINDOW_SECONDS = 60;
 
         public GameSession(
-            string lobbyCode, 
-            int matchId, 
+            string lobbyCode,
+            int matchId,
+            int puzzleId,
             PuzzleDefinitionDto puzzleDefinition,
             Func<Owned<IMatchmakingRepository>> matchmakingFactory,
             Func<Owned<StatsLogic>> statsLogicFactory,
+            Func<Owned<IPuzzleRepository>> puzzleFactory, 
             Action<string> onSessionEndedCleanup)
         {
             LobbyCode = lobbyCode;
             MatchId = matchId;
+            PuzzleId = puzzleId;
             this.matchmakingFactory = matchmakingFactory;
             this.PuzzleDefinition = puzzleDefinition;
             this.statsLogicFactory = statsLogicFactory;
             this.onSessionEndedCleanup = onSessionEndedCleanup;
+            this.puzzleFactory = puzzleFactory;
             this.StartTime = DateTime.UtcNow;
 
             logger.Info("Initializing GameSession for Lobby {LobbyCode}", LobbyCode);
@@ -357,101 +365,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private async void endGame(string reason)
-        {
-            lock (endGameLock)
-            {
-                if (isGameEnded) return;
-                isGameEnded = true;
-            }
-
-            logger.Info($"Ending Game for Lobby {LobbyCode}. Reason: {reason}");
-
-            gameDurationTimer?.Stop();
-            hoardingTimer?.Stop();
-
-            var duration = DateTime.UtcNow - StartTime;
-            int minutesPlayed = (int)duration.TotalMinutes;
-            if (minutesPlayed < 1) minutesPlayed = 1;
-            double totalSeconds = duration.TotalSeconds;
-
-            var rankedPlayers = Players.Values
-                .OrderByDescending(p => p.Score)
-                .ThenByDescending(p => p.PiecesPlaced)
-                .ToList();
-            
-            var clientResults = new List<PlayerResultDto>();
-            int currentRank = 1;
-
-            using (var statsScope = statsLogicFactory())
-            {
-                var statsService = statsScope.Value;
-
-                foreach (var player in rankedPlayers)
-                {
-                    bool isWinner = (currentRank == 1);
-
-                    var playerResult = new PlayerResultDto
-                    {
-                        PlayerId = player.PlayerId,
-                        Username = player.Username,
-                        Score = player.Score,
-                        PiecesPlaced = player.PiecesPlaced,
-                        Rank = currentRank,
-                        IsWinner = isWinner
-                    };
-                    clientResults.Add(playerResult);
-
-                    if (player.PlayerId > 0)
-                    {
-                        var statsDto = new PlayerMatchStatsDto
-                        {
-                            PlayerId = player.PlayerId,
-                            Score = player.Score,
-                            Rank = currentRank,
-                            IsWin = isWinner,
-                            PlaytimeMinutes = minutesPlayed
-                        };
-
-                        try
-                        {
-                            await statsService.processMatchResultsAsync(statsDto);
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.Error(ex, "Error processing stats for player {0}", player.Username);
-                        }
-                    }
-                    currentRank++;
-                }
-            }
-
-
-            try
-            {
-                await saveAllScoresToDatabase();
-                using (var matchScope = matchmakingFactory())
-                {
-                    var matchRepo = matchScope.Value;
-                    await matchRepo.finishMatchAsync(MatchId);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error saving end game state to DB.");
-            }
-
-            var matchEndResult = new MatchEndResultDto
-            {
-                MatchId = MatchId,
-                Reason = reason,
-                TotalTimeElapsedSeconds = totalSeconds,
-                PlayerResults = clientResults
-            };
-
-            broadcast(callback => callback.onGameEnded(matchEndResult));
-            onSessionEndedCleanup?.Invoke(LobbyCode);
-        }
+        
 
         private bool checkIfDroppedOnWrongPiece(double x, double y, int currentPieceId)
         {
@@ -606,6 +520,152 @@ namespace MindWeaveServer.BusinessLogic
         public bool isPuzzleComplete()
         {
             return PieceStates.Values.All(p => p.IsPlaced);
+        }
+
+        private async void endGame(string reason)
+        {
+            lock (endGameLock)
+            {
+                if (isGameEnded) return;
+                isGameEnded = true;
+            }
+
+            logger.Info($"Ending Game for Lobby {LobbyCode}. Reason: {reason}");
+
+            gameDurationTimer?.Stop();
+            hoardingTimer?.Stop();
+
+            var duration = DateTime.UtcNow - StartTime;
+            int minutesPlayed = (int)duration.TotalMinutes;
+            if (minutesPlayed < 1) minutesPlayed = 1;
+            double totalSeconds = duration.TotalSeconds;
+
+            var rankedPlayers = Players.Values
+                .OrderByDescending(p => p.Score)
+                .ThenByDescending(p => p.PiecesPlaced)
+                .ToList();
+
+            var clientResults = new List<PlayerResultDto>();
+            int currentRank = 1;
+
+            // 1. Obtener Entidades para Logros (Match y Puzzle)
+            Matches matchEntity = null;
+            Puzzles puzzleEntity = null;
+
+            try
+            {
+                using (var matchScope = matchmakingFactory())
+                {
+                    var matchRepo = matchScope.Value;
+                    matchEntity = await matchRepo.getMatchByIdAsync(this.MatchId);
+                }
+
+                using (var puzzleScope = puzzleFactory())
+                {
+                    var puzzleRepo = puzzleScope.Value;
+                    puzzleEntity = await puzzleRepo.getPuzzleByIdAsync(this.PuzzleId);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Could not fetch Match/Puzzle entities for achievement evaluation.");
+            }
+
+            // 2. Procesar Stats y Logros por Jugador
+            using (var statsScope = statsLogicFactory())
+            {
+                var statsService = statsScope.Value;
+
+                foreach (var player in rankedPlayers)
+                {
+                    bool isWinner = (currentRank == 1);
+                    List<int> newUnlockedIds = new List<int>();
+
+                    if (player.PlayerId > 0)
+                    {
+                        var statsDto = new PlayerMatchStatsDto
+                        {
+                            PlayerId = player.PlayerId,
+                            Score = player.Score,
+                            Rank = currentRank,
+                            IsWin = isWinner,
+                            PlaytimeMinutes = minutesPlayed
+                        };
+
+                        try
+                        {
+                            // A. Foto del Histórico
+                            var historicalStats = await statsService.GetPlayerStatsAsync(player.PlayerId);
+
+                            // B. Guardar Stats de la Partida
+                            await statsService.processMatchResultsAsync(statsDto);
+
+                            // C. Evaluar Logros
+                            if (matchEntity != null && puzzleEntity != null && historicalStats != null)
+                            {
+                                var achievementContext = new AchievementContext
+                                {
+                                    PlayerStats = historicalStats,
+                                    CurrentMatchStats = new MatchParticipants
+                                    {
+                                        player_id = player.PlayerId,
+                                        score = player.Score,
+                                        final_rank = currentRank,
+                                        pieces_placed = player.PiecesPlaced
+                                    },
+                                    MatchInfo = matchEntity,
+                                    PuzzleInfo = puzzleEntity,
+                                    TotalParticipants = rankedPlayers.Count
+                                };
+
+                                var qualifiedAchievements = AchievementEvaluator.Evaluate(achievementContext);
+                                newUnlockedIds = await statsService.UnlockAchievementsAsync(player.PlayerId, qualifiedAchievements);
+
+                                if (newUnlockedIds.Any()) logger.Info($"User {player.Username} unlocked {newUnlockedIds.Count} achievements.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Error(ex, "Error processing stats/achievements for player {0}", player.Username);
+                        }
+                    }
+
+                    var playerResult = new PlayerResultDto
+                    {
+                        PlayerId = player.PlayerId,
+                        Username = player.Username,
+                        Score = player.Score,
+                        PiecesPlaced = player.PiecesPlaced,
+                        Rank = currentRank,
+                        IsWinner = isWinner,
+                        UnlockedAchievementIds = newUnlockedIds // Lista para el popup cliente
+                    };
+                    clientResults.Add(playerResult);
+                    currentRank++;
+                }
+            }
+
+            try
+            {
+                await saveAllScoresToDatabase();
+                using (var matchScope = matchmakingFactory())
+                {
+                    var matchRepo = matchScope.Value;
+                    await matchRepo.finishMatchAsync(MatchId);
+                }
+            }
+            catch (Exception ex) { logger.Error(ex, "Error saving end game state to DB."); }
+
+            var matchEndResult = new MatchEndResultDto
+            {
+                MatchId = MatchId,
+                Reason = reason,
+                TotalTimeElapsedSeconds = totalSeconds,
+                PlayerResults = clientResults
+            };
+
+            broadcast(callback => callback.onGameEnded(matchEndResult));
+            onSessionEndedCleanup?.Invoke(LobbyCode);
         }
     }
 }

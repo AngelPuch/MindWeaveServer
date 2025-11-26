@@ -127,5 +127,12 @@ namespace MindWeaveServer.DataAccess.Repositories
         {
             return await context.SaveChangesAsync();
         }
+
+        public async Task<Matches> getMatchByIdAsync(int matchId)
+        {
+            return await context.Matches
+                .Include(m => m.DifficultyLevels)
+                .FirstOrDefaultAsync(m => m.matches_id == matchId);
+        }
     }
 }

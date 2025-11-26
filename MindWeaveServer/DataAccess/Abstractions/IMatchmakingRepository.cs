@@ -17,5 +17,6 @@ namespace MindWeaveServer.DataAccess.Abstractions
         Task finishMatchAsync(int matchId);
         int getMatchDuration(int matchId);
         Task<int> saveChangesAsync();
+        Task<Matches> getMatchByIdAsync(int matchId);
     }
 }

@@ -62,11 +62,13 @@ namespace MindWeaveServer.BusinessLogic
             var gameSession = new GameSession(
                 lobbyId,
                 matchId,
+                puzzleId,
                 puzzleDto,
-                matchmakingRepositoryFactory, 
-                statsLogicFactory,
-                removeSession
-            );
+                matchmakingRepositoryFactory,  
+                statsLogicFactory,             
+                this.puzzleRepositoryFactory,  
+                removeSession                  
+            );  
             foreach (var player in players.Values)
             {
                 gameSession.addPlayer(player.PlayerId, player.Username, player.Callback);

@@ -52,6 +52,11 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
         }
 
+        public async Task<PlayerStats> getPlayerStatsByIdAsync(int playerId)
+        {
+            return await context.PlayerStats.AsNoTracking().FirstOrDefaultAsync(s => s.player_id == playerId);
+        }
+
         public async Task<List<int>> getPlayerAchievementIdsAsync(int playerId)
         {
             return await context.Player
@@ -79,6 +84,42 @@ namespace MindWeaveServer.DataAccess.Repositories
         public async Task<int> saveChangesAsync()
         {
             return await context.SaveChangesAsync();
+        }
+
+        public async Task<List<int>> UnlockAchievementsAsync(int playerId, List<int> potentialAchievementIds)
+        {
+            List<int> newlyUnlocked = new List<int>();
+
+            if (potentialAchievementIds == null || !potentialAchievementIds.Any())
+            {
+                return newlyUnlocked;
+            }
+
+            var player = await context.Player
+                .Include("Achievements")
+                .FirstOrDefaultAsync(p => p.idPlayer == playerId);
+
+            if (player == null) return newlyUnlocked;
+
+            var existingIds = player.Achievements.Select(a => a.achievements_id).ToList();
+            var idsToAdd = potentialAchievementIds.Except(existingIds).ToList();
+
+            if (idsToAdd.Any())
+            {
+                var achievementsToAddEntities = await context.Achievements
+                    .Where(a => idsToAdd.Contains(a.achievements_id))
+                    .ToListAsync();
+
+                foreach (var achievement in achievementsToAddEntities)
+                {
+                    player.Achievements.Add(achievement);
+                    newlyUnlocked.Add(achievement.achievements_id);
+                }
+
+                await context.SaveChangesAsync();
+            }
+
+            return newlyUnlocked;
         }
     }
 }

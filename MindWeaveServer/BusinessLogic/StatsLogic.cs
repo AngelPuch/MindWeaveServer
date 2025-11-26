@@ -1,7 +1,9 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Stats;
+using MindWeaveServer.DataAccess; // Necesario para la entidad PlayerStats
 using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic
@@ -10,10 +12,6 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private readonly IStatsRepository statsRepository;
-
-        private const int ACHIEVEMENT_FIRST_WIN = 1;
-        private const int ACHIEVEMENT_VETERAN = 2; 
-        private const int ACHIEVEMENT_HIGH_SCORE = 3; 
 
         public StatsLogic(IStatsRepository statsRepository)
         {
@@ -29,26 +27,18 @@ namespace MindWeaveServer.BusinessLogic
 
             await statsRepository.updatePlayerStatsAsync(matchStats);
 
-            await checkAchievementsAsync(matchStats);
-
             await statsRepository.saveChangesAsync();
         }
 
-        private async Task checkAchievementsAsync(PlayerMatchStatsDto stats)
+        public async Task<PlayerStats> GetPlayerStatsAsync(int playerId)
         {
-            var currentAchievements = await statsRepository.getPlayerAchievementIdsAsync(stats.PlayerId);
+            return await statsRepository.getPlayerStatsByIdAsync(playerId);
+        }
 
-            
-            if (stats.IsWin && !currentAchievements.Contains(ACHIEVEMENT_FIRST_WIN))
-            {
-                await statsRepository.unlockAchievementAsync(stats.PlayerId, ACHIEVEMENT_FIRST_WIN);
-            }
-
-            
-            if (stats.Score >= 1000 && !currentAchievements.Contains(ACHIEVEMENT_HIGH_SCORE))
-            {
-                await statsRepository.unlockAchievementAsync(stats.PlayerId, ACHIEVEMENT_HIGH_SCORE);
-            }
+    
+        public async Task<List<int>> UnlockAchievementsAsync(int playerId, List<int> achievementIds)
+        {
+            return await statsRepository.UnlockAchievementsAsync(playerId, achievementIds);
         }
     }
 }

@@ -134,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AppStart\Bootstrapper.cs" />
+    <Compile Include="BusinessLogic\AchievementEvaluator.cs" />
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ChatLogic.cs" />
     <Compile Include="BusinessLogic\GameSession.cs" />
@@ -150,6 +151,7 @@
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Chat\ChatMessageDto.cs" />
+    <Compile Include="Contracts\DataContracts\Game\AchievementContext.cs" />
     <Compile Include="Contracts\DataContracts\Game\MatchEndResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Game\PlayerResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestInvitationDto.cs" />

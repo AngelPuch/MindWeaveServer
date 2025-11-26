@@ -1,4 +1,5 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace MindWeaveServer.Contracts.DataContracts.Game
 {
@@ -22,5 +23,7 @@ namespace MindWeaveServer.Contracts.DataContracts.Game
 
         [DataMember]
         public bool IsWinner { get; set; }
+        [DataMember]
+        public List<int> UnlockedAchievementIds { get; set; } = new List<int>();
     }
 }
