@@ -107,7 +107,7 @@ namespace MindWeaveServer.BusinessLogic
                     {
                         try
                         {
-                            senderCallback.receiveSystemMessage($"WARNING {strikes}/3: Offensive language is not allowed.");
+                            senderCallback.receiveSystemMessage($"WARN_STRIKE:{strikes}");
                         }
                         catch (Exception ex)
                         {

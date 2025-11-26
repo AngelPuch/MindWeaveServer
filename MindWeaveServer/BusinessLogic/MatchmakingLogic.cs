@@ -1090,11 +1090,6 @@ namespace MindWeaveServer.BusinessLogic
                     return false;
                 }
 
-                if (hostUsername.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase))
-                {
-                    logger.Warn("Kick player failed: Host {Username} cannot kick themselves from lobby {LobbyId}.", hostUsername, lobbyState.LobbyId);
-                    return false;
-                }
 
                 bool removed = lobbyState.Players.RemoveAll(p => p.Equals(playerToKickUsername, StringComparison.OrdinalIgnoreCase)) > 0;
                 if (!removed)

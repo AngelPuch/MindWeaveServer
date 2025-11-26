@@ -15,20 +15,19 @@ namespace MindWeaveServer.Utilities
 
         private static readonly string[] rawDeniedWords = new string[]
         {
-            // English
+           
             "stupid","idiot","dumb","badword","hell",
             "fuck","fucking","fuckoff","shit","bullshit","crap","bastard","moron","jerk",
             "asshole","idiotic","dumbass","dipshit","sonofabitch","bitch","bitches",
             "bloody","piss","pissed","retard","retarded","loser","scumbag","trash",
 
-            // Spanish
             "groseria","estupido","idiota","basura","inutil","maldito",
             "pendejo","pendeja","cabron","cabrona","chingar","chingada","chingado",
             "chingadera","mierda","pinche","cagon","cagona","putazo","madrazo","carajo",
             "coño","jodido","jodida","joder","jodete","zorra","zorro","baboso","babosa",
             "tarado","tarada","tonto","tonta","bobo","boba","asqueroso","asquerosa",
             "imbecil","imbécil","malparido","malnacido","culero","culera","güey","wey",
-            "perra","perro", "putamadre"
+            "perra","perro", "putamadre", "puto", "puta", "putos", "putas", "verga", "pito", "retrasado", "retrasada"
         };
 
         private static readonly Dictionary<char, char> leetMap = new Dictionary<char, char>
@@ -44,8 +43,7 @@ namespace MindWeaveServer.Utilities
                 deniedWordsSet.Add(Normalize(word));
             }
             var escapedWords = deniedWordsSet.Select(Regex.Escape);
-            string pattern = @"\b(" + string.Join("|", escapedWords) + @")\b";
-
+            string pattern = @"\b(" + string.Join("|", escapedWords) + @")[a-z]*\b";
             profanityRegex = new Regex(
                 pattern,
                 RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
@@ -101,13 +99,15 @@ namespace MindWeaveServer.Utilities
 
         private static string NormalizeSymbols(string word)
         {
-            char[] removableSymbols = { '.', '_', '-', '*', '~', ',' };
-
+            char[] removableSymbols = { '.', '_', '-', '*', '~', ',', ';', ':', '|', '/', '\\', ' ' };
+           
             var sb = new StringBuilder(word.Length);
             foreach (char c in word)
             {
                 if (!removableSymbols.Contains(c))
+                {
                     sb.Append(c);
+                }
             }
             return sb.ToString();
         }
