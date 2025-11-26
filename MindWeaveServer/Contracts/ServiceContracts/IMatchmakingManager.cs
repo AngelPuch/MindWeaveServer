@@ -62,21 +62,14 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void updateLobbyState(LobbyStateDto lobbyStateDto);
 
-       
-
         [OperationContract(IsOneWay = true)]
         void matchFound(string lobbyCode, List<string> players, LobbySettingsDto settings, string puzzleImagePath);
-
-        
+                
         [OperationContract(IsOneWay = true)]
         void lobbyCreationFailed(string reason);
-
-       
-
+            
         [OperationContract(IsOneWay = true)]
         void kickedFromLobby(string reason);
-
-       
 
         [OperationContract(IsOneWay = true)]
         void onGameStarted(PuzzleDefinitionDto puzzleDefinition, int matchDurationSeconds);
@@ -87,12 +80,10 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract(IsOneWay = true)]
         void onPiecePlaced(int pieceId, double correctX, double correctY, string username, int newScore, string bonusType);
-
       
         [OperationContract(IsOneWay = true)]
         void onPieceMoved(int pieceId, double newX, double newY, string username);
 
-      
         [OperationContract(IsOneWay = true)]
         void onPieceDragReleased(int pieceId, string username);
 
@@ -102,6 +93,8 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void onPlayerPenalty(string username, int pointsLost, int newScore, string reason);
 
+        [OperationContract(IsOneWay = true)]
+        void lobbyDestroyed(string reason);
 
     }
 }

@@ -1,5 +1,5 @@
 ﻿using System.ServiceModel;
-using MindWeaveServer.Contracts.DataContracts.Chat; 
+using MindWeaveServer.Contracts.DataContracts.Chat;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
@@ -15,6 +15,8 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract(IsOneWay = true)]
         void sendLobbyMessage(string senderUsername, string lobbyId, string messageContent);
 
+
+
     }
 
     [ServiceContract]
@@ -22,5 +24,8 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     {
         [OperationContract(IsOneWay = true)]
         void receiveLobbyMessage(ChatMessageDto messageDto);
-        }
+
+        [OperationContract(IsOneWay = true)]
+        void receiveSystemMessage(string message);
+    }
 }

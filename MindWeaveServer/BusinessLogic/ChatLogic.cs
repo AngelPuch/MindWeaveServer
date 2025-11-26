@@ -1,11 +1,13 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.Utilities;
+using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.ServiceModel;
-using NLog;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -17,11 +19,17 @@ namespace MindWeaveServer.BusinessLogic
         private const int MAX_HISTORY_PER_LOBBY = 50;
         private const int MAX_MESSAGE_LENGTH = 200;
 
+        private readonly MatchmakingLogic matchmakingLogic;
+        private readonly LobbyModerationManager moderationManager;
 
-        public ChatLogic(IGameStateManager gameStateManager)
+        public ChatLogic(IGameStateManager gameStateManager, MatchmakingLogic matchmakingLogic,       // <--- INYECTADO
+            LobbyModerationManager moderationManager)
         {
             this.gameStateManager = gameStateManager;
+            this.matchmakingLogic = matchmakingLogic ?? throw new ArgumentNullException(nameof(matchmakingLogic));
+            this.moderationManager = moderationManager ?? throw new ArgumentNullException(nameof(moderationManager));
         }
+
 
         private ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers => gameStateManager.LobbyChatUsers;
         private ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory => gameStateManager.LobbyChatHistory;
@@ -68,13 +76,48 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        public void processAndBroadcastMessage(string senderUsername, string lobbyId, string messageContent)
+        public async Task processAndBroadcastMessageAsync(string senderUsername, string lobbyId, string messageContent)
         {
             logger.Info("processAndBroadcastMessage called by User: {Username} in Lobby: {LobbyId}", senderUsername ?? "NULL", lobbyId ?? "NULL");
 
             if (string.IsNullOrWhiteSpace(senderUsername)) throw new ArgumentNullException(nameof(senderUsername));
             if (string.IsNullOrWhiteSpace(lobbyId)) throw new ArgumentNullException(nameof(lobbyId));
             if (string.IsNullOrWhiteSpace(messageContent)) throw new ArgumentException("Message content cannot be empty.", nameof(messageContent));
+
+            if (ProfanityFilter.ContainsProfanity(messageContent))
+            {
+                logger.Warn("Profanity detected from {Username} in lobby {LobbyId}", senderUsername, lobbyId);
+
+                int strikes = moderationManager.AddStrike(lobbyId, senderUsername);
+
+                IChatCallback senderCallback = null;
+                if (lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
+                {
+                    usersInLobby.TryGetValue(senderUsername, out senderCallback);
+                }
+
+                if (strikes >= 3)
+                {
+                    logger.Info("User {Username} reached 3 strikes. Initiating expulsion.", senderUsername);
+                    await matchmakingLogic.ExpelPlayerAsync(lobbyId, senderUsername, "Profanity");
+                }
+                else
+                {
+                    if (senderCallback != null)
+                    {
+                        try
+                        {
+                            senderCallback.receiveSystemMessage($"WARNING {strikes}/3: Offensive language is not allowed.");
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.Warn(ex, "Failed to send system warning to {Username}", senderUsername);
+                        }
+                    }
+                }
+
+                return;
+            }
 
             if (messageContent.Length > MAX_MESSAGE_LENGTH)
             {
@@ -88,19 +131,20 @@ namespace MindWeaveServer.BusinessLogic
                 Timestamp = DateTime.UtcNow
             };
 
-            addMessageToHistory(lobbyId, messageDto);
+            addMessageToHistory(lobbyId, messageDto); 
             broadcastMessage(lobbyId, messageDto);
         }
 
         private void addMessageToHistory(string lobbyId, ChatMessageDto messageDto)
         {
-            var history = lobbyChatHistory.GetOrAdd(lobbyId, id => {
+            var history = lobbyChatHistory.GetOrAdd(lobbyId, id =>
+            {
                 logger.Debug("Creating new chat history list for lobby: {LobbyId}", id);
                 return new List<ChatMessageDto>();
             });
 
             int countAfterAdd;
-            lock (history) 
+            lock (history)
             {
                 history.Add(messageDto);
                 while (history.Count > MAX_HISTORY_PER_LOBBY)
@@ -118,11 +162,14 @@ namespace MindWeaveServer.BusinessLogic
 
             if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {
-                throw new KeyNotFoundException($"Lobby '{lobbyId}' not found for broadcast.");
+                logger.Warn($"Lobby '{lobbyId}' not found for broadcast.");
+                return;
             }
 
             var currentUsersSnapshot = usersInLobby.ToList();
+
             logger.Debug("Attempting to broadcast to {Count} users in lobby {LobbyId}", currentUsersSnapshot.Count, lobbyId);
+
             List<string> usersToRemove = sendMessagesToUsers(currentUsersSnapshot, messageDto, lobbyId);
 
             if (usersToRemove.Any())
@@ -229,17 +276,17 @@ namespace MindWeaveServer.BusinessLogic
                     if (commObject != null && commObject.State == CommunicationState.Opened)
                     {
                         recipientCallback.receiveLobbyMessage(messageDto);
-                        logger.Debug("  -> Sent chat message to {RecipientUsername} in lobby {LobbyId}", recipientUsername, lobbyId);
+                        // logger.Debug(" -> Sent chat message to {RecipientUsername} in lobby {LobbyId}", recipientUsername, lobbyId);
                     }
                     else
                     {
-                        logger.Warn("  -> FAILED sending chat message to {RecipientUsername} (Channel State: {State}). Marking for removal.", recipientUsername, commObject?.State);
+                        logger.Warn(" -> FAILED sending chat message to {RecipientUsername} (Channel State: {State}). Marking for removal.", recipientUsername, commObject?.State);
                         usersToRemove.Add(recipientUsername);
                     }
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex, "  -> EXCEPTION sending chat message to {RecipientUsername}. Marking for removal.", recipientUsername);
+                    logger.Error(ex, " -> EXCEPTION sending chat message to {RecipientUsername}. Marking for removal.", recipientUsername);
                     usersToRemove.Add(recipientUsername);
                 }
             }

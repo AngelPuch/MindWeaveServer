@@ -22,6 +22,7 @@ namespace MindWeaveServer.BusinessLogic
 {
     public class MatchmakingLogic
     {
+        private readonly LobbyModerationManager moderationManager;
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly IMatchmakingRepository matchmakingRepository;
@@ -48,7 +49,8 @@ namespace MindWeaveServer.BusinessLogic
             IGuestInvitationRepository guestInvitationRepository,
             IEmailService emailService,
             IPuzzleRepository puzzleRepository,
-            IGameStateManager gameStateManager)
+            IGameStateManager gameStateManager,
+            LobbyModerationManager moderationManager)
 
         {
             this.matchmakingRepository = matchmakingRepository;
@@ -60,6 +62,7 @@ namespace MindWeaveServer.BusinessLogic
 
 
             logger.Info("MatchmakingLogic instance created.");
+            this.moderationManager = moderationManager;
         }
 
         private ConcurrentDictionary<string, LobbyStateDto> activeLobbies => gameStateManager.ActiveLobbies;
@@ -94,7 +97,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyCodeGenerationFailed };
             }
             logger.Info("Match record created successfully (ID: {MatchId}, Code: {LobbyCode}) for host {Username}", newMatch.matches_id, newMatch.lobby_code, hostUsername);
-
+            moderationManager.InitializeLobby(newMatch.lobby_code);
             string puzzleImagePath = null;
             byte[] puzzleBytes = settings.CustomPuzzleImage;
             if (puzzleBytes == null || puzzleBytes.Length == 0)
@@ -157,6 +160,20 @@ namespace MindWeaveServer.BusinessLogic
         public async Task joinLobbyAsync(string username, string lobbyCode, IMatchmakingCallback callback)
         {
             logger.Info("joinLobbyAsync called for User: {Username}, Lobby: {LobbyCode}", username ?? "NULL", lobbyCode ?? "NULL");
+
+            if (moderationManager.IsBanned(lobbyCode, username))
+            {
+                
+                try
+                {
+                    callback.lobbyCreationFailed("You are banned from this lobby.");
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn(ex, "Failed to notify banned user {Username} via callback. They might be disconnected.", username);
+                }
+                return;
+            }
 
             registerCallback(username, callback);
 
@@ -1429,6 +1446,47 @@ namespace MindWeaveServer.BusinessLogic
         }
 
 
-       
+        public async Task ExpelPlayerAsync(string lobbyCode, string targetUsername, string reasonKey)
+        {
+            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
+            {
+                return;
+            }
+
+            if (targetUsername.Equals(lobbyState.HostUsername, StringComparison.OrdinalIgnoreCase))
+            {
+                lock (lobbyState)
+                {
+                    foreach (var player in lobbyState.Players)
+                    {
+                        sendCallbackToUser(player, cb => cb.lobbyDestroyed("Lobby closed: Host expelled for misconduct."));
+                    }
+                }
+
+                moderationManager.RemoveLobby(lobbyCode);
+
+                handleLobbyClosure(lobbyCode, true, new List<string>());
+                return;
+            }
+
+            moderationManager.BanUser(lobbyCode, targetUsername, reasonKey);
+
+            bool kicked = tryKickPlayerFromMemory(lobbyState, lobbyState.HostUsername, targetUsername);
+
+            if (kicked)
+            {
+                if (reasonKey == "Profanity")
+                {
+                    sendCallbackToUser(targetUsername, cb => cb.kickedFromLobby("You have been kicked for offensive language."));
+                }
+                else
+                {
+                    sendCallbackToUser(targetUsername, cb => cb.kickedFromLobby("You have been kicked by the host."));
+                }
+
+                notifyLobbyStateChanged(lobbyState);
+            }
+        }
+
     }
 }

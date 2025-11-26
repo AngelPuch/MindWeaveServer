@@ -140,6 +140,7 @@
     <Compile Include="BusinessLogic\GameSessionManager.cs" />
     <Compile Include="BusinessLogic\GameStateManager.cs" />
     <Compile Include="BusinessLogic\IGameStateManager.cs" />
+    <Compile Include="BusinessLogic\LobbyModerationManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
     <Compile Include="BusinessLogic\PuzzleGenerator.cs" />
@@ -282,6 +283,7 @@
     <Compile Include="Utilities\PasswordHasher.cs" />
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />
     <Compile Include="Utilities\PasswordService.cs" />
+    <Compile Include="Utilities\ProfainityFilter.cs" />
     <Compile Include="Utilities\SecureRandomGenerator.cs" />
     <Compile Include="Utilities\Validators\LoginDtoValidator.cs" />
     <Compile Include="Utilities\Validators\PasswordPolicyValidator.cs" />

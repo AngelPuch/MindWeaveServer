@@ -1,0 +1,117 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+
+namespace MindWeaveServer.Utilities
+{
+    public static class ProfanityFilter
+    {
+        private static readonly HashSet<string> deniedWordsSet;
+        private static readonly Regex profanityRegex;
+
+
+        private static readonly string[] rawDeniedWords = new string[]
+        {
+            // English
+            "stupid","idiot","dumb","badword","hell",
+            "fuck","fucking","fuckoff","shit","bullshit","crap","bastard","moron","jerk",
+            "asshole","idiotic","dumbass","dipshit","sonofabitch","bitch","bitches",
+            "bloody","piss","pissed","retard","retarded","loser","scumbag","trash",
+
+            // Spanish
+            "groseria","estupido","idiota","basura","inutil","maldito",
+            "pendejo","pendeja","cabron","cabrona","chingar","chingada","chingado",
+            "chingadera","mierda","pinche","cagon","cagona","putazo","madrazo","carajo",
+            "coño","jodido","jodida","joder","jodete","zorra","zorro","baboso","babosa",
+            "tarado","tarada","tonto","tonta","bobo","boba","asqueroso","asquerosa",
+            "imbecil","imbécil","malparido","malnacido","culero","culera","güey","wey",
+            "perra","perro", "putamadre"
+        };
+
+        private static readonly Dictionary<char, char> leetMap = new Dictionary<char, char>
+        {
+            {'4','a'}, {'@','a'}, {'3','e'}, {'1','i'}, {'!','i'}, {'0','o'}, {'5','s'}, {'$','s'}, {'7','t'}, {'+','t'}
+        };
+
+        static ProfanityFilter()
+        {
+            deniedWordsSet = new HashSet<string>();
+            foreach (var word in rawDeniedWords)
+            {
+                deniedWordsSet.Add(Normalize(word));
+            }
+            var escapedWords = deniedWordsSet.Select(Regex.Escape);
+            string pattern = @"\b(" + string.Join("|", escapedWords) + @")\b";
+
+            profanityRegex = new Regex(
+                pattern,
+                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
+            );
+        }
+
+        public static bool ContainsProfanity(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return false;
+            }
+
+            string normalized = Normalize(message);
+            string symbolCleaned = NormalizeSymbols(normalized); 
+            string leetCleaned = NormalizeLeet(normalized);
+
+            return profanityRegex.IsMatch(leetCleaned);
+
+        }
+
+        private static string Normalize(string input)
+        {
+            string formD = input.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder();
+
+            foreach (char ch in formD)
+            {
+                if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(ch);
+                }
+            }
+            return sb.ToString().Normalize(NormalizationForm.FormC);
+        }
+
+        private static string NormalizeLeet(string word)
+        {
+            var result = new StringBuilder(word.Length);
+            foreach (char c in word)
+            {
+                if (leetMap.TryGetValue(c, out char replacement))
+                {
+                    result.Append(replacement);
+                }
+                else
+                {
+                    result.Append(c);
+                }
+            }
+            return result.ToString();
+        }
+
+        private static string NormalizeSymbols(string word)
+        {
+            char[] removableSymbols = { '.', '_', '-', '*', '~', ',' };
+
+            var sb = new StringBuilder(word.Length);
+            foreach (char c in word)
+            {
+                if (!removableSymbols.Contains(c))
+                    sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
+    }
+
+}

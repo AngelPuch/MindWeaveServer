@@ -133,7 +133,8 @@ namespace MindWeaveServer.Services
 
             try
             {
-                chatLogic.processAndBroadcastMessage(senderUsername, lobbyId, messageContent);
+                Task.Run(async () => await chatLogic.processAndBroadcastMessageAsync(senderUsername, lobbyId, messageContent));
+            
                 logger.Debug("sendLobbyMessage processed for {Username} in lobby {LobbyId}", senderUsername, lobbyId);
             }
             catch (ArgumentException ex)
