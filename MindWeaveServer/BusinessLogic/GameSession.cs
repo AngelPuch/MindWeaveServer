@@ -1,16 +1,19 @@
 ﻿using Autofac.Features.OwnedInstances;
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Game;
+using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.Resources;
 using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Threading.Tasks;
 using System.Timers;
 
@@ -45,7 +48,7 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public string LobbyCode { get; }
-        public int PuzzleId { get; } 
+        public int PuzzleId { get; }
         public int MatchId { get; }
         public PuzzleDefinitionDto PuzzleDefinition { get; }
         public DateTime StartTime { get; }
@@ -55,7 +58,7 @@ namespace MindWeaveServer.BusinessLogic
 
         private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
         private readonly Func<Owned<StatsLogic>> statsLogicFactory;
-        private readonly Func<Owned<IPuzzleRepository>> puzzleFactory; 
+        private readonly Func<Owned<IPuzzleRepository>> puzzleFactory;
 
         private readonly Timer hoardingTimer;
         private Timer gameDurationTimer;
@@ -89,7 +92,7 @@ namespace MindWeaveServer.BusinessLogic
             PuzzleDefinitionDto puzzleDefinition,
             Func<Owned<IMatchmakingRepository>> matchmakingFactory,
             Func<Owned<StatsLogic>> statsLogicFactory,
-            Func<Owned<IPuzzleRepository>> puzzleFactory, 
+            Func<Owned<IPuzzleRepository>> puzzleFactory,
             Action<string> onSessionEndedCleanup)
         {
             LobbyCode = lobbyCode;
@@ -192,7 +195,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Debug("Player {Username} (ID: {PlayerId}) removed from GameSession {LobbyCode}", playerData.Username, playerId, LobbyCode);
                 releaseHeldPieces(playerId);
-                
+
                 // Opcional: Si un jugador se va antes de terminar, ¿guardamos su score parcial?
                 // Si quisieras guardarlo al salir, descomenta esto:
                 /*
@@ -365,7 +368,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        
+
 
         private bool checkIfDroppedOnWrongPiece(double x, double y, int currentPieceId)
         {
@@ -496,25 +499,7 @@ namespace MindWeaveServer.BusinessLogic
                    pieceDef.RightNeighborId == null;
         }
 
-        private async Task saveAllScoresToDatabase()
-        {
-            using (var scope = matchmakingFactory())
-            {
-                var repo = scope.Value;
 
-                foreach (var p in Players.Values)
-                {
-                    try
-                    {
-                        await repo.updatePlayerScoreAsync(MatchId, p.PlayerId, p.Score);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Failed to save final score for Player {PlayerId} in Match {MatchId}", p.PlayerId, MatchId);
-                    }
-                }
-            }
-        }
 
 
         public bool isPuzzleComplete()
@@ -524,148 +509,289 @@ namespace MindWeaveServer.BusinessLogic
 
         private async void endGame(string reason)
         {
-            lock (endGameLock)
-            {
-                if (isGameEnded) return;
-                isGameEnded = true;
-            }
+            if (!trySetGameEnded()) { return; }
 
+            stopTimers();
             logger.Info($"Ending Game for Lobby {LobbyCode}. Reason: {reason}");
 
+
+            var (minutesPlayed, totalSeconds) = calculateDuration();
+            var rankedPlayers = getRankedPlayers();
+
+            var clientResults = new List<PlayerResultDto>();
+
+            try
+            {
+                using (var matchScope = matchmakingFactory())
+                using (var puzzleScope = puzzleFactory())
+                using (var statsScope = statsLogicFactory())
+
+                {
+                    var matchRepo = matchScope.Value;
+                    var puzzleRepo = puzzleScope.Value;
+                    var statsService = statsScope.Value;
+                    var (matchEntity, puzzleEntity) = await fetchGameEntitiesAsync(matchRepo, puzzleRepo);
+
+                    var context = new EndGameProcessingContext
+                    {
+                        MatchRepo = matchRepo,
+                        StatsService = statsService,
+                        MatchEntity = matchEntity,
+                        PuzzleEntity = puzzleEntity,
+                        MatchId = this.MatchId,
+                        MinutesPlayed = minutesPlayed,
+                        TotalParticipants = rankedPlayers.Count
+                    };
+
+
+                    clientResults = await processAllPlayersAsync(rankedPlayers, context);
+
+                    await matchRepo.finishMatchAsync(MatchId);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Critical error during endGame execution for Lobby {0}", LobbyCode);
+            }
+
+            broadcastGameEnd(reason, totalSeconds, clientResults);
+            onSessionEndedCleanup?.Invoke(LobbyCode);
+        }
+
+        private bool trySetGameEnded()
+        {
+            lock (endGameLock)
+            {
+                if (isGameEnded) return false;
+                isGameEnded = true;
+                return true;
+            }
+        }
+
+        private void stopTimers()
+        {
             gameDurationTimer?.Stop();
             hoardingTimer?.Stop();
+        }
 
+        private (int minutes, double totalSeconds) calculateDuration()
+        {
             var duration = DateTime.UtcNow - StartTime;
-            int minutesPlayed = (int)duration.TotalMinutes;
-            if (minutesPlayed < 1) minutesPlayed = 1;
-            double totalSeconds = duration.TotalSeconds;
+            int minutes = (int)duration.TotalMinutes;
+            if (minutes < 1) minutes = 1;
 
-            var rankedPlayers = Players.Values
+            return (minutes, duration.TotalSeconds);
+        }
+
+        private List<PlayerSessionData> getRankedPlayers()
+        {
+            return Players.Values
                 .OrderByDescending(p => p.Score)
                 .ThenByDescending(p => p.PiecesPlaced)
                 .ToList();
+        }
 
-            var clientResults = new List<PlayerResultDto>();
-            int currentRank = 1;
-
-            // 1. Obtener Entidades para Logros (Match y Puzzle)
+        private async Task<(Matches match, Puzzles puzzle)> fetchGameEntitiesAsync (IMatchmakingRepository matchRepo, IPuzzleRepository puzzleRepo)
+        {
             Matches matchEntity = null;
             Puzzles puzzleEntity = null;
 
             try
             {
-                using (var matchScope = matchmakingFactory())
+                matchEntity = await matchRepo.getMatchByIdAsync(this.MatchId);
+                if (matchEntity != null)
                 {
-                    var matchRepo = matchScope.Value;
-                    matchEntity = await matchRepo.getMatchByIdAsync(this.MatchId);
+                    matchEntity.end_time = DateTime.UtcNow;
                 }
 
-                using (var puzzleScope = puzzleFactory())
-                {
-                    var puzzleRepo = puzzleScope.Value;
-                    puzzleEntity = await puzzleRepo.getPuzzleByIdAsync(this.PuzzleId);
-                }
+                puzzleEntity = await puzzleRepo.getPuzzleByIdAsync(this.PuzzleId);
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Could not fetch Match/Puzzle entities for achievement evaluation.");
+                logger.Error(ex, "Could not fetch Match/Puzzle entities.");
             }
 
-            // 2. Procesar Stats y Logros por Jugador
-            using (var statsScope = statsLogicFactory())
+            return (matchEntity, puzzleEntity);
+        }
+
+        private async Task<List<PlayerResultDto>> processAllPlayersAsync (List<PlayerSessionData> rankedPlayers, EndGameProcessingContext context)
+        {
+            var results = new List<PlayerResultDto>();
+            int currentRank = 1;
+
+            foreach (var player in rankedPlayers)
             {
-                var statsService = statsScope.Value;
+                // Parametros: 3 (Cumple <= 3)
+                var resultDto = await processSinglePlayerAsync(player, currentRank, context);
 
-                foreach (var player in rankedPlayers)
+                results.Add(resultDto);
+                currentRank++;
+            }
+
+            return results;
+        }
+
+        private async Task<PlayerResultDto> processSinglePlayerAsync(
+     PlayerSessionData player,
+     int rank,
+     EndGameProcessingContext context)
+        {
+            bool isWinner = (rank == 1);
+            List<int> unlockedIds = new List<int>();
+
+            if (player.PlayerId > 0)
+            {
+                try
                 {
-                    bool isWinner = (currentRank == 1);
-                    List<int> newUnlockedIds = new List<int>();
+                    unlockedIds = await handlePlayerStatsAndAchievementsAsync(player, rank, context);
 
-                    if (player.PlayerId > 0)
+                    // 2. GUARDADO EN BD (Usando el DTO que creamos antes)
+                    var updateDto = new MatchParticipantStatsUpdateDto
                     {
-                        var statsDto = new PlayerMatchStatsDto
-                        {
-                            PlayerId = player.PlayerId,
-                            Score = player.Score,
-                            Rank = currentRank,
-                            IsWin = isWinner,
-                            PlaytimeMinutes = minutesPlayed
-                        };
-
-                        try
-                        {
-                            // A. Foto del Histórico
-                            var historicalStats = await statsService.GetPlayerStatsAsync(player.PlayerId);
-
-                            // B. Guardar Stats de la Partida
-                            await statsService.processMatchResultsAsync(statsDto);
-
-                            // C. Evaluar Logros
-                            if (matchEntity != null && puzzleEntity != null && historicalStats != null)
-                            {
-                                var achievementContext = new AchievementContext
-                                {
-                                    PlayerStats = historicalStats,
-                                    CurrentMatchStats = new MatchParticipants
-                                    {
-                                        player_id = player.PlayerId,
-                                        score = player.Score,
-                                        final_rank = currentRank,
-                                        pieces_placed = player.PiecesPlaced
-                                    },
-                                    MatchInfo = matchEntity,
-                                    PuzzleInfo = puzzleEntity,
-                                    TotalParticipants = rankedPlayers.Count
-                                };
-
-                                var qualifiedAchievements = AchievementEvaluator.Evaluate(achievementContext);
-                                newUnlockedIds = await statsService.UnlockAchievementsAsync(player.PlayerId, qualifiedAchievements);
-
-                                if (newUnlockedIds.Any()) logger.Info($"User {player.Username} unlocked {newUnlockedIds.Count} achievements.");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.Error(ex, "Error processing stats/achievements for player {0}", player.Username);
-                        }
-                    }
-
-                    var playerResult = new PlayerResultDto
-                    {
+                        MatchId = context.MatchId,
                         PlayerId = player.PlayerId,
-                        Username = player.Username,
                         Score = player.Score,
                         PiecesPlaced = player.PiecesPlaced,
-                        Rank = currentRank,
-                        IsWinner = isWinner,
-                        UnlockedAchievementIds = newUnlockedIds // Lista para el popup cliente
+                        Rank = rank
                     };
-                    clientResults.Add(playerResult);
-                    currentRank++;
-                }
-            }
 
-            try
-            {
-                await saveAllScoresToDatabase();
-                using (var matchScope = matchmakingFactory())
+                    // Usamos el repo desde el contexto
+                    await context.MatchRepo.updateMatchParticipantStatsAsync(updateDto);
+                }
+                catch (Exception ex)
                 {
-                    var matchRepo = matchScope.Value;
-                    await matchRepo.finishMatchAsync(MatchId);
+                    logger.Error(ex, "Error processing/saving data for player {0}", player.Username);
                 }
             }
-            catch (Exception ex) { logger.Error(ex, "Error saving end game state to DB."); }
 
+            return new PlayerResultDto
+            {
+                PlayerId = player.PlayerId,
+                Username = player.Username,
+                Score = player.Score,
+                PiecesPlaced = player.PiecesPlaced,
+                Rank = rank,
+                IsWinner = isWinner,
+                UnlockedAchievementIds = unlockedIds
+            };
+        }
+
+        private async Task<List<int>> handlePlayerStatsAndAchievementsAsync(
+    PlayerSessionData player,
+    int rank,
+    EndGameProcessingContext context)
+        {
+            var newUnlockedIds = new List<int>();
+            bool isWinner = (rank == 1); // Calculamos esto aquí o lo pasamos, rank es suficiente
+
+            var statsDto = new PlayerMatchStatsDto
+            {
+                PlayerId = player.PlayerId,
+                Score = player.Score,
+                Rank = rank,
+                IsWin = isWinner,
+                PlaytimeMinutes = context.MinutesPlayed
+            };
+
+            // Usamos StatsService desde el contexto
+            var historicalStats = await context.StatsService.GetPlayerStatsAsync(player.PlayerId);
+
+            await context.StatsService.processMatchResultsAsync(statsDto);
+
+            // Usamos Entidades desde el contexto
+            if (context.MatchEntity != null && context.PuzzleEntity != null && historicalStats != null)
+            {
+                var achievementContext = new AchievementContext
+                {
+                    PlayerStats = historicalStats,
+                    CurrentMatchStats = new MatchParticipants
+                    {
+                        player_id = player.PlayerId,
+                        score = player.Score,
+                        final_rank = rank,
+                        pieces_placed = player.PiecesPlaced
+                    },
+                    MatchInfo = context.MatchEntity,
+                    PuzzleInfo = context.PuzzleEntity,
+                    TotalParticipants = context.TotalParticipants
+                };
+
+                var qualifiedAchievements = AchievementEvaluator.Evaluate(achievementContext);
+                newUnlockedIds = await context.StatsService.UnlockAchievementsAsync(player.PlayerId, qualifiedAchievements);
+
+                if (newUnlockedIds.Any())
+                    logger.Info($"User {player.Username} unlocked {newUnlockedIds.Count} achievements.");
+            }
+
+            return newUnlockedIds;
+        }
+
+        private void broadcastGameEnd(string reason, double totalSeconds, List<PlayerResultDto> results)
+        {
             var matchEndResult = new MatchEndResultDto
             {
                 MatchId = MatchId,
                 Reason = reason,
                 TotalTimeElapsedSeconds = totalSeconds,
-                PlayerResults = clientResults
+                PlayerResults = results
             };
 
             broadcast(callback => callback.onGameEnded(matchEndResult));
-            onSessionEndedCleanup?.Invoke(LobbyCode);
         }
+        public async Task kickPlayerAsync(int playerId, int reasonId, int hostPlayerId)
+        {
+         
+            if (Players.TryGetValue(playerId, out var playerSession))
+            {
+                try
+                {
+                    string kickMessage = (reasonId == 2)
+                        ? Lang.KickMessageProfanity
+                        : Lang.KickedByHost;
+
+                    playerSession.Callback.kickedFromLobby(kickMessage);
+                }
+                catch (Exception ex)
+                {
+                    logger.Warn("No se pudo notificar al jugador {0} de su expulsión: {1}", playerSession.Username, ex.Message);
+                }
+            }
+
+            try
+            {
+                using (var scope = matchmakingFactory())
+                {
+                    var repo = scope.Value;
+                    var expulsionDto = new ExpulsionDto
+                    {
+                        MatchId = this.MatchId,
+                        PlayerId = playerId,
+                        ReasonId = reasonId,
+                        HostPlayerId = hostPlayerId
+                    };
+
+                    await repo.registerExpulsionAsync(expulsionDto);
+                    logger.Info($"Expulsion recorded for Player {playerId} in Match {MatchId}. Reason: {reasonId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to register expulsion in DB for player {0}", playerId);
+            }
+            removePlayer(playerId);
+        }
+
     }
+    public class EndGameProcessingContext
+    {
+        public IMatchmakingRepository MatchRepo { get; set; }
+        public StatsLogic StatsService { get; set; }
+        public Matches MatchEntity { get; set; }
+        public Puzzles PuzzleEntity { get; set; }
+        public int MatchId { get; set; }
+        public int MinutesPlayed { get; set; }
+        public int TotalParticipants { get; set; }
+    }
+
+
 }

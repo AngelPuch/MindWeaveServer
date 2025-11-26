@@ -43,6 +43,9 @@ namespace MindWeaveServer.BusinessLogic
         private const int MAX_GUEST_USERNAME_LENGTH = 16;
         private const int MAX_GUEST_NAME_COUNTER = 99;
 
+        private const int ID_REASON_HOST_DECISION = 1;
+        private const int ID_REASON_PROFANITY = 2;
+
         public MatchmakingLogic(
             IMatchmakingRepository matchmakingRepository,
             IPlayerRepository playerRepository,
@@ -347,37 +350,83 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        public async Task kickPlayerAsync(string hostUsername, string playerToKickUsername, string lobbyCode)
+        public async Task kickPlayerAsync(string hostUsername, string targetUsername, string lobbyCode)
         {
-            logger.Info("kickPlayerAsync called by Host: {HostUsername}, Target: {TargetUsername}, Lobby: {LobbyCode}", hostUsername ?? "NULL", playerToKickUsername ?? "NULL", lobbyCode ?? "NULL");
+            logger.Info("kickPlayerAsync called by Host: {0}, Target: {1}, Lobby: {2}", hostUsername, targetUsername, lobbyCode);
 
             if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
             {
-                logger.Warn("Kick player failed: Lobby {LobbyCode} not found.", lobbyCode);
+                logger.Warn("Kick player failed: Lobby {0} not found.", lobbyCode);
                 return;
             }
+            var hostPlayer = await playerRepository.getPlayerByUsernameAsync(hostUsername);
+            if (hostPlayer == null) return;
 
-            bool isGuest = guestUsernamesInLobby.TryGetValue(lobbyCode, out var currentGuests) && currentGuests.Contains(playerToKickUsername);
-
-            if (isGuest)
+            lock (lobbyState)
             {
-                logger.Debug("[KickPlayer] Player '{TargetUsername}' is identified as a guest in lobby {LobbyCode}.", playerToKickUsername, lobbyCode);
+                if (!lobbyState.HostUsername.Equals(hostUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger.Warn("Kick player failed: User {0} is not the host.", hostUsername);
+                    return;
+                }
             }
 
+            var session = gameSessionManager.getSession(lobbyCode);
 
-            bool kickedFromMemory = tryKickPlayerFromMemory(lobbyState, hostUsername, playerToKickUsername);
-
-            if (kickedFromMemory)
+            if (session != null)
             {
-                logger.Info("Player {TargetUsername} successfully kicked from memory state of lobby {LobbyCode} by {HostUsername}.", playerToKickUsername, lobbyCode, hostUsername);
-                await handlePostKickCleanupAsync(isGuest, playerToKickUsername, lobbyCode);
-                notifyAllOnKick(lobbyState, playerToKickUsername);
+                try
+                {
+                    var player = await playerRepository.getPlayerByUsernameAsync(targetUsername);
+                    if (player != null)
+                    {
+                        await session.kickPlayerAsync(player.idPlayer, ID_REASON_HOST_DECISION, hostPlayer.idPlayer);
+
+                        tryKickPlayerFromMemory(lobbyState, hostUsername, targetUsername);
+                        notifyLobbyStateChanged(lobbyState);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error executing kick inside GameSession for {0}", targetUsername);
+                }
             }
             else
             {
-                logger.Warn("Kick player failed for {TargetUsername} in lobby {LobbyCode}. See previous logs for reason.", playerToKickUsername, lobbyCode);
+                try
+                {
+                    var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+                    var player = await playerRepository.getPlayerByUsernameAsync(targetUsername);
+
+                    if (match != null && player != null)
+                    {
+                        var expulsionDto = new ExpulsionDto
+                        {
+                            MatchId = match.matches_id,
+                            PlayerId = player.idPlayer,
+                            ReasonId = ID_REASON_HOST_DECISION,
+                            HostPlayerId = hostPlayer.idPlayer
+                        };
+                        await matchmakingRepository.registerExpulsionAsync(expulsionDto);
+                        logger.Info("Expulsion saved to DB for {0} in Lobby {1}", targetUsername, lobbyCode);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error saving lobby kick to DB");
+                }
+
+                sendCallbackToUser(targetUsername, cb => cb.kickedFromLobby(Lang.KickedByHost));
+
+                bool kicked = tryKickPlayerFromMemory(lobbyState, hostUsername, targetUsername);
+                if (kicked)
+                {
+                    notifyLobbyStateChanged(lobbyState);
+                }
             }
         }
+
+
 
         public Task inviteToLobbyAsync(string inviterUsername, string invitedUsername, string lobbyCode)
         {
@@ -942,7 +991,6 @@ namespace MindWeaveServer.BusinessLogic
                 matchmakingRepository.updateMatchStatus(match, MATCH_STATUS_IN_PROGRESS);
                 matchmakingRepository.updateMatchStartTime(match);
 
-                // 2. Guardar todos los cambios en la base de datos UNA SOLA VEZ
                 await matchmakingRepository.saveChangesAsync();
 
 
@@ -992,6 +1040,7 @@ namespace MindWeaveServer.BusinessLogic
                         removeCallback(username);
                         continue;
                     }
+
                 }
                 else
                 {
@@ -1018,7 +1067,6 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Error("No valid players found to start game session for lobby {LobbyCode}.", lobbyState.LobbyId);
                 matchmakingRepository.updateMatchStatus(startedMatch, MATCH_STATUS_CANCELED);
-                // 2. Guardar todos los cambios en la base de datos UNA SOLA VEZ
                 await matchmakingRepository.saveChangesAsync();
                 return;
             }
@@ -1441,45 +1489,63 @@ namespace MindWeaveServer.BusinessLogic
         }
 
 
-        public async Task ExpelPlayerAsync(string lobbyCode, string targetUsername, string reasonKey)
+        public async Task ExpelPlayerAsync(string lobbyCode, string username, string reasonText)
         {
-            if (!activeLobbies.TryGetValue(lobbyCode, out LobbyStateDto lobbyState))
+            logger.Info("ExpelPlayerAsync triggered for {0} in Lobby {1}. Reason: {2}", username, lobbyCode, reasonText);
+
+            int reasonId = (reasonText == "Profanity") ? ID_REASON_PROFANITY : ID_REASON_HOST_DECISION;
+            string kickMessage = (reasonId == ID_REASON_PROFANITY) ? Lang.KickMessageProfanity : Lang.KickedByHost;
+            int hostId = 0;
+
+            if (activeLobbies.TryGetValue(lobbyCode, out var state))
             {
-                return;
+                var hostP = await playerRepository.getPlayerByUsernameAsync(state.HostUsername);
+                if (hostP != null) hostId = hostP.idPlayer;
             }
 
-            if (targetUsername.Equals(lobbyState.HostUsername, StringComparison.OrdinalIgnoreCase))
+            if (hostId == 0)
             {
-                lock (lobbyState)
+                logger.Warn("Could not find host for lobby {0}, assigning expulsion to self/system.", lobbyCode);
+                
+            }
+
+            var session = gameSessionManager.getSession(lobbyCode);
+
+            if (session != null)
+            {
+                try
                 {
-                    foreach (var player in lobbyState.Players)
+                    var player = await playerRepository.getPlayerByUsernameAsync(username);
+                    if (player != null)
                     {
-                        sendCallbackToUser(player, cb => cb.lobbyDestroyed("Lobby closed: Host expelled for misconduct."));
+                        await session.kickPlayerAsync(player.idPlayer, reasonId, hostId);
                     }
                 }
-
-                moderationManager.RemoveLobby(lobbyCode);
-
-                handleLobbyClosure(lobbyCode, true, new List<string>());
-                return;
+                catch (Exception ex) { logger.Error(ex, "Error expelling form session"); }
             }
-
-            moderationManager.BanUser(lobbyCode, targetUsername, reasonKey);
-
-            bool kicked = tryKickPlayerFromMemory(lobbyState, lobbyState.HostUsername, targetUsername);
-
-            if (kicked)
+            else
             {
-                if (reasonKey == "Profanity")
+                
+                try
                 {
-                    sendCallbackToUser(targetUsername, cb => cb.kickedFromLobby("You have been kicked for offensive language."));
+                    var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+                    var player = await playerRepository.getPlayerByUsernameAsync(username);
+                    if (match != null && player != null)
+                    {
+                        var dto = new ExpulsionDto { MatchId = match.matches_id, PlayerId = player.idPlayer, ReasonId = reasonId, 
+                        HostPlayerId = hostId};
+                        await matchmakingRepository.registerExpulsionAsync(dto);
+                    }
                 }
-                else
-                {
-                    sendCallbackToUser(targetUsername, cb => cb.kickedFromLobby("You have been kicked by the host."));
-                }
+                catch (Exception ex) { logger.Error(ex, "Error saving lobby expulsion"); }
 
-                notifyLobbyStateChanged(lobbyState);
+                sendCallbackToUser(username, cb => cb.kickedFromLobby(kickMessage));
+
+                if (activeLobbies.TryGetValue(lobbyCode, out var lobbyState))
+                {
+                    lock (lobbyState) { lobbyState.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase)); }
+                    notifyLobbyStateChanged(lobbyState);
+                }
             }
         }
 

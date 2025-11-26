@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.DataAccess.Abstractions
 {
@@ -13,10 +14,12 @@ namespace MindWeaveServer.DataAccess.Abstractions
         void updateMatchStatus(Matches match, int newStatusId);
         void updateMatchStartTime(Matches match);
         void updateMatchDifficulty(Matches match, int newDifficultyId);
-        Task updatePlayerScoreAsync(int matchId, int playerId, int newScore);
+        Task updateMatchParticipantStatsAsync(MatchParticipantStatsUpdateDto updateData);
+        Task registerExpulsionAsync(ExpulsionDto expulsionData);
         Task finishMatchAsync(int matchId);
         int getMatchDuration(int matchId);
         Task<int> saveChangesAsync();
         Task<Matches> getMatchByIdAsync(int matchId);
     }
+
 }

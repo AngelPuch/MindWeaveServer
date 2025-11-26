@@ -154,10 +154,12 @@
     <Compile Include="Contracts\DataContracts\Game\AchievementContext.cs" />
     <Compile Include="Contracts\DataContracts\Game\MatchEndResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Game\PlayerResultDto.cs" />
+    <Compile Include="Contracts\DataContracts\Matchmaking\ExpulsionDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestInvitationDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestJoinRequestDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestJoinResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\LobbyCreationResultDto.cs" />
+    <Compile Include="Contracts\DataContracts\Matchmaking\MatchmakingParticipantsStatusUpdateDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\AvatarUpdateResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\GenderDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\UserProfileEditDto.cs" />

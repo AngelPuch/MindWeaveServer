@@ -1,12 +1,11 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Game;
-using MindWeaveServer.DataAccess; // Para las entidades DB
+using System;
 using System.Collections.Generic;
 
 namespace MindWeaveServer.BusinessLogic
 {
     public static class AchievementEvaluator
     {
-        // CONSTANTES (SCREAMING_SNAKE_CASE)
         public const int ID_NOVICE_WEAVER = 1;
         public const int ID_PUZZLE_MASTER = 2;
         public const int ID_PIECE_COLLECTOR = 3;
@@ -24,8 +23,14 @@ namespace MindWeaveServer.BusinessLogic
         {
             List<int> unlockedIds = new List<int>();
 
-            if (ctx.PlayerStats == null || ctx.CurrentMatchStats == null) return unlockedIds;
+            if (ctx.PlayerStats == null || ctx.CurrentMatchStats == null) { return unlockedIds; }
+            int historicalGames = ctx.PlayerStats.puzzles_completed ?? 0;
+            int historicalTime = ctx.PlayerStats.total_playtime_minutes ?? 0;
 
+            DateTime endTime = ctx.MatchInfo.end_time ?? DateTime.UtcNow;
+            DateTime startTime = ctx.MatchInfo.start_time ?? DateTime.UtcNow;
+            double currentMatchMinutes = (endTime - startTime).TotalMinutes;
+            if (currentMatchMinutes < 0) { currentMatchMinutes = 0;}
             if ((ctx.PlayerStats.puzzles_completed + 1) >= 10)
             {
                 unlockedIds.Add(ID_NOVICE_WEAVER);
@@ -40,7 +45,6 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             
-            double currentMatchMinutes = 0;
             if (ctx.MatchInfo.start_time.HasValue && ctx.MatchInfo.end_time.HasValue)
             {
                 currentMatchMinutes = (ctx.MatchInfo.end_time.Value - ctx.MatchInfo.start_time.Value).TotalMinutes;
@@ -80,6 +84,11 @@ namespace MindWeaveServer.BusinessLogic
             if (ctx.CurrentMatchStats.final_rank == ctx.TotalParticipants && ctx.TotalParticipants > 1)
             {
                 unlockedIds.Add(ID_PARTICIPATION_AWARD);
+            }
+
+            if (ctx.CurrentMatchStats.pieces_placed >= 1)
+            {
+                unlockedIds.Add(ID_JUST_BEGINNING);
             }
 
             return unlockedIds;

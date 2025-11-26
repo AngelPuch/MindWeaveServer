@@ -583,6 +583,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Has sido expulsado por lenguaje ofensivo (3 strikes)..
+        /// </summary>
+        public static string KickMessageProfanity {
+            get {
+                return ResourceManager.GetString("KickMessageProfanity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a Error al generar un código único para el lobby..
         /// </summary>
         public static string lobbyCodeGenerationFailed {

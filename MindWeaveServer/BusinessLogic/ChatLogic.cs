@@ -99,7 +99,7 @@ namespace MindWeaveServer.BusinessLogic
                 if (strikes >= 3)
                 {
                     logger.Info("User {Username} reached 3 strikes. Initiating expulsion.", senderUsername);
-                    await matchmakingLogic.ExpelPlayerAsync(lobbyId, senderUsername, "Profanity");
+                    _ = Task.Run(() => matchmakingLogic.ExpelPlayerAsync(lobbyId, senderUsername, "Profanity"));
                 }
                 else
                 {
@@ -276,7 +276,6 @@ namespace MindWeaveServer.BusinessLogic
                     if (commObject != null && commObject.State == CommunicationState.Opened)
                     {
                         recipientCallback.receiveLobbyMessage(messageDto);
-                        // logger.Debug(" -> Sent chat message to {RecipientUsername} in lobby {LobbyId}", recipientUsername, lobbyId);
                     }
                     else
                     {

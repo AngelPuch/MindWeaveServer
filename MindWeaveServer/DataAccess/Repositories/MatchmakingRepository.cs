@@ -1,4 +1,5 @@
-﻿using MindWeaveServer.DataAccess.Abstractions;
+﻿using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.DataAccess.Abstractions;
 using System;
 using System.Data.Entity;
 using System.Linq;
@@ -77,16 +78,20 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
         }
 
-        public async Task updatePlayerScoreAsync(int matchId, int playerId, int newScore)
+
+        public async Task updateMatchParticipantStatsAsync(MatchParticipantStatsUpdateDto updateData)
         {
             using (var freshContext = new MindWeaveDBEntities1())
             {
                 var participant = await freshContext.MatchParticipants
-                    .FirstOrDefaultAsync(mp => mp.match_id == matchId && mp.player_id == playerId);
+                    .FirstOrDefaultAsync(mp => mp.match_id == updateData.MatchId && mp.player_id == updateData.PlayerId);
 
                 if (participant != null)
                 {
-                    participant.score = newScore;
+                    participant.score = updateData.Score;
+                    participant.pieces_placed = updateData.PiecesPlaced;
+                    participant.final_rank = updateData.Rank;
+
                     await freshContext.SaveChangesAsync();
                 }
             }
@@ -134,5 +139,23 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .Include(m => m.DifficultyLevels)
                 .FirstOrDefaultAsync(m => m.matches_id == matchId);
         }
+
+        public async Task registerExpulsionAsync(ExpulsionDto expulsionData)
+        {
+            if (expulsionData == null) throw new ArgumentNullException(nameof(expulsionData));
+
+            var expulsionEntity = new MatchExpulsions
+            {
+                match_id = expulsionData.MatchId,
+                expelled_player_id = expulsionData.PlayerId,
+                reason_id = expulsionData.ReasonId,
+                host_player_id = expulsionData.HostPlayerId,
+                expulsion_time = DateTime.UtcNow 
+            };
+
+            context.MatchExpulsions.Add(expulsionEntity);
+            await saveChangesAsync();
+        }
+
     }
 }

@@ -291,6 +291,9 @@
   <data name="KickedByHost" xml:space="preserve">
     <value>Kicked by host.</value>
   </data>
+  <data name="KickMessageProfanity" xml:space="preserve">
+    <value>You have been kicked for offensive language (3 strikes).</value>
+  </data>
   <data name="lobbyCodeGenerationFailed" xml:space="preserve">
     <value>Failed to generate unique lobby code.</value>
   </data>
