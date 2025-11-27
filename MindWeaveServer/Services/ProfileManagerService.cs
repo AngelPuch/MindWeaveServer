@@ -1,16 +1,19 @@
-﻿using MindWeaveServer.AppStart;
+﻿using Autofac;
+using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.DataAccess;
 using MindWeaveServer.Resources;
 using NLog;
 using System;
+using System.Collections.Generic;
 using System.Data.Entity.Core;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using Autofac;
+using System.Linq;
 
 namespace MindWeaveServer.Services
 {
@@ -226,6 +229,46 @@ namespace MindWeaveServer.Services
                 logger.Fatal(ex, "Profile Critical: Unhandled exception changing password for {Username}", userForContext);
                 throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
             }
-        }     
+        }
+
+        public List<AchievementDto> GetPlayerAchievements(int playerId)
+        {
+            using (var context = new MindWeaveDBEntities1())
+            {
+                var allAchievements = context.Achievements.ToList();
+
+                
+                var player = context.Player
+                                    .Include("Achievements") 
+                                    .FirstOrDefault(p => p.idPlayer == playerId);
+
+                var userAchievementIds = new List<int>();
+
+                if (player != null && player.Achievements != null)
+                {
+                    userAchievementIds = player.Achievements
+                                               .Select(a => a.achievements_id)
+                                               .ToList();
+                }
+
+                var achievementDtos = new List<AchievementDto>();
+
+                foreach (var achievement in allAchievements)
+                {
+                    var dto = new AchievementDto
+                    {
+                        Id = achievement.achievements_id,
+                        Name = achievement.name,
+                        Description = achievement.description,
+                        IconPath = achievement.icon_path,
+                        IsUnlocked = userAchievementIds.Contains(achievement.achievements_id)
+                    };
+
+                    achievementDtos.Add(dto);
+                }
+
+                return achievementDtos;
+            }
+        }
     }
 }

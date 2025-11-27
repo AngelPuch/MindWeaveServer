@@ -1,9 +1,9 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Profile;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
-
+using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Contracts.ServiceContracts
 {
@@ -29,5 +29,8 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         [OperationContract]
         [FaultContract(typeof(ServiceFaultDto))]
         Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword);
+
+        [OperationContract]
+        List<AchievementDto> GetPlayerAchievements(int playerId);
     }
 }

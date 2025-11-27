@@ -13,5 +13,10 @@ namespace MindWeaveServer.Contracts.DataContracts.Stats
 
         [DataMember]
         public string IconPath { get; set; }
+
+        [DataMember]
+        public bool IsUnlocked { get; set; }
+        [DataMember] 
+        public int Id { get; set; }
     }
 }
