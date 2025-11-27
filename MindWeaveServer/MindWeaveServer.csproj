@@ -288,6 +288,7 @@
     <Compile Include="Utilities\Email\SmtpEmailService.cs" />
     <Compile Include="Utilities\PasswordService.cs" />
     <Compile Include="Utilities\ProfainityFilter.cs" />
+    <Compile Include="Utilities\SecureConnection.cs" />
     <Compile Include="Utilities\SecureRandomGenerator.cs" />
     <Compile Include="Utilities\Validators\LoginDtoValidator.cs" />
     <Compile Include="Utilities\Validators\PasswordPolicyValidator.cs" />

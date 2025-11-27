@@ -23,13 +23,11 @@ namespace MindWeaveServer.Utilities.Email
             logger.Info("SmtpEmailService (MailKit) instance created.");
             try
             {
-                host = ConfigurationManager.AppSettings["SmtpHost"];
-                port = Convert.ToInt32(ConfigurationManager.AppSettings["SmtpPort"]);
-                user = ConfigurationManager.AppSettings["SmtpUser"];
-                pass = ConfigurationManager.AppSettings["SmtpPass"];
-                senderName = ConfigurationManager.AppSettings["SenderName"];
-
-                logger.Debug("SMTP (MailKit) Configuration loaded: Host={SmtpHost}, Port={SmtpPort}, User={SmtpUser}, SenderName={SenderName}", host, port, user, senderName); 
+                host = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_HOST");
+                port = Convert.ToInt32(Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PORT"));
+                user = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_USER");
+                pass = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PASS");
+                senderName = "Mind Weave Team";
 
                 if (string.IsNullOrWhiteSpace(host) || port <= 0 || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass) || string.IsNullOrWhiteSpace(senderName))
                 {
@@ -74,15 +72,10 @@ namespace MindWeaveServer.Utilities.Email
 
                 using (var client = new SmtpClient())
                 {
-                    logger.Debug("Connecting to SMTP server: {SmtpHost}:{SmtpPort} using StartTls...", host, port);
-                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls);
-                    logger.Debug("Connected. Authenticating with user: {SmtpUser}...", user);
+                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls); 
                     await client.AuthenticateAsync(user, pass);
-                    logger.Debug("Authenticated. Sending message to {RecipientEmail}...", recipientEmail);
                     await client.SendAsync(message);
-                    logger.Info("Email sent successfully via MailKit to {RecipientEmail}", recipientEmail);
                     await client.DisconnectAsync(true);
-                    logger.Debug("Disconnected from SMTP server.");
                 }
             }
             catch (AuthenticationException authEx)
