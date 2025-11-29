@@ -134,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AppStart\Bootstrapper.cs" />
+    <Compile Include="BusinessLogic\Abstractions\IPlayerExpulsionService.cs" />
     <Compile Include="BusinessLogic\AchievementEvaluator.cs" />
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ChatLogic.cs" />
@@ -143,6 +144,7 @@
     <Compile Include="BusinessLogic\IGameStateManager.cs" />
     <Compile Include="BusinessLogic\LobbyModerationManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
+    <Compile Include="BusinessLogic\PlayerExpulsionService.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
     <Compile Include="BusinessLogic\PuzzleGenerator.cs" />
     <Compile Include="BusinessLogic\PuzzleLogic.cs" />

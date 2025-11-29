@@ -1,4 +1,5 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Chat;
+﻿using MindWeaveServer.BusinessLogic.Abstractions;
+using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.Utilities;
 using NLog;
@@ -14,33 +15,41 @@ namespace MindWeaveServer.BusinessLogic
     public class ChatLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
         private readonly IGameStateManager gameStateManager;
+        private readonly IPlayerExpulsionService expulsionService;
+        private readonly LobbyModerationManager moderationManager;
 
         private const int MAX_HISTORY_PER_LOBBY = 50;
         private const int MAX_MESSAGE_LENGTH = 200;
+        private const int MAX_STRIKES_BEFORE_EXPULSION = 3;
+        private const string STRIKE_WARNING_PREFIX = "WARN_STRIKE:";
+        private const string EXPULSION_REASON_PROFANITY = "Profanity";
 
-        private readonly MatchmakingLogic matchmakingLogic;
-        private readonly LobbyModerationManager moderationManager;
-
-        public ChatLogic(IGameStateManager gameStateManager, MatchmakingLogic matchmakingLogic,       // <--- INYECTADO
+        public ChatLogic(
+            IGameStateManager gameStateManager,
+            IPlayerExpulsionService expulsionService,
             LobbyModerationManager moderationManager)
         {
-            this.gameStateManager = gameStateManager;
-            this.matchmakingLogic = matchmakingLogic ?? throw new ArgumentNullException(nameof(matchmakingLogic));
-            this.moderationManager = moderationManager ?? throw new ArgumentNullException(nameof(moderationManager));
+            this.gameStateManager = gameStateManager
+                ?? throw new ArgumentNullException(nameof(gameStateManager));
+            this.expulsionService = expulsionService
+                ?? throw new ArgumentNullException(nameof(expulsionService));
+            this.moderationManager = moderationManager
+                ?? throw new ArgumentNullException(nameof(moderationManager));
         }
 
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers
+            => gameStateManager.LobbyChatUsers;
 
-        private ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers => gameStateManager.LobbyChatUsers;
-        private ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory => gameStateManager.LobbyChatHistory;
+        private ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory
+            => gameStateManager.LobbyChatHistory;
 
         public void joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
         {
-            logger.Info("joinLobbyChat logic called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+            validateJoinParameters(username, lobbyId, userCallback);
 
-            if (string.IsNullOrWhiteSpace(username)) throw new ArgumentNullException(nameof(username));
-            if (string.IsNullOrWhiteSpace(lobbyId)) throw new ArgumentNullException(nameof(lobbyId));
-            if (userCallback == null) throw new ArgumentNullException(nameof(userCallback));
+            logger.Info("User joining chat for lobby {LobbyId}", lobbyId);
 
             registerUserCallback(username, lobbyId, userCallback);
             sendLobbyHistoryToUser(username, lobbyId, userCallback);
@@ -48,266 +57,368 @@ namespace MindWeaveServer.BusinessLogic
 
         public void leaveLobbyChat(string username, string lobbyId)
         {
-            logger.Info("LeaveLobbyChat called for User: {Username}, Lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
-
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(lobbyId))
             {
-                logger.Warn("LeaveLobbyChat ignored: Username or LobbyId is null/whitespace.");
+                logger.Warn("leaveLobbyChat ignored: Username or LobbyId is null/whitespace.");
                 return;
             }
 
-            if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
-            {
-                throw new KeyNotFoundException($"Lobby '{lobbyId}' not found during leave attempt.");
+            logger.Info("User leaving chat for lobby {LobbyId}", lobbyId);
 
-            }
-
-            if (!usersInLobby.TryRemove(username, out _))
+            if (!tryRemoveUserFromLobby(username, lobbyId, out bool lobbyIsEmpty))
             {
-                logger.Warn("[ChatLogic LEAVE] User '{Username}' was not found in lobby '{LobbyId}' during leave attempt.", username, lobbyId);
                 return;
             }
 
-            logger.Info("User {Username} successfully removed from chat lobby {LobbyId}", username, lobbyId);
-
-            if (usersInLobby.IsEmpty)
+            if (lobbyIsEmpty)
             {
                 cleanUpEmptyLobby(lobbyId);
             }
         }
 
-        public async Task processAndBroadcastMessageAsync(string senderUsername, string lobbyId, string messageContent)
+        public async Task processAndBroadcastMessageAsync(
+            string senderUsername,
+            string lobbyId,
+            string messageContent)
         {
-            logger.Info("processAndBroadcastMessage called by User: {Username} in Lobby: {LobbyId}", senderUsername ?? "NULL", lobbyId ?? "NULL");
+            validateMessageParameters(senderUsername, lobbyId, messageContent);
 
-            if (string.IsNullOrWhiteSpace(senderUsername)) throw new ArgumentNullException(nameof(senderUsername));
-            if (string.IsNullOrWhiteSpace(lobbyId)) throw new ArgumentNullException(nameof(lobbyId));
-            if (string.IsNullOrWhiteSpace(messageContent)) throw new ArgumentException("Message content cannot be empty.", nameof(messageContent));
+            logger.Debug("Processing message in lobby {LobbyId}", lobbyId);
 
-            if (ProfanityFilter.ContainsProfanity(messageContent))
+            if (await handleProfanityCheckAsync(senderUsername, lobbyId, messageContent))
             {
-                logger.Warn("Profanity detected from {Username} in lobby {LobbyId}", senderUsername, lobbyId);
-
-                int strikes = moderationManager.AddStrike(lobbyId, senderUsername);
-
-                IChatCallback senderCallback = null;
-                if (lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
-                {
-                    usersInLobby.TryGetValue(senderUsername, out senderCallback);
-                }
-
-                if (strikes >= 3)
-                {
-                    logger.Info("User {Username} reached 3 strikes. Initiating expulsion.", senderUsername);
-                    _ = Task.Run(() => matchmakingLogic.ExpelPlayerAsync(lobbyId, senderUsername, "Profanity"));
-                }
-                else
-                {
-                    if (senderCallback != null)
-                    {
-                        try
-                        {
-                            senderCallback.receiveSystemMessage($"WARN_STRIKE:{strikes}");
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.Warn(ex, "Failed to send system warning to {Username}", senderUsername);
-                        }
-                    }
-                }
-
                 return;
             }
 
-            if (messageContent.Length > MAX_MESSAGE_LENGTH)
+            string sanitizedContent = sanitizeMessageContent(messageContent);
+            var messageDto = createMessageDto(senderUsername, sanitizedContent);
+
+            addMessageToHistory(lobbyId, messageDto);
+            broadcastMessage(lobbyId, messageDto);
+        }
+
+        private void validateJoinParameters(string username, string lobbyId, IChatCallback userCallback)
+        {
+            if (string.IsNullOrWhiteSpace(username))
             {
-                messageContent = messageContent.Substring(0, MAX_MESSAGE_LENGTH) + "...";
+                throw new ArgumentNullException(nameof(username));
             }
 
-            var messageDto = new ChatMessageDto
+            if (string.IsNullOrWhiteSpace(lobbyId))
+            {
+                throw new ArgumentNullException(nameof(lobbyId));
+            }
+
+            if (userCallback == null)
+            {
+                throw new ArgumentNullException(nameof(userCallback));
+            }
+        }
+
+        private void validateMessageParameters(string senderUsername, string lobbyId, string messageContent)
+        {
+            if (string.IsNullOrWhiteSpace(senderUsername))
+            {
+                throw new ArgumentNullException(nameof(senderUsername));
+            }
+
+            if (string.IsNullOrWhiteSpace(lobbyId))
+            {
+                throw new ArgumentNullException(nameof(lobbyId));
+            }
+
+            if (string.IsNullOrWhiteSpace(messageContent))
+            {
+                throw new ArgumentException("Message content cannot be empty.", nameof(messageContent));
+            }
+        }
+
+        private async Task<bool> handleProfanityCheckAsync(
+            string senderUsername,
+            string lobbyId,
+            string messageContent)
+        {
+            if (!ProfanityFilter.ContainsProfanity(messageContent))
+            {
+                return false;
+            }
+
+            logger.Warn("Profanity detected in lobby {LobbyId}", lobbyId);
+
+            int strikes = moderationManager.AddStrike(lobbyId, senderUsername);
+
+            if (strikes >= MAX_STRIKES_BEFORE_EXPULSION)
+            {
+                logger.Info("User reached {MaxStrikes} strikes in lobby {LobbyId}. Initiating expulsion.",
+                    MAX_STRIKES_BEFORE_EXPULSION, lobbyId);
+
+                await expulsionService.expelPlayerAsync(lobbyId, senderUsername, EXPULSION_REASON_PROFANITY);
+            }
+            else
+            {
+                sendStrikeWarningToUser(senderUsername, lobbyId, strikes);
+            }
+
+            return true;
+        }
+
+        private void sendStrikeWarningToUser(string username, string lobbyId, int strikes)
+        {
+            IChatCallback senderCallback = findUserCallback(username, lobbyId);
+
+            if (senderCallback == null)
+            {
+                return;
+            }
+
+            try
+            {
+                senderCallback.receiveSystemMessage($"{STRIKE_WARNING_PREFIX}{strikes}");
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Failed to send strike warning in lobby {LobbyId}", lobbyId);
+            }
+        }
+
+        private IChatCallback findUserCallback(string username, string lobbyId)
+        {
+            if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
+            {
+                return null;
+            }
+
+            usersInLobby.TryGetValue(username, out IChatCallback callback);
+            return callback;
+        }
+
+        private string sanitizeMessageContent(string messageContent)
+        {
+            if (messageContent.Length <= MAX_MESSAGE_LENGTH)
+            {
+                return messageContent;
+            }
+
+            return messageContent.Substring(0, MAX_MESSAGE_LENGTH) + "...";
+        }
+
+        private ChatMessageDto createMessageDto(string senderUsername, string content)
+        {
+            return new ChatMessageDto
             {
                 SenderUsername = senderUsername,
-                Content = messageContent,
+                Content = content,
                 Timestamp = DateTime.UtcNow
             };
-
-            addMessageToHistory(lobbyId, messageDto); 
-            broadcastMessage(lobbyId, messageDto);
         }
 
         private void addMessageToHistory(string lobbyId, ChatMessageDto messageDto)
         {
-            var history = lobbyChatHistory.GetOrAdd(lobbyId, id =>
-            {
-                logger.Debug("Creating new chat history list for lobby: {LobbyId}", id);
-                return new List<ChatMessageDto>();
-            });
+            var history = lobbyChatHistory.GetOrAdd(lobbyId, _ => new List<ChatMessageDto>());
 
-            int countAfterAdd;
             lock (history)
             {
                 history.Add(messageDto);
+
                 while (history.Count > MAX_HISTORY_PER_LOBBY)
                 {
                     history.RemoveAt(0);
                 }
-                countAfterAdd = history.Count;
             }
-            logger.Debug("[ChatLogic HISTORY] Message from {SenderUsername} added to history for lobby '{LobbyId}'. New Count: {HistoryCount}", messageDto.SenderUsername, lobbyId, countAfterAdd);
+
+            logger.Debug("Message added to history for lobby {LobbyId}. Count: {Count}",
+                lobbyId, history.Count);
         }
 
         private void broadcastMessage(string lobbyId, ChatMessageDto messageDto)
         {
-            logger.Debug("Broadcasting message from {SenderUsername} to lobby {LobbyId}", messageDto.SenderUsername, lobbyId);
-
             if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
             {
-                logger.Warn($"Lobby '{lobbyId}' not found for broadcast.");
+                logger.Warn("Lobby {LobbyId} not found for broadcast.", lobbyId);
                 return;
             }
 
-            var currentUsersSnapshot = usersInLobby.ToList();
+            var usersSnapshot = usersInLobby.ToList();
+            var failedUsers = sendMessageToUsers(usersSnapshot, messageDto, lobbyId);
 
-            logger.Debug("Attempting to broadcast to {Count} users in lobby {LobbyId}", currentUsersSnapshot.Count, lobbyId);
-
-            List<string> usersToRemove = sendMessagesToUsers(currentUsersSnapshot, messageDto, lobbyId);
-
-            if (usersToRemove.Any())
+            if (failedUsers.Any())
             {
-                handleFailedBroadcastUsers(usersToRemove, usersInLobby, lobbyId);
+                removeFailedUsers(failedUsers, usersInLobby, lobbyId);
             }
         }
 
         private void registerUserCallback(string username, string lobbyId, IChatCallback userCallback)
         {
-            var usersInLobby = lobbyChatUsers.GetOrAdd(lobbyId, id =>
+            var usersInLobby = lobbyChatUsers.GetOrAdd(lobbyId, _ =>
+                new ConcurrentDictionary<string, IChatCallback>(StringComparer.OrdinalIgnoreCase));
+
+            usersInLobby.AddOrUpdate(
+                username,
+                userCallback,
+                (key, existingCallback) => selectBestCallback(lobbyId, existingCallback, userCallback));
+
+            logger.Info("User registered in chat lobby {LobbyId}", lobbyId);
+        }
+
+        private IChatCallback selectBestCallback(
+            string lobbyId,
+            IChatCallback existing,
+            IChatCallback incoming)
+        {
+            if (existing == incoming)
             {
-                logger.Debug("Creating new user list for lobby: {LobbyId}", id);
-                return new ConcurrentDictionary<string, IChatCallback>(StringComparer.OrdinalIgnoreCase);
-            });
+                return existing;
+            }
 
-            usersInLobby.AddOrUpdate(username, userCallback, (key, existingVal) =>
+            var existingComm = existing as ICommunicationObject;
+            bool existingIsOpen = existingComm?.State == CommunicationState.Opened;
+
+            if (!existingIsOpen)
             {
-                var existingComm = existingVal as ICommunicationObject;
+                logger.Warn("Replacing closed callback in lobby {LobbyId}", lobbyId);
+                return incoming;
+            }
 
-                if (existingVal != userCallback && (existingComm == null || existingComm.State != CommunicationState.Opened))
-                {
-                    logger.Warn("Replacing existing non-opened chat callback for User: {Username} in Lobby: {LobbyId}", key, lobbyId);
-                    return userCallback;
-                }
-
-                return existingVal;
-            });
-
-            logger.Info("User {Username} added/updated in chat lobby {LobbyId}", username, lobbyId);
+            return existing;
         }
 
         private void sendLobbyHistoryToUser(string username, string lobbyId, IChatCallback userCallback)
         {
-            if (lobbyChatHistory.TryGetValue(lobbyId, out var history))
+            if (!lobbyChatHistory.TryGetValue(lobbyId, out var history))
             {
-                List<ChatMessageDto> historySnapshot;
-                lock (history)
-                {
-                    historySnapshot = history.ToList();
-                }
-
-                logger.Debug("Sending {Count} historical messages to User: {Username} for Lobby: {LobbyId}", historySnapshot.Count, username, lobbyId);
-
-                foreach (var msg in historySnapshot)
-                {
-                    try
-                    {
-                        var commObject = userCallback as ICommunicationObject;
-                        if (commObject != null && commObject.State == CommunicationState.Opened)
-                        {
-                            userCallback.receiveLobbyMessage(msg);
-                        }
-                        else
-                        {
-                            logger.Warn("[ChatLogic JOIN] Callback channel for {Username} not open while sending history. Aborting history send. State: {State}", username, commObject?.State);
-                            break;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "[ChatLogic JOIN] Exception sending history message to {Username} for Lobby: {LobbyId}. Continuing...", username, lobbyId);
-                    }
-                }
-                logger.Debug("Finished sending history to User: {Username}", username);
+                logger.Debug("No chat history for lobby {LobbyId}", lobbyId);
+                return;
             }
-            else
+
+            List<ChatMessageDto> historySnapshot;
+            lock (history)
             {
-                logger.Debug("No chat history found for Lobby: {LobbyId} to send to User: {Username}", lobbyId, username);
+                historySnapshot = history.ToList();
             }
+
+            logger.Debug("Sending {Count} historical messages for lobby {LobbyId}", historySnapshot.Count, lobbyId);
+
+            foreach (var message in historySnapshot)
+            {
+                if (!trySendHistoryMessage(userCallback, message, lobbyId))
+                {
+                    break;
+                }
+            }
+        }
+
+        private bool trySendHistoryMessage(IChatCallback callback, ChatMessageDto message, string lobbyId)
+        {
+            var commObject = callback as ICommunicationObject;
+
+            if (commObject?.State != CommunicationState.Opened)
+            {
+                logger.Warn("Callback not open for lobby {LobbyId}. Aborting history send.", lobbyId);
+                return false;
+            }
+
+            try
+            {
+                callback.receiveLobbyMessage(message);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error sending history for lobby {LobbyId}", lobbyId);
+                return true;
+            }
+        }
+
+        private bool tryRemoveUserFromLobby(string username, string lobbyId, out bool lobbyIsEmpty)
+        {
+            lobbyIsEmpty = false;
+
+            if (!lobbyChatUsers.TryGetValue(lobbyId, out var usersInLobby))
+            {
+                logger.Warn("Lobby {LobbyId} not found during leave attempt.", lobbyId);
+                return false;
+            }
+
+            if (!usersInLobby.TryRemove(username, out _))
+            {
+                logger.Warn("User was not found in lobby {LobbyId}", lobbyId);
+                return false;
+            }
+
+            logger.Info("User removed from chat lobby {LobbyId}", lobbyId);
+            lobbyIsEmpty = usersInLobby.IsEmpty;
+
+            return true;
         }
 
         private void cleanUpEmptyLobby(string lobbyId)
         {
-            logger.Info("Chat lobby {LobbyId} is now empty. Removing user list and history.", lobbyId);
+            logger.Info("Chat lobby {LobbyId} is empty. Cleaning up resources.", lobbyId);
 
-            if (!lobbyChatUsers.TryRemove(lobbyId, out _))
-            {
-                logger.Warn("Could not remove user list for empty lobby {LobbyId} (might have been removed already).", lobbyId);
-            }
-
-            if (lobbyChatHistory.TryRemove(lobbyId, out _))
-            {
-                logger.Debug("Successfully removed history for empty lobby {LobbyId}", lobbyId);
-            }
-            else
-            {
-                logger.Warn("Could not remove history for empty lobby {LobbyId} (might have been removed already).", lobbyId);
-            }
+            lobbyChatUsers.TryRemove(lobbyId, out _);
+            lobbyChatHistory.TryRemove(lobbyId, out _);
         }
 
-        private static List<string> sendMessagesToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto, string lobbyId)
+        private List<string> sendMessageToUsers(
+            List<KeyValuePair<string, IChatCallback>> usersSnapshot,
+            ChatMessageDto messageDto,
+            string lobbyId)
         {
-            var usersToRemove = new List<string>();
+            var failedUsers = new List<string>();
 
             foreach (var userEntry in usersSnapshot)
             {
-                string recipientUsername = userEntry.Key;
-                IChatCallback recipientCallback = userEntry.Value;
-
-                try
+                if (!trySendMessageToUser(userEntry.Value, lobbyId))
                 {
-                    var commObject = recipientCallback as ICommunicationObject;
-                    if (commObject != null && commObject.State == CommunicationState.Opened)
-                    {
-                        recipientCallback.receiveLobbyMessage(messageDto);
-                    }
-                    else
-                    {
-                        logger.Warn(" -> FAILED sending chat message to {RecipientUsername} (Channel State: {State}). Marking for removal.", recipientUsername, commObject?.State);
-                        usersToRemove.Add(recipientUsername);
-                    }
+                    failedUsers.Add(userEntry.Key);
                 }
-                catch (Exception ex)
+                else
                 {
-                    logger.Error(ex, " -> EXCEPTION sending chat message to {RecipientUsername}. Marking for removal.", recipientUsername);
-                    usersToRemove.Add(recipientUsername);
+                    try
+                    {
+                        userEntry.Value.receiveLobbyMessage(messageDto);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Exception sending message in lobby {LobbyId}. Marking for removal.", lobbyId);
+                        failedUsers.Add(userEntry.Key);
+                    }
                 }
             }
 
-            return usersToRemove;
+            return failedUsers;
         }
 
-        private void handleFailedBroadcastUsers(List<string> usersToRemove, ConcurrentDictionary<string, IChatCallback> usersInLobby, string lobbyId)
+        private bool trySendMessageToUser(IChatCallback callback, string lobbyId)
         {
-            logger.Warn("Found {Count} users with failed channels during broadcast in lobby {LobbyId}. Removing them...", usersToRemove.Count, lobbyId);
+            var commObject = callback as ICommunicationObject;
 
-            foreach (var userToRemove in usersToRemove)
+            if (commObject?.State != CommunicationState.Opened)
             {
-                if (usersInLobby.TryRemove(userToRemove, out _))
-                {
-                    logger.Info("[ChatLogic BROADCAST CLEANUP] Removed user {UserToRemove} from chat lobby {LobbyId} due to channel issue.", userToRemove, lobbyId);
-                }
+                logger.Warn("Channel not open in lobby {LobbyId}. Marking for removal.", lobbyId);
+                return false;
             }
+
+            return true;
+        }
+
+        private void removeFailedUsers(
+            List<string> failedUsers,
+            ConcurrentDictionary<string, IChatCallback> usersInLobby,
+            string lobbyId)
+        {
+            logger.Warn("Removing {Count} users with failed channels from lobby {LobbyId}",
+                failedUsers.Count, lobbyId);
+
+            foreach (var username in failedUsers)
+            {
+                usersInLobby.TryRemove(username, out _);
+            }
+
+            logger.Info("Removed users with failed channels from lobby {LobbyId}", lobbyId);
 
             if (usersInLobby.IsEmpty)
             {
-                logger.Info("Chat lobby {LobbyId} became empty after broadcast cleanup. Removing lobby resources.", lobbyId);
                 cleanUpEmptyLobby(lobbyId);
             }
         }

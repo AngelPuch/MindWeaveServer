@@ -1,6 +1,9 @@
 ﻿using Autofac;
 using FluentValidation;
 using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Abstractions;
+using MindWeaveServer.Contracts.DataContracts.Authentication;
+using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.DataAccess.Repositories;
@@ -8,9 +11,8 @@ using MindWeaveServer.Utilities;
 using MindWeaveServer.Utilities.Abstractions;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Validators;
-using MindWeaveServer.Contracts.DataContracts.Authentication;
-using MindWeaveServer.Contracts.DataContracts.Profile;
 using NLog;
+using System;
 
 namespace MindWeaveServer.AppStart
 {
@@ -34,47 +36,126 @@ namespace MindWeaveServer.AppStart
                 {
                     var builder = new ContainerBuilder();
 
-                    builder.RegisterType<MindWeaveDBEntities1>().AsSelf().InstancePerLifetimeScope();
-                    builder.RegisterType<PlayerRepository>().As<IPlayerRepository>();
-                    builder.RegisterType<MatchmakingRepository>().As<IMatchmakingRepository>();
-                    builder.RegisterType<PuzzleRepository>().As<IPuzzleRepository>();
-                    builder.RegisterType<StatsRepository>().As<IStatsRepository>();
-                    builder.RegisterType<GuestInvitationRepository>().As<IGuestInvitationRepository>();
-                    builder.RegisterType<FriendshipRepository>().As<IFriendshipRepository>();
-                    builder.RegisterType<GenderRepository>().As<IGenderRepository>();
-
-                    builder.RegisterType<SmtpEmailService>().As<IEmailService>();
-                    builder.RegisterType<PasswordService>().As<IPasswordService>();
-                    builder.RegisterType<VerificationCodeService>().As<IVerificationCodeService>();
-                    builder.RegisterType<PasswordPolicyValidator>().As<IPasswordPolicyValidator>();
-                    builder.RegisterType<PuzzleGenerator>().AsSelf();
-
-                    builder.RegisterType<UserProfileDtoValidator>().As<IValidator<UserProfileDto>>();
-                    builder.RegisterType<LoginDtoValidator>().As<IValidator<LoginDto>>();
-                    builder.RegisterType<UserProfileForEditDtoValidator>().As<IValidator<UserProfileForEditDto>>();
-
-                    builder.RegisterType<GameSessionManager>().AsSelf().SingleInstance();
-                    builder.RegisterType<GameStateManager>().As<IGameStateManager>().SingleInstance();
-                    builder.RegisterType<LobbyModerationManager>().SingleInstance();
-                    builder.RegisterType<ServiceExceptionHandler>().As<IServiceExceptionHandler>().SingleInstance();
-
-                    builder.RegisterType<AuthenticationLogic>().AsSelf();
-                    builder.RegisterType<ChatLogic>().AsSelf();
-                    builder.RegisterType<MatchmakingLogic>().AsSelf();
-                    builder.RegisterType<ProfileLogic>().AsSelf();
-                    builder.RegisterType<PuzzleLogic>().AsSelf();
-                    builder.RegisterType<SocialLogic>().AsSelf();
-                    builder.RegisterType<StatsLogic>().AsSelf();
+                    registerDataAccess(builder);
+                    registerUtilities(builder);
+                    registerValidators(builder);
+                    registerManagers(builder);
+                    registerBusinessLogic(builder);
 
                     Container = builder.Build();
                     isInitialized = true;
+
+                    logger.Info("Bootstrapper initialized successfully.");
                 }
-                catch (System.Exception ex)
+                catch (Exception ex)
                 {
                     logger.Fatal(ex, "Failed to initialize Bootstrapper.");
                     throw;
                 }
             }
+        }
+
+        private static void registerDataAccess(ContainerBuilder builder)
+        {
+            builder.RegisterType<MindWeaveDBEntities1>()
+                .AsSelf()
+                .InstancePerLifetimeScope();
+
+            builder.RegisterType<PlayerRepository>()
+                .As<IPlayerRepository>();
+
+            builder.RegisterType<MatchmakingRepository>()
+                .As<IMatchmakingRepository>();
+
+            builder.RegisterType<PuzzleRepository>()
+                .As<IPuzzleRepository>();
+
+            builder.RegisterType<StatsRepository>()
+                .As<IStatsRepository>();
+
+            builder.RegisterType<GuestInvitationRepository>()
+                .As<IGuestInvitationRepository>();
+
+            builder.RegisterType<FriendshipRepository>()
+                .As<IFriendshipRepository>();
+
+            builder.RegisterType<GenderRepository>()
+                .As<IGenderRepository>();
+        }
+
+        private static void registerUtilities(ContainerBuilder builder)
+        {
+            builder.RegisterType<SmtpEmailService>()
+                .As<IEmailService>();
+
+            builder.RegisterType<PasswordService>()
+                .As<IPasswordService>();
+
+            builder.RegisterType<VerificationCodeService>()
+                .As<IVerificationCodeService>();
+
+            builder.RegisterType<PasswordPolicyValidator>()
+                .As<IPasswordPolicyValidator>();
+
+            builder.RegisterType<PuzzleGenerator>()
+                .AsSelf();
+
+            builder.RegisterType<ServiceExceptionHandler>()
+                .As<IServiceExceptionHandler>()
+                .SingleInstance();
+        }
+
+        private static void registerValidators(ContainerBuilder builder)
+        {
+            builder.RegisterType<UserProfileDtoValidator>()
+                .As<IValidator<UserProfileDto>>();
+
+            builder.RegisterType<LoginDtoValidator>()
+                .As<IValidator<LoginDto>>();
+
+            builder.RegisterType<UserProfileForEditDtoValidator>()
+                .As<IValidator<UserProfileForEditDto>>();
+        }
+
+        private static void registerManagers(ContainerBuilder builder)
+        {
+            builder.RegisterType<GameSessionManager>()
+                .AsSelf()
+                .SingleInstance();
+
+            builder.RegisterType<GameStateManager>()
+                .As<IGameStateManager>()
+                .SingleInstance();
+
+            builder.RegisterType<LobbyModerationManager>()
+                .SingleInstance();
+        }
+
+        private static void registerBusinessLogic(ContainerBuilder builder)
+        {
+            builder.RegisterType<MatchmakingLogic>()
+                .AsSelf();
+
+            builder.RegisterType<PlayerExpulsionService>()
+                .As<IPlayerExpulsionService>();
+
+            builder.RegisterType<ChatLogic>()
+                .AsSelf();
+
+            builder.RegisterType<AuthenticationLogic>()
+                .AsSelf();
+
+            builder.RegisterType<ProfileLogic>()
+                .AsSelf();
+
+            builder.RegisterType<PuzzleLogic>()
+                .AsSelf();
+
+            builder.RegisterType<SocialLogic>()
+                .AsSelf();
+
+            builder.RegisterType<StatsLogic>()
+                .AsSelf();
         }
     }
 }

@@ -1,12 +1,12 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿using Autofac;
+using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.ServiceContracts;
+using NLog;
 using System;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using Autofac;
-using MindWeaveServer.AppStart;
-using NLog;
 
 namespace MindWeaveServer.Services
 {
@@ -14,151 +14,129 @@ namespace MindWeaveServer.Services
     public class ChatManagerService : IChatManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-        
+
         private readonly ChatLogic chatLogic;
+        private IChatCallback currentUserCallback;
+
         private string currentUsername;
         private string currentLobbyId;
-        private IChatCallback currentUserCallback;
-        private bool isDisconnected;
+        private volatile bool isDisconnected;
+        private readonly object disconnectLock = new object();
 
-        public ChatManagerService()
-            : this(resolveDependencies())
+        public ChatManagerService() : this(resolveLogic())
         {
         }
 
-        private static ChatLogic resolveDependencies()
+        public ChatManagerService(ChatLogic chatLogic)
+        {
+            this.chatLogic = chatLogic ?? throw new ArgumentNullException(nameof(chatLogic));
+            attachChannelEventHandlers();
+        }
+
+        private static ChatLogic resolveLogic()
         {
             Bootstrapper.init();
             return Bootstrapper.Container.Resolve<ChatLogic>();
         }
 
-        public ChatManagerService(ChatLogic chatLogic)
-        {
-            this.chatLogic = chatLogic;
-
-            if (OperationContext.Current != null && OperationContext.Current.Channel != null)
-            {
-                OperationContext.Current.Channel.Faulted += channel_FaultedOrClosed;
-                OperationContext.Current.Channel.Closed += channel_FaultedOrClosed;
-                logger.Debug("Attached Faulted/Closed event handlers to the current WCF channel.");
-            }
-            else
-            {
-                logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
-            }
-        }
-
         public void joinLobbyChat(string username, string lobbyId)
         {
-            logger.Info("joinLobbyChat attempt by user: {Username} for lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+            logger.Info("joinLobbyChat request for lobby {LobbyId}", lobbyId ?? "NULL");
+
             if (isDisconnected)
             {
-                logger.Warn("joinLobbyChat ignored: Session is marked as disconnected. User: {Username}", username ?? "NULL");
+                logger.Warn("joinLobbyChat ignored: Session is marked as disconnected.");
                 return;
             }
 
-            if (!registerSessionDetails(username, lobbyId))
+            if (!tryRegisterSession(username, lobbyId))
             {
-                logger.Warn("joinLobbyChat failed: Session could not be registered. User: {Username}", username ?? "NULL");
+                logger.Warn("joinLobbyChat failed: Session could not be registered for lobby {LobbyId}", lobbyId);
                 return;
             }
 
             try
             {
                 chatLogic.joinLobbyChat(currentUsername, currentLobbyId, currentUserCallback);
-                logger.Info("User {Username} successfully joined chat for lobby {LobbyId}", currentUsername, currentLobbyId);
+                logger.Info("User successfully joined chat for lobby {LobbyId}", currentLobbyId);
             }
             catch (TimeoutException ex)
             {
-                logger.Error(ex, "Chat Service Timeout: Operation timed out for {Username}", username);
-                Task.Run(handleDisconnect);
+                logger.Error(ex, "Chat Service Timeout for lobby {LobbyId}", lobbyId);
+                initiateDisconnectAsync();
             }
             catch (ArgumentNullException ex)
             {
-                logger.Warn(ex, "Chat Service Validation Error: Invalid data provided by {Username}", username);
+                logger.Warn(ex, "Chat Service Validation Error for lobby {LobbyId}", lobbyId);
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Chat Service Unexpected Error inside joinLobbyChat for User: {Username}", username);
-                Task.Run(handleDisconnect);
+                logger.Error(ex, "Chat Service Unexpected Error inside joinLobbyChat for lobby {LobbyId}", lobbyId);
+                initiateDisconnectAsync();
             }
         }
 
         public void leaveLobbyChat(string username, string lobbyId)
         {
-            logger.Info("leaveLobbyChat attempt by user: {Username} from lobby: {LobbyId}", username ?? "NULL", lobbyId ?? "NULL");
+            logger.Info("leaveLobbyChat request for lobby {LobbyId}", lobbyId ?? "NULL");
 
-            if (string.IsNullOrEmpty(currentUsername) ||
-                !currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase) ||
-                !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
+            if (!validateSessionForLeave(username, lobbyId))
             {
-                logger.Warn("leaveLobbyChat ignored: Session validation failed or mismatch. Request: User={Username}, Lobby={LobbyId}. Session: User={CurrentUsername}, Lobby={CurrentLobbyId}", username, lobbyId, currentUsername, currentLobbyId);
-                return;
-            }
-
-            if (isDisconnected)
-            {
-                logger.Warn("leaveLobbyChat ignored: Session is marked as disconnected. User: {Username}", username ?? "NULL");
                 return;
             }
 
             try
             {
                 chatLogic.leaveLobbyChat(username, lobbyId);
-                logger.Info("User {Username} successfully left chat for lobby {LobbyId}", username, lobbyId);
+                logger.Info("User successfully left chat for lobby {LobbyId}", lobbyId);
             }
             catch (KeyNotFoundException ex)
             {
-                logger.Warn(ex, "Chat Service Warning: User {Username} tried to leave non-existent lobby {LobbyId}", username, lobbyId);
+                logger.Warn(ex, "Chat Service Warning: User tried to leave non-existent lobby {LobbyId}", lobbyId);
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Chat Service Error inside leaveLobbyChat for User: {Username}", username);
+                logger.Error(ex, "Chat Service Error inside leaveLobbyChat for lobby {LobbyId}", lobbyId);
             }
         }
 
         public void sendLobbyMessage(string senderUsername, string lobbyId, string messageContent)
         {
-            logger.Info("sendLobbyMessage attempt by user: {Username} in lobby: {LobbyId}", senderUsername ?? "NULL", lobbyId ?? "NULL");
+            logger.Debug("sendLobbyMessage request for lobby {LobbyId}", lobbyId ?? "NULL");
 
-            if (isDisconnected || currentUserCallback == null ||
-                string.IsNullOrEmpty(currentUsername) ||
-                !currentUsername.Equals(senderUsername, StringComparison.OrdinalIgnoreCase) ||
-                !currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase))
+            if (!validateSessionForMessage(senderUsername, lobbyId))
             {
-                logger.Warn("ChatService SEND Denied due to invalid state or mismatch. Request: Sender={SenderUsername}, Lobby={LobbyId}. Session: User={CurrentUsername}, Lobby={CurrentLobbyId}, Disconnected={IsDisconnected}, CallbackNull={CallbackNull}.",
-                    senderUsername, lobbyId, currentUsername, currentLobbyId, isDisconnected, currentUserCallback == null);
                 return;
             }
 
-            try
+            Task.Run(async () =>
             {
-                Task.Run(async () => await chatLogic.processAndBroadcastMessageAsync(senderUsername, lobbyId, messageContent));
-            
-                logger.Debug("sendLobbyMessage processed for {Username} in lobby {LobbyId}", senderUsername, lobbyId);
-            }
-            catch (ArgumentException ex)
-            {
-                logger.Warn(ex, "Chat Message Validation Failed for {Username}: {Message}", senderUsername, ex.Message);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                logger.Warn(ex, "Chat Message Error: Lobby {LobbyId} not found for message from {Username}", lobbyId, senderUsername);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Chat Service Critical Error processing message from {Username}", senderUsername);
-            }
+                try
+                {
+                    await chatLogic.processAndBroadcastMessageAsync(senderUsername, lobbyId, messageContent);
+                }
+                catch (ArgumentException ex)
+                {
+                    logger.Warn(ex, "Chat Message Validation Failed for lobby {LobbyId}", lobbyId);
+                }
+                catch (KeyNotFoundException ex)
+                {
+                    logger.Warn(ex, "Chat Message Error: Lobby {LobbyId} not found", lobbyId);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Chat Service Critical Error processing message for lobby {LobbyId}", lobbyId);
+                }
+            });
+
+            logger.Debug("sendLobbyMessage dispatched for lobby {LobbyId}", lobbyId);
         }
 
-
-        private bool registerSessionDetails(string username, string lobbyId)
+        private bool tryRegisterSession(string username, string lobbyId)
         {
-            if (currentUserCallback != null &&
-                currentUsername == username &&
-                currentLobbyId == lobbyId)
+            if (currentUserCallback != null && currentUsername == username && currentLobbyId == lobbyId)
             {
-                logger.Debug("Session details already registered for {Username}, lobby {LobbyId}", username, lobbyId);
+                logger.Debug("Session details already registered for lobby {LobbyId}", lobbyId);
                 return true;
             }
 
@@ -166,22 +144,23 @@ namespace MindWeaveServer.Services
             {
                 if (OperationContext.Current == null)
                 {
-                    logger.Error("[ChatService REGISTER FAILED] OperationContext is null for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
+                    logger.Error("OperationContext is null for lobby {LobbyId}.", lobbyId);
                     return false;
                 }
+
                 try
                 {
                     currentUserCallback = OperationContext.Current.GetCallbackChannel<IChatCallback>();
                     if (currentUserCallback == null)
                     {
-                        logger.Error("[ChatService REGISTER FAILED] GetCallbackChannel returned null for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
+                        logger.Error("GetCallbackChannel returned null for lobby {LobbyId}.", lobbyId);
                         return false;
                     }
-                    logger.Debug("[ChatService REGISTER] Callback channel obtained for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
+                    logger.Debug("Callback channel obtained for lobby {LobbyId}.", lobbyId);
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex, "[ChatService REGISTER FAILED] Exception getting callback channel for User: {Username}, Lobby: {LobbyId}.", username, lobbyId);
+                    logger.Error(ex, "Exception getting callback channel for lobby {LobbyId}.", lobbyId);
                     currentUserCallback = null;
                     return false;
                 }
@@ -189,30 +168,97 @@ namespace MindWeaveServer.Services
 
             currentUsername = username;
             currentLobbyId = lobbyId;
-            logger.Info("[ChatService REGISTER] Session details registered: User={CurrentUsername}, Lobby={CurrentLobbyId}.", currentUsername, currentLobbyId);
+            logger.Info("Session details registered for lobby {LobbyId}.", currentLobbyId);
             return true;
         }
 
-        private void channel_FaultedOrClosed(object sender, EventArgs e)
+        private bool validateSessionForLeave(string username, string lobbyId)
         {
-            logger.Warn("WCF channel Faulted or Closed for user: {Username}, lobby {LobbyId}. Initiating disconnect.", currentUsername, currentLobbyId);
-            Task.Run(handleDisconnect);
+            if (string.IsNullOrEmpty(currentUsername))
+            {
+                logger.Warn("leaveLobbyChat ignored: No session registered.");
+                return false;
+            }
+
+            bool usernameMatches = currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase);
+            bool lobbyMatches = currentLobbyId != null && currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase);
+
+            if (!usernameMatches || !lobbyMatches)
+            {
+                logger.Warn("leaveLobbyChat ignored: Session validation failed for lobby {LobbyId}.", lobbyId);
+                return false;
+            }
+
+            if (isDisconnected)
+            {
+                logger.Warn("leaveLobbyChat ignored: Session is marked as disconnected.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool validateSessionForMessage(string senderUsername, string lobbyId)
+        {
+            if (isDisconnected || currentUserCallback == null || string.IsNullOrEmpty(currentUsername))
+            {
+                logger.Warn("sendLobbyMessage denied: Invalid session state. Disconnected={IsDisconnected}, CallbackNull={CallbackNull}",
+                    isDisconnected, currentUserCallback == null);
+                return false;
+            }
+
+            bool usernameMatches = currentUsername.Equals(senderUsername, StringComparison.OrdinalIgnoreCase);
+            bool lobbyMatches = currentLobbyId != null && currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase);
+
+            if (!usernameMatches || !lobbyMatches)
+            {
+                logger.Warn("sendLobbyMessage denied: Session mismatch for lobby {LobbyId}.", lobbyId);
+                return false;
+            }
+
+            return true;
+        }
+
+        private void attachChannelEventHandlers()
+        {
+            if (OperationContext.Current?.Channel == null)
+            {
+                logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
+                return;
+            }
+
+            OperationContext.Current.Channel.Faulted += onChannelFaultedOrClosed;
+            OperationContext.Current.Channel.Closed += onChannelFaultedOrClosed;
+            logger.Debug("Attached Faulted/Closed event handlers to the current WCF channel.");
+        }
+
+        private void onChannelFaultedOrClosed(object sender, EventArgs e)
+        {
+            logger.Warn("WCF channel Faulted or Closed for lobby {LobbyId}. Initiating disconnect.", currentLobbyId);
+            initiateDisconnectAsync();
+        }
+
+        private void initiateDisconnectAsync()
+        {
+            Task.Run(() => handleDisconnect());
         }
 
         private void handleDisconnect()
         {
-            if (isDisconnected)
+            lock (disconnectLock)
             {
-                logger.Debug("handleDisconnect ignored: Session already disconnected.");
-                return;
+                if (isDisconnected)
+                {
+                    logger.Debug("handleDisconnect ignored: Session already disconnected.");
+                    return;
+                }
+                isDisconnected = true;
             }
-
-            isDisconnected = true;
 
             string userToDisconnect = currentUsername;
             string lobbyToDisconnect = currentLobbyId;
 
-            logger.Info("Disconnect triggered for session. User: {Username}, Lobby: {LobbyId}", userToDisconnect ?? "UNKNOWN", lobbyToDisconnect ?? "UNKNOWN");
+            logger.Info("Disconnect triggered for session in lobby {LobbyId}", lobbyToDisconnect ?? "UNKNOWN");
 
             cleanupCallbackEvents(OperationContext.Current?.Channel);
             cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
@@ -222,16 +268,16 @@ namespace MindWeaveServer.Services
                 try
                 {
                     chatLogic.leaveLobbyChat(userToDisconnect, lobbyToDisconnect);
-                    logger.Info("ChatLogic.leaveLobbyChat called successfully for {Username}, lobby {LobbyId}", userToDisconnect, lobbyToDisconnect);
+                    logger.Info("ChatLogic.leaveLobbyChat called successfully for lobby {LobbyId}", lobbyToDisconnect);
                 }
                 catch (Exception ex)
                 {
-                    logger.Error(ex, "[ChatService DISCONNECT EXCEPTION] Error during ChatLogic.leave for {Username}, lobby {LobbyId}", userToDisconnect, lobbyToDisconnect);
+                    logger.Error(ex, "Error during ChatLogic.leave for lobby {LobbyId}", lobbyToDisconnect);
                 }
             }
             else
             {
-                logger.Info("[ChatService DISCONNECT] No user/lobby associated with this session, skipping ChatLogic.leave call.");
+                logger.Info("No user/lobby associated with this session, skipping ChatLogic.leave call.");
             }
 
             currentUsername = null;
@@ -243,8 +289,8 @@ namespace MindWeaveServer.Services
         {
             if (commObject != null)
             {
-                commObject.Faulted -= channel_FaultedOrClosed;
-                commObject.Closed -= channel_FaultedOrClosed;
+                commObject.Faulted -= onChannelFaultedOrClosed;
+                commObject.Closed -= onChannelFaultedOrClosed;
                 logger.Debug("Removed Faulted/Closed event handlers from a callback channel.");
             }
         }
