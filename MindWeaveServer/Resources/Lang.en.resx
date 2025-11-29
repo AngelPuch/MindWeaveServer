@@ -192,6 +192,9 @@
   <data name="ErrorCurrentPasswordIncorrect" xml:space="preserve">
     <value>Current password incorrect.</value>
   </data>
+  <data name="ErrorEmailServiceUnavailable" xml:space="preserve">
+    <value>Unable to send email. The email service is temporarily unavailable.</value>
+  </data>
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>You are not friends with this player.</value>
   </data>

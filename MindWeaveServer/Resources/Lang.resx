@@ -192,6 +192,9 @@
   <data name="ErrorCurrentPasswordIncorrect" xml:space="preserve">
     <value>La contraseña actual es incorrecta.</value>
   </data>
+  <data name="ErrorEmailServiceUnavailable" xml:space="preserve">
+    <value>No se pudo enviar el correo. El servicio de email no está disponible.</value>
+  </data>
   <data name="ErrorFriendshipNotFound" xml:space="preserve">
     <value>No eres amigo de este jugador.</value>
   </data>

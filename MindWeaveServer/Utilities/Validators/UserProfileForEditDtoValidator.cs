@@ -1,24 +1,30 @@
 ﻿using FluentValidation;
 using MindWeaveServer.Contracts.DataContracts.Profile;
 using MindWeaveServer.Resources;
+using System;
 
 namespace MindWeaveServer.Utilities.Validators
 {
     public class UserProfileForEditDtoValidator : AbstractValidator<UserProfileForEditDto>
     {
+        private const int NAME_MAX_LENGTH = 45;
+        private const int MINIMUM_AGE_YEARS = 13;
+        private const int MAX_REALISTIC_AGE_YEARS = 100;
+        private const string REGEX_LETTERS_AND_SPACES = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$";
+
         public UserProfileForEditDtoValidator()
         {
             RuleFor(x => x.FirstName)
                 .NotEmpty().WithMessage(Lang.ValidationFirstNameRequired)
-                .MaximumLength(45).WithMessage(Lang.ValidationFirstNameLength)
+                .MaximumLength(NAME_MAX_LENGTH).WithMessage(Lang.ValidationFirstNameLength)
                 .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
-                .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").WithMessage(Lang.ValidationOnlyLetters);
+                .Matches(REGEX_LETTERS_AND_SPACES).WithMessage(Lang.ValidationOnlyLetters);
 
             RuleFor(x => x.LastName)
                 .NotEmpty().WithMessage(Lang.ValidationLastNameRequired)
-                .MaximumLength(45).WithMessage(Lang.ValidationLastNameLength)
-                .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.LastName)).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
-                .Matches("^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$").When(x => !string.IsNullOrEmpty(x.LastName)).WithMessage(Lang.ValidationOnlyLetters);
+                .MaximumLength(NAME_MAX_LENGTH).WithMessage(Lang.ValidationLastNameLength)
+                .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
+                .Matches(REGEX_LETTERS_AND_SPACES).WithMessage(Lang.ValidationOnlyLetters);
 
             RuleFor(x => x.DateOfBirth)
                 .NotNull().WithMessage(Lang.ValidationDateOfBirthRequired)
@@ -29,19 +35,19 @@ namespace MindWeaveServer.Utilities.Validators
         private static bool notHaveLeadingOrTrailingWhitespace(string value)
         {
             if (string.IsNullOrEmpty(value)) return true;
-            return value.Trim() == value;
+            return value.Trim().Length == value.Length;
         }
 
-        private static bool beAValidAge(System.DateTime? dateOfBirth)
+        private static bool beAValidAge(DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue) return false;
-            return dateOfBirth.Value.Date <= System.DateTime.Now.Date.AddYears(-13);
+            return dateOfBirth.Value.Date <= DateTime.UtcNow.Date.AddYears(-MINIMUM_AGE_YEARS);
         }
 
-        private static bool beARealisticAge(System.DateTime? dateOfBirth)
+        private static bool beARealisticAge(DateTime? dateOfBirth)
         {
             if (!dateOfBirth.HasValue) return false;
-            return dateOfBirth.Value.Year > (System.DateTime.Now.Year - 100);
+            return dateOfBirth.Value.Year > (DateTime.UtcNow.Year - MAX_REALISTIC_AGE_YEARS);
         }
     }
 }

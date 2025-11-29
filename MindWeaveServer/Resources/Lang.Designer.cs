@@ -286,6 +286,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a No se pudo enviar el correo. El servicio de email no está disponible..
+        /// </summary>
+        public static string ErrorEmailServiceUnavailable {
+            get {
+                return ResourceManager.GetString("ErrorEmailServiceUnavailable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a No eres amigo de este jugador..
         /// </summary>
         public static string ErrorFriendshipNotFound {

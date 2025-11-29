@@ -275,6 +275,7 @@
     <Compile Include="Services\SocialManagerService.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordPolicyValidator.cs" />
     <Compile Include="Utilities\Abstractions\IPasswordService.cs" />
+    <Compile Include="Utilities\Abstractions\IServiceExceptionHandler.cs" />
     <Compile Include="Utilities\Abstractions\IVerificationCodeService.cs" />
     <Compile Include="Utilities\Email\Templates\GuestInviteEmailTemplate.cs" />
     <Compile Include="Utilities\Email\Templates\PasswordRecoveryEmailTemplate.cs" />
@@ -290,6 +291,7 @@
     <Compile Include="Utilities\ProfainityFilter.cs" />
     <Compile Include="Utilities\SecureConnection.cs" />
     <Compile Include="Utilities\SecureRandomGenerator.cs" />
+    <Compile Include="Utilities\ServiceExceptionHandler.cs" />
     <Compile Include="Utilities\Validators\LoginDtoValidator.cs" />
     <Compile Include="Utilities\Validators\PasswordPolicyValidator.cs" />
     <Compile Include="Utilities\Validators\UserProfileDtoValidator.cs" />

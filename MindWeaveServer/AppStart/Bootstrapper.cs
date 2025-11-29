@@ -56,6 +56,7 @@ namespace MindWeaveServer.AppStart
                     builder.RegisterType<GameSessionManager>().AsSelf().SingleInstance();
                     builder.RegisterType<GameStateManager>().As<IGameStateManager>().SingleInstance();
                     builder.RegisterType<LobbyModerationManager>().SingleInstance();
+                    builder.RegisterType<ServiceExceptionHandler>().As<IServiceExceptionHandler>().SingleInstance();
 
                     builder.RegisterType<AuthenticationLogic>().AsSelf();
                     builder.RegisterType<ChatLogic>().AsSelf();
