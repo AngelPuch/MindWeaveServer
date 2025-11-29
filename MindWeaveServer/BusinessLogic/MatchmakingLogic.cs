@@ -17,6 +17,8 @@ using System.IO;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.BusinessLogic.Abstractions;
+using MindWeaveServer.BusinessLogic.Manager;
 
 namespace MindWeaveServer.BusinessLogic
 {

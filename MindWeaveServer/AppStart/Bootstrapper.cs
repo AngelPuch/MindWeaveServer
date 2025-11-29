@@ -13,6 +13,7 @@ using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Validators;
 using NLog;
 using System;
+using MindWeaveServer.BusinessLogic.Manager;
 
 namespace MindWeaveServer.AppStart
 {
@@ -39,6 +40,7 @@ namespace MindWeaveServer.AppStart
                     registerDataAccess(builder);
                     registerUtilities(builder);
                     registerValidators(builder);
+                    registerGameComponents(builder);
                     registerManagers(builder);
                     registerBusinessLogic(builder);
 
@@ -115,6 +117,16 @@ namespace MindWeaveServer.AppStart
 
             builder.RegisterType<UserProfileForEditDtoValidator>()
                 .As<IValidator<UserProfileForEditDto>>();
+        }
+
+        private static void registerGameComponents(ContainerBuilder builder)
+        {
+            builder.RegisterType<PuzzleGenerator>()
+                .AsSelf();
+
+            builder.RegisterType<ScoreCalculator>()
+                .As<IScoreCalculator>()
+                .SingleInstance();
         }
 
         private static void registerManagers(ContainerBuilder builder)

@@ -20,33 +20,44 @@ namespace MindWeaveServer.Utilities
                 throw new ArgumentNullException(nameof(exception));
             }
 
-            string safeContext = operationContext ?? "UnknownContext";
+            string safeContext = operationContext ?? "UnknownOperation";
 
             if (exception is EntityException entityEx)
             {
                 return handleDatabaseException(entityEx, safeContext);
             }
-            else if (exception is TimeoutException timeoutEx)
+
+            if (exception is TimeoutException timeoutEx)
             {
                 return handleTimeoutException(timeoutEx, safeContext);
             }
-            else if (exception is SocketException socketEx)
+
+            if (exception is SocketException socketEx)
             {
                 return handleEmailServiceException(socketEx, safeContext);
             }
-            else if (exception is InvalidOperationException invalidOpEx && invalidOpEx.Message == "DuplicateUser")
+
+            if (exception is CommunicationException commEx)
             {
-                return handleDuplicateUserException(safeContext);
+                return handleCommunicationException(commEx, safeContext);
             }
-            else
+
+            if (exception is ObjectDisposedException disposedEx)
             {
-                return handleUnknownException(exception, safeContext);
+                return handleChannelDisposedException(disposedEx, safeContext);
             }
+
+            if (exception is InvalidOperationException invalidOpEx)
+            {
+                return handleInvalidOperationException(invalidOpEx, safeContext);
+            }
+
+            return handleUnknownException(exception, safeContext);
         }
 
         private FaultException<ServiceFaultDto> handleDatabaseException(EntityException ex, string context)
         {
-            logger.Fatal(ex, "Database unavailable. Context: {Context}", context);
+            logger.Fatal(ex, "Database unavailable. Operation: {Context}", context);
 
             var fault = new ServiceFaultDto(
                 ServiceErrorType.DatabaseError,
@@ -58,7 +69,7 @@ namespace MindWeaveServer.Utilities
 
         private FaultException<ServiceFaultDto> handleTimeoutException(TimeoutException ex, string context)
         {
-            logger.Error(ex, "Operation timed out. Context: {Context}", context);
+            logger.Error(ex, "Operation timed out. Operation: {Context}", context);
 
             var fault = new ServiceFaultDto(
                 ServiceErrorType.DatabaseError,
@@ -70,7 +81,7 @@ namespace MindWeaveServer.Utilities
 
         private FaultException<ServiceFaultDto> handleEmailServiceException(SocketException ex, string context)
         {
-            logger.Error(ex, "Email service communication failed. Context: {Context}", context);
+            logger.Error(ex, "Email service communication failed. Operation: {Context}", context);
 
             var fault = new ServiceFaultDto(
                 ServiceErrorType.CommunicationError,
@@ -80,9 +91,50 @@ namespace MindWeaveServer.Utilities
             return new FaultException<ServiceFaultDto>(fault, new FaultReason("Email Service Failed"));
         }
 
+        private FaultException<ServiceFaultDto> handleCommunicationException(CommunicationException ex, string context)
+        {
+            logger.Error(ex, "WCF communication error. Operation: {Context}", context);
+
+            var fault = new ServiceFaultDto(
+                ServiceErrorType.CommunicationError,
+                Lang.ErrorCommunicationChannelFailed,
+                "Communication");
+
+            return new FaultException<ServiceFaultDto>(fault, new FaultReason("Communication Error"));
+        }
+
+        private FaultException<ServiceFaultDto> handleChannelDisposedException(ObjectDisposedException ex, string context)
+        {
+            logger.Warn(ex, "Channel already disposed. Operation: {Context}", context);
+
+            var fault = new ServiceFaultDto(
+                ServiceErrorType.CommunicationError,
+                Lang.ErrorServiceConnectionClosing,
+                "Channel");
+
+            return new FaultException<ServiceFaultDto>(fault, new FaultReason("Channel Disposed"));
+        }
+
+        private FaultException<ServiceFaultDto> handleInvalidOperationException(InvalidOperationException ex, string context)
+        {
+            if (ex.Message == "DuplicateUser")
+            {
+                return handleDuplicateUserException(context);
+            }
+
+            logger.Error(ex, "Invalid operation. Operation: {Context}", context);
+
+            var fault = new ServiceFaultDto(
+                ServiceErrorType.ValidationError,
+                Lang.GenericServerError,
+                "InvalidOperation");
+
+            return new FaultException<ServiceFaultDto>(fault, new FaultReason("Invalid Operation"));
+        }
+
         private FaultException<ServiceFaultDto> handleDuplicateUserException(string context)
         {
-            logger.Warn("Duplicate user detected. Context: {Context}", context);
+            logger.Warn("Duplicate user detected. Operation: {Context}", context);
 
             var fault = new ServiceFaultDto(
                 ServiceErrorType.DuplicateRecord,
@@ -94,7 +146,7 @@ namespace MindWeaveServer.Utilities
 
         private FaultException<ServiceFaultDto> handleUnknownException(Exception ex, string context)
         {
-            logger.Fatal(ex, "Unhandled exception. Context: {Context}", context);
+            logger.Fatal(ex, "Unhandled exception. Operation: {Context}", context);
 
             var fault = new ServiceFaultDto(
                 ServiceErrorType.Unknown,

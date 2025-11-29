@@ -35,11 +35,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
         LobbyNotFound = 9,    
 
         [EnumMember]
-        PlayerBanned = 10
+        PlayerBanned = 10,
 
-
-
-
-
+        [EnumMember]
+        ValidationError = 11
     }
 }

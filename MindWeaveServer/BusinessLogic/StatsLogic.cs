@@ -30,13 +30,13 @@ namespace MindWeaveServer.BusinessLogic
             await statsRepository.saveChangesAsync();
         }
 
-        public async Task<PlayerStats> GetPlayerStatsAsync(int playerId)
+        public async Task<PlayerStats> getPlayerStatsAsync(int playerId)
         {
             return await statsRepository.getPlayerStatsByIdAsync(playerId);
         }
 
     
-        public async Task<List<int>> UnlockAchievementsAsync(int playerId, List<int> achievementIds)
+        public async Task<List<int>> unlockAchievementsAsync(int playerId, List<int> achievementIds)
         {
             return await statsRepository.UnlockAchievementsAsync(playerId, achievementIds);
         }

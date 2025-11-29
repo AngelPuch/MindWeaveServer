@@ -1,10 +1,11 @@
-﻿using MindWeaveServer.Contracts.DataContracts.Chat;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+using MindWeaveServer.BusinessLogic.Manager;
+using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 
-namespace MindWeaveServer.BusinessLogic
+namespace MindWeaveServer.BusinessLogic.Abstractions
 {
     public interface IGameStateManager
     {

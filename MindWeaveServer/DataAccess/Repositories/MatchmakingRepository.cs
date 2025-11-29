@@ -157,5 +157,16 @@ namespace MindWeaveServer.DataAccess.Repositories
             await saveChangesAsync();
         }
 
+        public async Task updatePlayerScoreAsync(int matchId, int playerId, int score)
+        {
+            var participant = await context.MatchParticipants
+                .FirstOrDefaultAsync(p => p.match_id == matchId && p.player_id == playerId);
+
+            if (participant != null)
+            {
+                participant.score = score;
+                await context.SaveChangesAsync();
+            }
+        }
     }
 }

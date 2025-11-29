@@ -1,6 +1,6 @@
 ﻿using System.Collections.Concurrent;
 
-namespace MindWeaveServer.BusinessLogic
+namespace MindWeaveServer.BusinessLogic.Manager
 {
     public class LobbyModerationState
     {

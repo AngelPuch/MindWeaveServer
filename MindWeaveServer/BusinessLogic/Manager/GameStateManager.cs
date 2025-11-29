@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using MindWeaveServer.BusinessLogic.Abstractions;
+using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.Contracts.DataContracts.Chat;
+using MindWeaveServer.Services;
 using NLog;
 
-namespace MindWeaveServer.BusinessLogic
+namespace MindWeaveServer.BusinessLogic.Manager
 {
     public class GameStateManager : IGameStateManager
     {
