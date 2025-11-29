@@ -480,7 +480,9 @@ namespace MindWeaveServer.BusinessLogic
         {
             pieceState.CurrentX = newX;
             pieceState.CurrentY = newY;
+
             broadcast(callback => callback.onPieceMoved(pieceState.PieceId, newX, newY, player.Username));
+            broadcast(callback => callback.onPieceDragReleased(pieceState.PieceId, player.Username));
 
             double distanceToTarget = calculateDistance(newX, newY, pieceState.FinalX, pieceState.FinalY);
             bool isNearMiss = distanceToTarget < PENALTY_TOLERANCE;
@@ -651,13 +653,24 @@ namespace MindWeaveServer.BusinessLogic
             EndGameProcessingContext context)
         {
             var results = new List<PlayerResultDto>();
+
+            bool isZeroActionDraw = rankedPlayers.Any() && rankedPlayers.All(p => p.Score == 0 && p.PiecesPlaced == 0);
+
             int currentRank = 1;
 
             foreach (var player in rankedPlayers)
             {
-                var resultDto = await processSinglePlayerAsync(player, currentRank, context);
+               
+                int effectiveRank = isZeroActionDraw ? 1 : currentRank;
+                bool isWinner = !isZeroActionDraw && (currentRank == 1);
+
+                var resultDto = await processSinglePlayerAsync(player, effectiveRank, isWinner, context);
                 results.Add(resultDto);
-                currentRank++;
+
+                if (!isZeroActionDraw)
+                {
+                    currentRank++;
+                }
             }
 
             return results;
@@ -666,16 +679,16 @@ namespace MindWeaveServer.BusinessLogic
         private async Task<PlayerResultDto> processSinglePlayerAsync(
             PlayerSessionData player,
             int rank,
+            bool isWinner,
             EndGameProcessingContext context)
         {
-            bool isWinner = rank == 1;
             var unlockedIds = new List<int>();
 
             if (player.PlayerId > 0)
             {
                 try
                 {
-                    unlockedIds = await handlePlayerStatsAndAchievementsAsync(player, rank, context);
+                    unlockedIds = await handlePlayerStatsAndAchievementsAsync(player, rank, isWinner, context);
 
                     var updateDto = new MatchParticipantStatsUpdateDto
                     {
@@ -709,10 +722,10 @@ namespace MindWeaveServer.BusinessLogic
         private async Task<List<int>> handlePlayerStatsAndAchievementsAsync(
             PlayerSessionData player,
             int rank,
+            bool isWinner,
             EndGameProcessingContext context)
         {
             var newUnlockedIds = new List<int>();
-            bool isWinner = rank == 1;
 
             var statsDto = new PlayerMatchStatsDto
             {
