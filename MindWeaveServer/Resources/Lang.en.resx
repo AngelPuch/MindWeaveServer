@@ -423,6 +423,9 @@
   <data name="ValidationProfileOrPasswordRequired" xml:space="preserve">
     <value>User profile and password are required.</value>
   </data>
+  <data name="ValidationUserAlreadyInGame" xml:space="preserve">
+    <value>The player {0} is already in a match.</value>
+  </data>
   <data name="ValidationUsernameAlphanumeric" xml:space="preserve">
     <value>Username can only contain letters and numbers.</value>
   </data>

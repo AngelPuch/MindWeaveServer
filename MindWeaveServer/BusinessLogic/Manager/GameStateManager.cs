@@ -5,7 +5,6 @@ using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.Services;
 using NLog;
 
 namespace MindWeaveServer.BusinessLogic.Manager
@@ -25,6 +24,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
         public ConcurrentDictionary<string, ISocialCallback> ConnectedUsers { get; }
 
+
         public GameStateManager(GameSessionManager gameSessionManager)
         {
             ActiveLobbies = new ConcurrentDictionary<string, LobbyStateDto>(StringComparer.OrdinalIgnoreCase);
@@ -39,6 +39,45 @@ namespace MindWeaveServer.BusinessLogic.Manager
             ConnectedUsers = new ConcurrentDictionary<string, ISocialCallback>(StringComparer.OrdinalIgnoreCase);
 
             logger.Info("GameStateManager (Singleton) initialized with full state support.");
+        }
+
+        public bool isUserConnected(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return false;
+            }
+            return ConnectedUsers.ContainsKey(username);
+        }
+
+        public void addConnectedUser(string username, ISocialCallback callback)
+        {
+            if (string.IsNullOrWhiteSpace(username) || callback == null)
+            {
+                return;
+            }
+
+            ConnectedUsers.AddOrUpdate(username, callback, (key, oldValue) => callback);
+        }
+
+        public void removeConnectedUser(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return;
+            }
+            ConnectedUsers.TryRemove(username, out _);
+        }
+
+        public ISocialCallback getUserCallback(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return null;
+            }
+
+            ConnectedUsers.TryGetValue(username, out var callback);
+            return callback;
         }
     }
 }

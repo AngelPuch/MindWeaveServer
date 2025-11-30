@@ -14,6 +14,7 @@ using MindWeaveServer.Utilities.Validators;
 using NLog;
 using System;
 using MindWeaveServer.BusinessLogic.Manager;
+using MindWeaveServer.BusinessLogic.Services;
 
 namespace MindWeaveServer.AppStart
 {
@@ -145,9 +146,6 @@ namespace MindWeaveServer.AppStart
 
         private static void registerBusinessLogic(ContainerBuilder builder)
         {
-            builder.RegisterType<MatchmakingLogic>()
-                .AsSelf();
-
             builder.RegisterType<PlayerExpulsionService>()
                 .As<IPlayerExpulsionService>();
 
@@ -168,6 +166,22 @@ namespace MindWeaveServer.AppStart
 
             builder.RegisterType<StatsLogic>()
                 .AsSelf();
+
+            builder.RegisterType<PlayerExpulsionService>().As<IPlayerExpulsionService>();
+
+            builder.RegisterType<NotificationService>()
+                .As<INotificationService>();
+
+            builder.RegisterType<LobbyValidationService>()
+                .As<ILobbyValidationService>();
+
+            builder.RegisterType<LobbyInteractionService>()
+                .As<ILobbyInteractionService>();
+
+            builder.RegisterType<LobbyLifecycleService>()
+                .As<ILobbyLifecycleService>();
+
+            builder.RegisterType<MatchmakingLogic>().AsSelf();
         }
     }
 }

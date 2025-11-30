@@ -146,7 +146,7 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Warn("Profanity detected in lobby {LobbyId}", lobbyId);
 
-            int strikes = moderationManager.AddStrike(lobbyId, senderUsername);
+            int strikes = moderationManager.addStrike(lobbyId, senderUsername);
 
             if (strikes >= MAX_STRIKES_BEFORE_EXPULSION)
             {

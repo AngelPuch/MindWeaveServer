@@ -2,7 +2,6 @@
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.Contracts.DataContracts.Shared;
-using MindWeaveServer.DataAccess;
 using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -19,9 +18,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract(IsOneWay = true)]
         void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId);
- 
-
-
+        
         [OperationContract(IsOneWay = true)]
         void joinLobby(string username, string lobbyId);
 
@@ -70,14 +67,16 @@ namespace MindWeaveServer.Contracts.ServiceContracts
                 
         [OperationContract(IsOneWay = true)]
         void lobbyCreationFailed(string reason);
-            
+
+        [OperationContract(IsOneWay = true)]
+        void notifyLobbyActionFailed(string message);
+
         [OperationContract(IsOneWay = true)]
         void kickedFromLobby(string reason);
 
         [OperationContract(IsOneWay = true)]
         void onGameStarted(PuzzleDefinitionDto puzzleDefinition, int matchDurationSeconds);
 
-        
         [OperationContract(IsOneWay = true)]
         void onPieceDragStarted(int pieceId, string username);
 

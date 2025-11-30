@@ -423,6 +423,9 @@
   <data name="ValidationProfileOrPasswordRequired" xml:space="preserve">
     <value>El perfil de usuario y la contraseña son obligatorios.</value>
   </data>
+  <data name="ValidationUserAlreadyInGame" xml:space="preserve">
+    <value>El jugador {0} ya se encuentra en una partida.</value>
+  </data>
   <data name="ValidationUsernameAlphanumeric" xml:space="preserve">
     <value>El nombre de usuario solo puede contener letras y números.</value>
   </data>

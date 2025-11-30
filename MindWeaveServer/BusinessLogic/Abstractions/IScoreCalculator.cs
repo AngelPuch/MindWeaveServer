@@ -1,4 +1,6 @@
-﻿namespace MindWeaveServer.BusinessLogic.Abstractions
+﻿using MindWeaveServer.BusinessLogic.Models;
+
+namespace MindWeaveServer.BusinessLogic.Abstractions
 {
     public interface IScoreCalculator
     {

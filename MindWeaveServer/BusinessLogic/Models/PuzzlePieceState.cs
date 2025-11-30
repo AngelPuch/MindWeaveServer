@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace MindWeaveServer.BusinessLogic
+namespace MindWeaveServer.BusinessLogic.Models
 {
     public class PuzzlePieceState
     {

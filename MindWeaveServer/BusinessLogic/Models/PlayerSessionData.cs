@@ -1,8 +1,8 @@
-﻿using MindWeaveServer.Contracts.ServiceContracts;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using MindWeaveServer.Contracts.ServiceContracts;
 
-namespace MindWeaveServer.BusinessLogic
+namespace MindWeaveServer.BusinessLogic.Models
 {
     public class PlayerSessionData
     {

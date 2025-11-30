@@ -979,6 +979,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a El jugador {0} ya se encuentra en una partida..
+        /// </summary>
+        public static string ValidationUserAlreadyInGame {
+            get {
+                return ResourceManager.GetString("ValidationUserAlreadyInGame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a El nombre de usuario solo puede contener letras y números..
         /// </summary>
         public static string ValidationUsernameAlphanumeric {

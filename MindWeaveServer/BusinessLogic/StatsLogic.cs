@@ -1,5 +1,5 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Stats;
-using MindWeaveServer.DataAccess; // Necesario para la entidad PlayerStats
+using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
 using System;

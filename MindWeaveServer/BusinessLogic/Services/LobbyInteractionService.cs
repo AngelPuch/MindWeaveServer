@@ -1,0 +1,359 @@
+﻿using Autofac.Features.OwnedInstances;
+using MindWeaveServer.BusinessLogic.Abstractions;
+using MindWeaveServer.BusinessLogic.Manager;
+using MindWeaveServer.BusinessLogic.Models;
+using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.DataAccess;
+using MindWeaveServer.DataAccess.Abstractions;
+using MindWeaveServer.Resources;
+using MindWeaveServer.Utilities.Email;
+using MindWeaveServer.Utilities.Email.Templates;
+using NLog;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace MindWeaveServer.BusinessLogic.Services
+{
+    public class LobbyInteractionService : ILobbyInteractionService
+    {
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+        private readonly IGameStateManager gameStateManager;
+        private readonly ILobbyValidationService validationService;
+        private readonly INotificationService notificationService;
+        private readonly GameSessionManager gameSessionManager;
+        private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
+        private readonly Func<Owned<IPlayerRepository>> playerFactory;
+        private readonly Func<Owned<IGuestInvitationRepository>> invitationFactory;
+        private readonly IEmailService emailService;
+
+        private const int MATCH_STATUS_IN_PROGRESS = 3;
+        private const int MATCH_STATUS_CANCELED = 4;
+        private const int ID_REASON_HOST_DECISION = 1;
+        private const int GUEST_EXPIRY_MINUTES = 10;
+
+        public LobbyInteractionService(
+            IGameStateManager gameStateManager,
+            ILobbyValidationService validationService,
+            INotificationService notificationService,
+            GameSessionManager gameSessionManager,
+            Func<Owned<IMatchmakingRepository>> matchmakingFactory,
+            Func<Owned<IPlayerRepository>> playerFactory,
+            Func<Owned<IGuestInvitationRepository>> invitationFactory,
+            IEmailService emailService)
+        {
+            this.gameStateManager = gameStateManager;
+            this.validationService = validationService;
+            this.notificationService = notificationService;
+            this.gameSessionManager = gameSessionManager;
+            this.matchmakingFactory = matchmakingFactory;
+            this.playerFactory = playerFactory;
+            this.invitationFactory = invitationFactory;
+            this.emailService = emailService;
+        }
+
+        public async Task invitePlayerAsync(LobbyActionContext context)
+        {
+            var lobby = getLobby(context.LobbyCode);
+            var validation = validationService.canInvitePlayer(lobby, context.TargetUsername);
+
+            if (!validation.IsSuccess)
+            {
+                logger.Warn("Invite blocked: {0}", validation.ErrorMessage);
+                notificationService.notifyActionFailed(context.RequesterUsername, validation.ErrorMessage);
+                return;
+            }
+
+            notificationService.sendSocialNotification(context.TargetUsername,
+                cb => cb.notifyLobbyInvite(context.RequesterUsername, context.LobbyCode));
+
+            logger.Info("Invitation sent from {0} to {1}", context.RequesterUsername, context.TargetUsername);
+            await Task.CompletedTask;
+        }
+
+        public async Task kickPlayerAsync(LobbyActionContext context)
+        {
+            var lobby = getLobby(context.LobbyCode);
+            var validation = validationService.canKickPlayer(lobby, context.RequesterUsername, context.TargetUsername);
+
+            if (!validation.IsSuccess)
+            {
+                notificationService.notifyActionFailed(context.RequesterUsername, validation.ErrorMessage);
+                return;
+            }
+
+            int hostId = await getPlayerIdAsync(context.RequesterUsername);
+            int targetId = await getPlayerIdAsync(context.TargetUsername);
+
+            if (gameSessionManager.getSession(context.LobbyCode) != null)
+            {
+                await kickFromActiveSessionAsync(context.LobbyCode, targetId, hostId);
+            }
+            else
+            {
+                await kickFromLobbyStateAsync(lobby, targetId, hostId, context.TargetUsername);
+            }
+
+            removePlayerFromMemory(lobby, context.TargetUsername);
+            notificationService.broadcastLobbyState(lobby);
+        }
+
+        public async Task startGameAsync(LobbyActionContext context)
+        {
+            var lobby = getLobby(context.LobbyCode);
+            var validation = validationService.canStartGame(lobby, context.RequesterUsername);
+
+            if (!validation.IsSuccess)
+            {
+                notificationService.notifyActionFailed(context.RequesterUsername, validation.ErrorMessage);
+                return;
+            }
+
+            Matches match = await updateMatchStatusAsync(context.LobbyCode, MATCH_STATUS_IN_PROGRESS);
+            if (match == null)
+            {
+                notificationService.notifyActionFailed(context.RequesterUsername, Lang.DatabaseErrorStartingMatch);
+                return;
+            }
+
+            await createAndNotifySessionAsync(lobby, match);
+        }
+
+        public async Task changeDifficultyAsync(LobbyActionContext context, int newDifficultyId)
+        {
+            var lobby = getLobby(context.LobbyCode);
+           
+            if (lobby == null || !lobby.HostUsername.Equals(context.RequesterUsername, StringComparison.OrdinalIgnoreCase))
+            {
+                notificationService.notifyActionFailed(context.RequesterUsername, Lang.notHost);
+                return;
+            }
+
+            if (await persistDifficultyChangeAsync(context.LobbyCode, newDifficultyId))
+            {
+                lobby.CurrentSettingsDto.DifficultyId = newDifficultyId;
+                notificationService.broadcastLobbyState(lobby);
+            }
+            else
+            {
+                notificationService.notifyActionFailed(context.RequesterUsername, Lang.ErrorSavingDifficultyChange);
+            }
+        }
+
+        public async Task inviteGuestByEmailAsync(string inviterUsername, string lobbyCode, string guestEmail)
+        {
+            var lobby = getLobby(lobbyCode);
+
+            if (lobby == null)
+            {
+                notificationService.notifyActionFailed(inviterUsername, Lang.LobbyDataNotFound);
+                return;
+            }
+
+            if (lobby.Players.Count >= 4)
+            {
+                notificationService.notifyActionFailed(inviterUsername, Lang.LobbyIsFull);
+                return;
+            }
+
+            int inviterId = await getPlayerIdAsync(inviterUsername);
+            int matchId = await getMatchIdAsync(lobbyCode);
+
+            if (matchId > 0 && await saveGuestInvitationAsync(matchId, inviterId, guestEmail))
+            {
+                await emailService.sendEmailAsync(guestEmail, guestEmail, new GuestInviteEmailTemplate(inviterUsername, lobbyCode));
+                logger.Info("Guest invite sent to {0}", guestEmail);
+            }
+            else
+            {
+                notificationService.notifyActionFailed(inviterUsername, Lang.ErrorSendingGuestInvitation);
+            }
+        }
+
+        private LobbyStateDto getLobby(string code)
+        {
+            gameStateManager.ActiveLobbies.TryGetValue(code, out var lobby);
+            return lobby;
+        }
+
+        private async Task kickFromActiveSessionAsync(string lobbyCode, int targetId, int hostId)
+        {
+            var session = gameSessionManager.getSession(lobbyCode);
+            if (session != null)
+            {
+                await session.kickPlayerAsync(targetId, ID_REASON_HOST_DECISION, hostId);
+            }
+        }
+
+        private async Task kickFromLobbyStateAsync(LobbyStateDto lobby, int targetId, int hostId, string targetUsername)
+        {
+            try
+            {
+                using (var scope = matchmakingFactory())
+                {
+                    var match = await scope.Value.getMatchByLobbyCodeAsync(lobby.LobbyId);
+                    if (match != null)
+                    {
+                        await scope.Value.registerExpulsionAsync(new ExpulsionDto
+                        {
+                            MatchId = match.matches_id,
+                            PlayerId = targetId,
+                            HostPlayerId = hostId,
+                            ReasonId = ID_REASON_HOST_DECISION
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error registering kick in DB");
+            }
+            notificationService.notifyKicked(targetUsername, Lang.KickedByHost);
+        }
+
+        private void removePlayerFromMemory(LobbyStateDto lobby, string username)
+        {
+            if (lobby == null) return;
+            lock (lobby)
+            {
+                lobby.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (gameStateManager.GuestUsernamesInLobby.TryGetValue(lobby.LobbyId, out var guests))
+            {
+                guests.Remove(username);
+            }
+        }
+
+        private async Task<Matches> updateMatchStatusAsync(string lobbyCode, int statusId)
+        {
+            try
+            {
+                using (var scope = matchmakingFactory())
+                {
+                    var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
+                    if (match != null)
+                    {
+                        scope.Value.updateMatchStatus(match, statusId);
+                        scope.Value.updateMatchStartTime(match);
+                        await scope.Value.saveChangesAsync();
+                    }
+                    return match;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "DB Error starting match {0}", lobbyCode);
+                return null;
+            }
+        }
+
+        private async Task createAndNotifySessionAsync(LobbyStateDto lobby, Matches match)
+        {
+            var playersMap = new ConcurrentDictionary<int, PlayerSessionData>();
+            var guests = gameStateManager.GuestUsernamesInLobby.GetOrAdd(lobby.LobbyId, new HashSet<string>());
+
+            foreach (var user in lobby.Players)
+            {
+                int pid = guests.Contains(user)
+                    ? -Math.Abs(user.GetHashCode())
+                    : await getPlayerIdAsync(user);
+
+                var callback = gameStateManager.getUserCallback(user);
+
+                if (callback is IMatchmakingCallback mmCallback)
+                {
+                    playersMap.TryAdd(pid, new PlayerSessionData { PlayerId = pid, Username = user, Callback = mmCallback });
+                }
+            }
+
+            if (playersMap.IsEmpty)
+            {
+                await updateMatchStatusAsync(lobby.LobbyId, MATCH_STATUS_CANCELED);
+                return;
+            }
+
+            var session = await gameSessionManager.createGameSession(lobby.LobbyId, match.matches_id, match.puzzle_id, match.DifficultyLevels, playersMap);
+            session.startMatchTimer(match.DifficultyLevels.time_limit_seconds);
+
+            Action<IMatchmakingCallback> startMsg = cb => cb.onGameStarted(session.PuzzleDefinition, match.DifficultyLevels.time_limit_seconds);
+
+            foreach (var p in playersMap.Values)
+            {
+                notificationService.sendToUser(p.Username, startMsg);
+            }
+
+            gameStateManager.ActiveLobbies.TryRemove(lobby.LobbyId, out _);
+        }
+
+        private async Task<bool> persistDifficultyChangeAsync(string lobbyCode, int difficultyId)
+        {
+            try
+            {
+                using (var scope = matchmakingFactory())
+                {
+                    var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
+                    if (match != null)
+                    {
+                        scope.Value.updateMatchDifficulty(match, difficultyId);
+                        await scope.Value.saveChangesAsync();
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "DB Error changing difficulty for {0}", lobbyCode);
+                return false;
+            }
+        }
+
+        private async Task<bool> saveGuestInvitationAsync(int matchId, int inviterId, string email)
+        {
+            try
+            {
+                using (var scope = invitationFactory())
+                {
+                    await scope.Value.addInvitationAsync(new GuestInvitations
+                    {
+                        match_id = matchId,
+                        inviter_player_id = inviterId,
+                        guest_email = email,
+                        sent_timestamp = DateTime.UtcNow,
+                        expiry_timestamp = DateTime.UtcNow.AddMinutes(GUEST_EXPIRY_MINUTES)
+                    });
+                    await scope.Value.saveChangesAsync();
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "DB Error saving guest invite");
+                return false;
+            }
+        }
+
+        private async Task<int> getPlayerIdAsync(string username)
+        {
+            if (string.IsNullOrEmpty(username)) return 0;
+            using (var scope = playerFactory())
+            {
+                var p = await scope.Value.getPlayerByUsernameAsync(username);
+                return p?.idPlayer ?? 0;
+            }
+        }
+
+        private async Task<int> getMatchIdAsync(string lobbyCode)
+        {
+            using (var scope = matchmakingFactory())
+            {
+                var m = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
+                return m?.matches_id ?? 0;
+            }
+        }
+    }
+}

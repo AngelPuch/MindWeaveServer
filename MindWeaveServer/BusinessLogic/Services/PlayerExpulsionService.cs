@@ -1,9 +1,9 @@
-﻿using MindWeaveServer.BusinessLogic.Abstractions;
-using NLog;
-using System;
+﻿using System;
 using System.Threading.Tasks;
+using MindWeaveServer.BusinessLogic.Abstractions;
+using NLog;
 
-namespace MindWeaveServer.BusinessLogic
+namespace MindWeaveServer.BusinessLogic.Services
 {
     public class PlayerExpulsionService : IPlayerExpulsionService
     {
@@ -36,7 +36,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 try
                 {
-                    await matchmakingLogicLazy.Value.ExpelPlayerAsync(lobbyCode, username, reason);
+                    await matchmakingLogicLazy.Value.expelPlayerAsync(lobbyCode, username, reason);
                     logger.Info("Player expelled successfully from lobby {LobbyCode}", lobbyCode);
                 }
                 catch (Exception ex)

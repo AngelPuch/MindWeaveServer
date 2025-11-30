@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Autofac.Features.OwnedInstances;
 using MindWeaveServer.BusinessLogic.Abstractions;
+using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
@@ -84,6 +85,13 @@ namespace MindWeaveServer.BusinessLogic.Manager
             return gameSession;
         }
 
+        public bool isPlayerInAnySession(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return false;
+
+            return activeSessions.Values.Any(session =>
+                session.Players.Values.Any(p => p.Username.Equals(username, StringComparison.OrdinalIgnoreCase)));
+        }
         public GameSession getSession(string lobbyCode)
         {
             if (string.IsNullOrWhiteSpace(lobbyCode))

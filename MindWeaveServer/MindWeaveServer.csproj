@@ -134,6 +134,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AppStart\Bootstrapper.cs" />
+    <Compile Include="BusinessLogic\Abstractions\ILobbyInteractionService.cs" />
+    <Compile Include="BusinessLogic\Abstractions\ILobbyLifecycleService.cs" />
+    <Compile Include="BusinessLogic\Abstractions\ILobbyValidationService.cs" />
+    <Compile Include="BusinessLogic\Abstractions\INotificationService.cs" />
     <Compile Include="BusinessLogic\Abstractions\IPlayerExpulsionService.cs" />
     <Compile Include="BusinessLogic\Abstractions\IScoreCalculator.cs" />
     <Compile Include="BusinessLogic\AchievementEvaluator.cs" />
@@ -146,13 +150,19 @@
     <Compile Include="BusinessLogic\Abstractions\IGameStateManager.cs" />
     <Compile Include="BusinessLogic\Manager\LobbyModerationManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
-    <Compile Include="BusinessLogic\PlayerExpulsionService.cs" />
-    <Compile Include="BusinessLogic\PlayerSessionData.cs" />
+    <Compile Include="BusinessLogic\Models\LobbyActionContext.cs" />
+    <Compile Include="BusinessLogic\Models\ValidationResult.cs" />
+    <Compile Include="BusinessLogic\Services\PlayerExpulsionService.cs" />
+    <Compile Include="BusinessLogic\Models\PlayerSessionData.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
     <Compile Include="BusinessLogic\PuzzleGenerator.cs" />
     <Compile Include="BusinessLogic\PuzzleLogic.cs" />
-    <Compile Include="BusinessLogic\PuzzlePieceState.cs" />
+    <Compile Include="BusinessLogic\Models\PuzzlePieceState.cs" />
     <Compile Include="BusinessLogic\ScoreCalculator.cs" />
+    <Compile Include="BusinessLogic\Services\LobbyInteractionService.cs" />
+    <Compile Include="BusinessLogic\Services\LobbyLifecycleService.cs" />
+    <Compile Include="BusinessLogic\Services\LobbyValidationService.cs" />
+    <Compile Include="BusinessLogic\Services\NotificationService.cs" />
     <Compile Include="BusinessLogic\SocialLogic.cs" />
     <Compile Include="BusinessLogic\StatsLogic.cs" />
     <Compile Include="Contracts\DataContracts\Authentication\LoginDto.cs" />

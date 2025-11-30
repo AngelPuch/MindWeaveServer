@@ -1,6 +1,7 @@
 ﻿using MindWeaveServer.BusinessLogic.Abstractions;
 using System;
 using System.Collections.Generic;
+using MindWeaveServer.BusinessLogic.Models;
 
 namespace MindWeaveServer.BusinessLogic
 {

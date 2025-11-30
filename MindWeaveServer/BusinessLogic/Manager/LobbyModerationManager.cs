@@ -12,17 +12,17 @@ namespace MindWeaveServer.BusinessLogic.Manager
     {
         private readonly ConcurrentDictionary<string, LobbyModerationState> lobbies = new ConcurrentDictionary<string, LobbyModerationState>();
 
-        public void InitializeLobby(string lobbyCode)
+        public void initializeLobby(string lobbyCode)
         {
             lobbies.TryAdd(lobbyCode, new LobbyModerationState());
         }
 
-        public void RemoveLobby(string lobbyCode)
+        public void removeLobby(string lobbyCode)
         {
             lobbies.TryRemove(lobbyCode, out _);
         }
 
-        public bool IsBanned(string lobbyCode, string username)
+        public bool isBanned(string lobbyCode, string username)
         {
             if (lobbies.TryGetValue(lobbyCode, out var state))
             {
@@ -31,7 +31,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             return false;
         }
 
-        public void BanUser(string lobbyCode, string username, string reason)
+        public void banUser(string lobbyCode, string username, string reason)
         {
             if (lobbies.TryGetValue(lobbyCode, out var state))
             {
@@ -39,7 +39,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             }
         }
 
-        public int AddStrike(string lobbyCode, string username)
+        public int addStrike(string lobbyCode, string username)
         {
             if (lobbies.TryGetValue(lobbyCode, out var state))
             {

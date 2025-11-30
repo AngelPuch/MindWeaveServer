@@ -15,6 +15,7 @@ using System.ServiceModel;
 using System.Threading.Tasks;
 using Autofac;
 using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic.Abstractions;
 
 namespace MindWeaveServer.Services
 {
@@ -23,59 +24,53 @@ namespace MindWeaveServer.Services
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private static readonly ConcurrentDictionary<string, ISocialCallback> connectedUsers =
-            new ConcurrentDictionary<string, ISocialCallback>(StringComparer.OrdinalIgnoreCase);
-
         private readonly SocialLogic socialLogic;
-        private string currentUsername;
+        private readonly IGameStateManager gameStateManager;
         private ISocialCallback currentUserCallback;
+
+        private string currentUsername;
 
         public SocialManagerService() : this(resolveDep()) { }
 
-        private static SocialLogic resolveDep()
+        private static (SocialLogic, IGameStateManager) resolveDep()
         {
             Bootstrapper.init();
-            return Bootstrapper.Container.Resolve<SocialLogic>();
+            return (
+                Bootstrapper.Container.Resolve<SocialLogic>(),
+                Bootstrapper.Container.Resolve<IGameStateManager>()
+            );
         }
 
-        public SocialManagerService(SocialLogic socialLogic)
+        public SocialManagerService((SocialLogic logic, IGameStateManager state) dependencies)
         {
-            this.socialLogic = socialLogic;
+            this.socialLogic = dependencies.logic;
+            this.gameStateManager = dependencies.state;
 
             if (OperationContext.Current != null && OperationContext.Current.Channel != null)
             {
                 OperationContext.Current.Channel.Faulted += Channel_FaultedOrClosed;
                 OperationContext.Current.Channel.Closed += Channel_FaultedOrClosed;
-                logger.Debug("Attached Faulted/Closed event handlers to the current WCF channel.");
-            }
-            else
-            {
-                logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
             }
         }
 
         public static bool isUserConnected(string username)
         {
-            if (string.IsNullOrEmpty(username))
+            try
             {
+                var manager = Bootstrapper.Container.Resolve<IGameStateManager>();
+                return manager.isUserConnected(username);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error resolving GameStateManager in static method isUserConnected.");
                 return false;
             }
-            return connectedUsers.ContainsKey(username);
         }
-
-        public static ICollection<string> getConnectedUsernames()
-        {
-            return connectedUsers.Keys.ToList();
-        }
-
 
         public void connect(string username)
         {
             ISocialCallback callbackChannel = tryGetCallbackChannel(username);
-            if (callbackChannel == null)
-            {
-                return;
-            }
+            if (callbackChannel == null) return;
 
             this.currentUserCallback = callbackChannel;
             this.currentUsername = username;
@@ -83,17 +78,12 @@ namespace MindWeaveServer.Services
 
             Task.Run(async () =>
             {
-                logger.Info("Connect task started for user: {Username}", userForContext);
-                ISocialCallback addedOrUpdatedCallback = connectedUsers.AddOrUpdate(
-                    currentUsername,
-                    currentUserCallback,
-                    updateCallbackFactory
-                );
-
-                await handleConnectionResult(addedOrUpdatedCallback, userForContext);
+                var existingCallback = gameStateManager.getUserCallback(currentUsername);
+                gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
+                await handleConnectionResult(existingCallback, currentUserCallback, userForContext);
             });
         }
-        
+
         public void disconnect(string username)
         {
             Task.Run(async () =>
@@ -107,9 +97,7 @@ namespace MindWeaveServer.Services
                 }
                 else
                 {
-                    logger.Warn(
-                        "Disconnect called with username '{Username}' which does not match the current session user '{CurrentUsername}' or session is already cleaned up.",
-                        userForContext, currentUsername ?? "N/A");
+                    logger.Warn("Disconnect mismatch/invalid: Request: {Req}, Session: {Sess}", userForContext, currentUsername ?? "N/A");
                 }
             });
         }
@@ -125,7 +113,6 @@ namespace MindWeaveServer.Services
             try
             {
                 var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
-                logger.Info("SearchPlayers found {Count} results for query '{Query}' by {RequesterUsername}", results?.Count ?? 0, query ?? "", requesterUsername);
                 return results ?? new List<PlayerSearchResultDto>();
             }
             catch (EntityException ex)
@@ -265,8 +252,8 @@ namespace MindWeaveServer.Services
             logger.Info("getFriendsList request for user: {Username}", username);
             try
             {
-                var friends = await socialLogic.getFriendsListAsync(username, getConnectedUsernames());
-                logger.Info("Retrieved {Count} friends for user {Username}", friends?.Count ?? 0, username);
+                var connectedUsersList = gameStateManager.ConnectedUsers.Keys.ToList();
+                var friends = await socialLogic.getFriendsListAsync(username, connectedUsersList);
                 return friends ?? new List<FriendDto>();
             }
             catch (EntityException ex)
@@ -370,22 +357,23 @@ namespace MindWeaveServer.Services
             return existingCallback;
         }
 
-        private async Task handleConnectionResult(ISocialCallback addedOrUpdatedCallback, string userForContext)
+        private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback, string userForContext)
         {
-            if (addedOrUpdatedCallback == currentUserCallback)
+            if (previousCallback == null || previousCallback == newCallback)
             {
                 logger.Info("User connected and callback registered/updated: {Username}", userForContext);
-                setupCallbackEvents(currentUserCallback as ICommunicationObject);
+                setupCallbackEvents(newCallback as ICommunicationObject);
                 await notifyFriendsStatusChange(currentUsername, true);
             }
             else
             {
                 logger.Warn(
-                    "User {Username} attempted to connect, but an existing active session was found. The new connection might replace the old one implicitly by WCF session management, or might coexist depending on configuration.",
+                    "User {Username} attempted to connect, but an existing active session was found. The new connection replaced the old one.",
                     userForContext);
 
-                currentUserCallback = addedOrUpdatedCallback;
-                setupCallbackEvents(currentUserCallback as ICommunicationObject);
+                if (previousCallback is ICommunicationObject oldComm) cleanupCallbackEvents(oldComm);
+
+                setupCallbackEvents(newCallback as ICommunicationObject);
             }
         }
 
@@ -397,17 +385,15 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            logger.Info("Attempting to remove user {Username} from ConnectedUsers and notify friends.", username);
-            
-            if (connectedUsers.TryRemove(username, out ISocialCallback removedChannel))
+            if (gameStateManager.isUserConnected(username))
             {
+                var callbackToRemove = gameStateManager.getUserCallback(username);
+                gameStateManager.removeConnectedUser(username);
+
                 logger.Info("User {Username} removed from ConnectedUsers.", username);
-                cleanupCallbackEvents(removedChannel as ICommunicationObject);
+                if (callbackToRemove is ICommunicationObject comm) cleanupCallbackEvents(comm);
+
                 await notifyFriendsStatusChange(username, false);
-            }
-            else
-            {
-                logger.Warn("User {Username} was not found in ConnectedUsers during cleanup attempt.", username);
             }
 
             if (currentUsername == username)
@@ -454,30 +440,37 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            if (connectedUsers.TryGetValue(targetUsername, out ISocialCallback callbackChannel))
+            try
             {
-                try
+                var manager = Bootstrapper.Container.Resolve<IGameStateManager>();
+                var callback = manager.getUserCallback(targetUsername);
+
+                if (callback != null)
                 {
-                    var commObject = callbackChannel as ICommunicationObject;
-                    if (commObject != null && commObject.State == CommunicationState.Opened)
+                    try
                     {
-                        logger.Debug("Sending notification callback to user: {TargetUsername}", targetUsername);
-                        action(callbackChannel);
+                        var commObject = callback as ICommunicationObject;
+                        if (commObject != null && commObject.State == CommunicationState.Opened)
+                        {
+                            logger.Debug("Sending notification callback to user: {TargetUsername}", targetUsername);
+                            action(callback);
+                        }
+                        else
+                        { 
+                            logger.Warn("Callback channel for user {TargetUsername} is not open (State: {State}). Skipping notification and removing.", targetUsername, commObject?.State);
+                            manager.removeConnectedUser(targetUsername);
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        logger.Warn("Callback channel for user {TargetUsername} is not open (State: {State}). Skipping notification.", targetUsername, commObject?.State);
-                        connectedUsers.TryRemove(targetUsername, out _);
+                        logger.Error(ex, "Exception sending notification callback to user: {TargetUsername}", targetUsername);
                     }
                 }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Exception sending notification callback to user: {TargetUsername}", targetUsername);
-                }
+               
             }
-            else
+            catch (Exception ex)
             {
-                logger.Debug("User {TargetUsername} not found in ConnectedUsers. Skipping notification.", targetUsername);
+                logger.Error(ex, "Error resolving GameStateManager in sendNotificationToUser.");
             }
         }
 
@@ -489,11 +482,6 @@ namespace MindWeaveServer.Services
                 commObject.Closed -= Channel_FaultedOrClosed;
                 commObject.Faulted += Channel_FaultedOrClosed;
                 commObject.Closed += Channel_FaultedOrClosed;
-                logger.Debug("Event handlers (Faulted/Closed) attached for user: {Username} callback. Channel State: {State}", currentUsername ?? "N/A", commObject.State);
-            }
-            else
-            {
-                logger.Warn("Attempted to setup callback events, but communication object was null for user: {Username}.", currentUsername ?? "N/A");
             }
         }
 
@@ -503,7 +491,6 @@ namespace MindWeaveServer.Services
             {
                 commObject.Faulted -= Channel_FaultedOrClosed;
                 commObject.Closed -= Channel_FaultedOrClosed;
-                logger.Debug("Event handlers (Faulted/Closed) removed for a callback channel.");
             }
         }
 
