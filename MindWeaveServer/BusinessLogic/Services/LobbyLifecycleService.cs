@@ -328,7 +328,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                         var exists = await matchRepo.getParticipantAsync(match.matches_id, player.idPlayer);
                         if (exists == null)
                         {
-                            await matchRepo.addParticipantAsync(new MatchParticipants { match_id = match.matches_id, player_id = player.idPlayer });
+                            await matchRepo.addParticipantAsync(new MatchParticipants { match_id = match.matches_id, player_id = player.idPlayer, is_host = false });
                         }
                         return true;
                     }

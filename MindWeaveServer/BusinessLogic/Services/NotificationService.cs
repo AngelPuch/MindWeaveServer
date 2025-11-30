@@ -44,19 +44,16 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         public void notifyActionFailed(string username, string message)
         {
-            logger.Info("Sending ActionFailed notification to {0}: {1}", username, message);
             sendToUser(username, cb => cb.notifyLobbyActionFailed(message));
         }
 
         public void notifyKicked(string username, string reason)
         {
-            logger.Info("Sending Kicked notification to {0}. Reason: {1}", username, reason);
             sendToUser(username, cb => cb.kickedFromLobby(reason));
         }
 
         public void notifyLobbyCreationFailed(string username, string reason)
         {
-            logger.Warn("Sending LobbyCreationFailed (Fatal) to {0}. Reason: {1}", username, reason);
             sendToUser(username, cb => cb.lobbyCreationFailed(reason));
         }
 
@@ -70,7 +67,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
-                logger.Debug("Could not send matchmaking notification to {0}: No callback found.", username);
+                logger.Warn("Could not send matchmaking notification to {0}: No callback found.", username);
             }
         }
 
@@ -86,7 +83,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
-                logger.Debug("Could not send social notification to {0}: No callback found.", username);
+                logger.Warn("Could not send social notification to {0}: No callback found.", username);
             }
         }
 

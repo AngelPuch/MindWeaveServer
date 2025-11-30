@@ -262,17 +262,26 @@ namespace MindWeaveServer.BusinessLogic.Services
                     ? -Math.Abs(user.GetHashCode())
                     : await getPlayerIdAsync(user);
 
-                var callback = gameStateManager.getUserCallback(user);
-
-                if (callback is IMatchmakingCallback mmCallback)
+                if (gameStateManager.MatchmakingCallbacks.TryGetValue(user, out IMatchmakingCallback mmCallback))
                 {
-                    playersMap.TryAdd(pid, new PlayerSessionData { PlayerId = pid, Username = user, Callback = mmCallback });
+                    playersMap.TryAdd(pid, new PlayerSessionData
+                    {
+                        PlayerId = pid,
+                        Username = user,
+                        Callback = mmCallback
+                    });
+                }
+                else
+                {
+                    logger.Warn("CreateSession: No matchmaking callback found for user {0}. They will be excluded.", user);
                 }
             }
 
             if (playersMap.IsEmpty)
             {
+                logger.Warn("CreateSession: Player map is empty (callbacks missing?). Canceling match {0}.", match.matches_id);
                 await updateMatchStatusAsync(lobby.LobbyId, MATCH_STATUS_CANCELED);
+                notificationService.notifyActionFailed(lobby.HostUsername, "Error: No players found with active connections.");
                 return;
             }
 

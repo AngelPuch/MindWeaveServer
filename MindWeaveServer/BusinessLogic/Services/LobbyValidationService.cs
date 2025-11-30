@@ -3,6 +3,7 @@ using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Resources;
+using NLog;
 using System;
 using System.Linq;
 
@@ -10,6 +11,8 @@ namespace MindWeaveServer.BusinessLogic.Services
 {
     public class LobbyValidationService : ILobbyValidationService
     {
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
         private readonly IGameStateManager gameStateManager;
         private readonly GameSessionManager gameSessionManager;
         private readonly LobbyModerationManager moderationManager;
@@ -110,6 +113,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (isUserBusy(targetUsername, lobby.LobbyId))
             {
+                logger.Info($"CanInvitePlayer: Blocked invite to {targetUsername} because IsUserBusy returned true.");
                 return ValidationResult.failure(string.Format(Lang.ValidationUserAlreadyInGame, targetUsername));
             }
 
@@ -159,21 +163,31 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private bool isUserBusy(string username, string currentLobbyId)
         {
-            if (gameSessionManager.isPlayerInAnySession(username))
+            bool inGame = gameSessionManager.isPlayerInAnySession(username);
+            if (inGame)
             {
                 return true;
             }
-            
-            var lobbies = gameStateManager.ActiveLobbies;
 
-            return lobbies.Values.Any(l =>
+            var lobbies = gameStateManager.ActiveLobbies;
+            foreach (var kvp in lobbies)
             {
-                if (currentLobbyId != null && l.LobbyId == currentLobbyId) return false;
-                lock (l)
+                var lobby = kvp.Value;
+
+                if (currentLobbyId != null && lobby.LobbyId == currentLobbyId) continue;
+
+                bool inLobby = false;
+                lock (lobby)
                 {
-                    return l.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
+                    inLobby = lobby.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
                 }
-            });
+
+                if (inLobby)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
