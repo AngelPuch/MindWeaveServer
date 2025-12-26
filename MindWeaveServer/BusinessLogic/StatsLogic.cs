@@ -42,13 +42,13 @@ namespace MindWeaveServer.BusinessLogic
             return await statsRepository.unlockAchievementsAsync(playerId, achievementIds);
         }
 
-        public void updatePlaytimeOnly(string username, int minutesPlayed)
+        public async Task updatePlaytimeOnly(string username, int minutesPlayed)
         {
-            var player = playerRepository.getPlayerByUsernameAsync(username);
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
 
             if (player != null)
             {
-                statsRepository.addPlaytimeToPlayer(player.Id, minutesPlayed);
+                statsRepository.addPlaytimeToPlayer(player.idPlayer, minutesPlayed);
             }
         }
 

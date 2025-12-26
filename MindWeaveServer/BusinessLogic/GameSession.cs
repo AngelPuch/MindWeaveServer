@@ -126,21 +126,6 @@ namespace MindWeaveServer.BusinessLogic
 
             releaseHeldPieces(playerId);
 
-            Task.Run(async () =>
-            {
-                try
-                {
-                    using (var scope = matchmakingFactory())
-                    {
-                        await scope.Value.updatePlayerScoreAsync(MatchId, playerId, playerData.Score);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Error saving score on disconnect for player {PlayerId}", playerId);
-                }
-            });
-
             return playerData;
         }
 
@@ -366,8 +351,6 @@ namespace MindWeaveServer.BusinessLogic
             GC.SuppressFinalize(this);
         }
 
-        // En MindWeaveServer.BusinessLogic.GameSession
-
         public async Task handlePlayerVoluntaryLeaveAsync(string username)
         {
             var playerEntry = Players.FirstOrDefault(p => p.Value.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
@@ -391,7 +374,7 @@ namespace MindWeaveServer.BusinessLogic
                 using (var scope = statsLogicFactory())
                 {
                     var statsService = scope.Value;
-                    statsService.updatePlaytimeOnly(username, minutes);
+                    await statsService.updatePlaytimeOnly(username, minutes);
                 }
             }
             catch (Exception ex)
