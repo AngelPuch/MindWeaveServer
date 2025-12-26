@@ -31,6 +31,7 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword);
 
         [OperationContract]
-        List<AchievementDto> GetPlayerAchievements(int playerId);
+        [FaultContract(typeof(ServiceFaultDto))]
+        Task<List<AchievementDto>> getPlayerAchievementsAsync(int playerId);
     }
 }

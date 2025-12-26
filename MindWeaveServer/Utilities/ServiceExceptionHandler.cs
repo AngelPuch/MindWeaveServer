@@ -4,6 +4,7 @@ using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
 using System.Data.Entity.Core;
+using System.IO;
 using System.Net.Sockets;
 using System.ServiceModel;
 
@@ -25,6 +26,16 @@ namespace MindWeaveServer.Utilities
             if (exception is EntityException entityEx)
             {
                 return handleDatabaseException(entityEx, safeContext);
+            }
+
+            if (exception is FileNotFoundException fileNotFoundEx)
+            {
+                return handleFileNotFoundException(fileNotFoundEx, safeContext);
+            }
+            
+            if (exception is IOException ioEx)
+            {
+                return handleIOException(ioEx, safeContext);
             }
 
             if (exception is TimeoutException timeoutEx)
@@ -65,6 +76,30 @@ namespace MindWeaveServer.Utilities
                 "Database");
 
             return new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
+        }
+
+        private FaultException<ServiceFaultDto> handleFileNotFoundException(FileNotFoundException ex, string context)
+        {
+            logger.Error(ex, "Resource not found. Context: {Context}", context);
+
+            var fault = new ServiceFaultDto(
+                ServiceErrorType.NotFound,
+                Lang.ErrorPuzzleFileNotFound,
+                "FileSystem");
+
+            return new FaultException<ServiceFaultDto>(fault, new FaultReason("Resource Missing"));
+        }
+
+        private FaultException<ServiceFaultDto> handleIOException(IOException ex, string context)
+        {
+            logger.Error(ex, "File system/IO error. Context: {Context}", context);
+
+            var fault = new ServiceFaultDto(
+                ServiceErrorType.Unknown,
+                Lang.ErrorReadingPuzzleFile,
+                "FileSystem");
+
+            return new FaultException<ServiceFaultDto>(fault, new FaultReason("Storage Error"));
         }
 
         private FaultException<ServiceFaultDto> handleTimeoutException(TimeoutException ex, string context)

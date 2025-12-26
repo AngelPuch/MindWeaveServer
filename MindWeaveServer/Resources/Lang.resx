@@ -252,6 +252,9 @@
   <data name="ErrorSessionMismatch" xml:space="preserve">
     <value>La sesión no coincide.</value>
   </data>
+  <data name="ErrorUserAlreadyLoggedIn" xml:space="preserve">
+    <value>Este usuario ya ha iniciado sesión en otro dispositivo.</value>
+  </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>El Usuario no esta en línea</value>
   </data>

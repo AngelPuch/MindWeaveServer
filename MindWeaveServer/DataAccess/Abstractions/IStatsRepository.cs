@@ -1,5 +1,4 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Stats;
-using MindWeaveServer.DataAccess; // Necesario para PlayerStats entity
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -17,6 +16,10 @@ namespace MindWeaveServer.DataAccess.Abstractions
 
         Task<int> saveChangesAsync();
 
-        Task<List<int>> UnlockAchievementsAsync(int playerId, List<int> potentialAchievementIds);
+        Task<List<Achievements>> getAllAchievementsAsync();
+
+        Task<List<int>> unlockAchievementsAsync(int playerId, List<int> potentialAchievementIds);
+
+        void addPlaytimeToPlayer(int playerId, int minutes);
     }
 }

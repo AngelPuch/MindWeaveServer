@@ -252,6 +252,9 @@
   <data name="ErrorSessionMismatch" xml:space="preserve">
     <value>Session mismatch.</value>
   </data>
+  <data name="ErrorUserAlreadyLoggedIn" xml:space="preserve">
+    <value>This user is already logged in on another device.</value>
+  </data>
   <data name="ErrorUserNotOnline" xml:space="preserve">
     <value>User is not online</value>
   </data>

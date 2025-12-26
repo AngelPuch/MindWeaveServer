@@ -32,16 +32,11 @@ namespace MindWeaveServer.BusinessLogic.Manager
             PuzzleGenerator puzzleGenerator,
             IScoreCalculator scoreCalculator)
         {
-            this.puzzleRepositoryFactory = puzzleRepositoryFactory
-                ?? throw new ArgumentNullException(nameof(puzzleRepositoryFactory));
-            this.matchmakingRepositoryFactory = matchmakingRepositoryFactory
-                ?? throw new ArgumentNullException(nameof(matchmakingRepositoryFactory));
-            this.statsLogicFactory = statsLogicFactory
-                ?? throw new ArgumentNullException(nameof(statsLogicFactory));
-            this.puzzleGenerator = puzzleGenerator
-                ?? throw new ArgumentNullException(nameof(puzzleGenerator));
-            this.scoreCalculator = scoreCalculator
-                ?? throw new ArgumentNullException(nameof(scoreCalculator));
+            this.puzzleRepositoryFactory = puzzleRepositoryFactory;
+            this.matchmakingRepositoryFactory = matchmakingRepositoryFactory;
+            this.statsLogicFactory = statsLogicFactory;
+            this.puzzleGenerator = puzzleGenerator;
+            this.scoreCalculator = scoreCalculator;
         }
 
         public async Task<GameSession> createGameSession(
@@ -173,8 +168,11 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
                 if (!session.Players.Any())
                 {
-                    activeSessions.TryRemove(session.LobbyCode, out _);
-                    logger.Info("Removed empty GameSession {LobbyId} from session manager.", session.LobbyCode);
+                    if (activeSessions.TryRemove(session.LobbyCode, out var removedSession))
+                    {
+                        removedSession.Dispose();
+                        logger.Info("Removed AND DISPOSED empty GameSession {LobbyId} from session manager.", session.LobbyCode);
+                    }
                 }
 
                 break;
@@ -240,6 +238,20 @@ namespace MindWeaveServer.BusinessLogic.Manager
             }
 
             return directPath;
+        }
+
+        public async Task handlePlayerLeaveAsync(string lobbyCode, string username)
+        {
+            var session = getSession(lobbyCode);
+
+            if (session != null)
+            {
+                await session.handlePlayerVoluntaryLeaveAsync(username);
+            }
+            else
+            {
+                logger.Warn("HandlePlayerLeave: No active session found for lobby {LobbyCode}", lobbyCode);
+            }
         }
     }
 }

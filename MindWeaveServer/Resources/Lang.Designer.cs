@@ -466,6 +466,15 @@ namespace MindWeaveServer.Resources {
         }
         
         /// <summary>
+        ///   Busca una cadena traducida similar a Este usuario ya ha iniciado sesión en otro dispositivo..
+        /// </summary>
+        public static string ErrorUserAlreadyLoggedIn {
+            get {
+                return ResourceManager.GetString("ErrorUserAlreadyLoggedIn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Busca una cadena traducida similar a El Usuario no esta en línea.
         /// </summary>
         public static string ErrorUserNotOnline {

@@ -14,6 +14,7 @@ using System.Data.SqlClient;
 using System.Data.Entity.Infrastructure;
 using System.Linq;
 using System.Threading.Tasks;
+using MindWeaveServer.BusinessLogic.Abstractions;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -21,6 +22,7 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
+        private const string RESULT_CODE_ALREADY_LOGGED_IN = "ALREADY_LOGGED_IN";
         private const string RESULT_CODE_ACCOUNT_NOT_VERIFIED = "ACCOUNT_NOT_VERIFIED";
         private const string EXCEPTION_MSG_DUPLICATE_USER = "DuplicateUser";
         private const int VERIFICATION_CODE_LENGTH = 6;
@@ -31,6 +33,7 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IPasswordService passwordService;
         private readonly IPasswordPolicyValidator passwordPolicyValidator;
         private readonly IVerificationCodeService verificationCodeService;
+        private readonly IUserSessionManager userSessionManager;
         private readonly IValidator<UserProfileDto> profileValidator;
         private readonly IValidator<LoginDto> loginValidator;
 
@@ -38,8 +41,9 @@ namespace MindWeaveServer.BusinessLogic
             IPlayerRepository playerRepository,
             IEmailService emailService,
             IPasswordService passwordService,
-            IPasswordPolicyValidator passwordPolicyValidator,
+            IPasswordPolicyValidator passwordPolicyValidator, 
             IVerificationCodeService verificationCodeService,
+            IUserSessionManager userSessionManager,
             IValidator<UserProfileDto> profileValidator,
             IValidator<LoginDto> loginValidator)
         {
@@ -48,6 +52,7 @@ namespace MindWeaveServer.BusinessLogic
             this.passwordService = passwordService;
             this.passwordPolicyValidator = passwordPolicyValidator;
             this.verificationCodeService = verificationCodeService;
+            this.userSessionManager = userSessionManager;
             this.profileValidator = profileValidator;
             this.loginValidator = loginValidator;
         }
@@ -102,6 +107,16 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
+            if (userSessionManager.isUserLoggedIn(player.username))
+            {
+                logger.Warn("Duplicate login attempt blocked for user: {Username}", player.username);
+                return new LoginResultDto
+                {
+                    OperationResult = new OperationResultDto { Success = false, Message = Lang.ErrorUserAlreadyLoggedIn },
+                    ResultCode = RESULT_CODE_ALREADY_LOGGED_IN
+                };
+            }
+
             if (!player.is_verified)
             {
                 logger.Warn("Login attempt on unverified account. PlayerId: {Id}", player.idPlayer);
@@ -111,6 +126,8 @@ namespace MindWeaveServer.BusinessLogic
                     ResultCode = RESULT_CODE_ACCOUNT_NOT_VERIFIED
                 };
             }
+
+            userSessionManager.addSession(player.username);
 
             logger.Info("Login successful. PlayerId: {Id}", player.idPlayer);
             return new LoginResultDto
@@ -247,6 +264,14 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("Password reset successful. PlayerId: {Id}", player.idPlayer);
 
             return new OperationResultDto { Success = true, Message = Lang.InfoPasswordResetSuccess };
+        }
+
+        public void logout(string username)
+        {
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                userSessionManager.removeSession(username);
+            }
         }
 
         private async Task<OperationResultDto> validateRegistrationInputAsync(UserProfileDto userProfile, string password)

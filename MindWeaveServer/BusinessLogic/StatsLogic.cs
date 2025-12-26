@@ -12,10 +12,12 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private readonly IStatsRepository statsRepository;
+        private readonly IPlayerRepository playerRepository;
 
-        public StatsLogic(IStatsRepository statsRepository)
+        public StatsLogic(IStatsRepository statsRepository, IPlayerRepository playerRepository)
         {
             this.statsRepository = statsRepository;
+            this.playerRepository = playerRepository;
         }
 
         public async Task processMatchResultsAsync(PlayerMatchStatsDto matchStats)
@@ -34,11 +36,21 @@ namespace MindWeaveServer.BusinessLogic
         {
             return await statsRepository.getPlayerStatsByIdAsync(playerId);
         }
-
     
         public async Task<List<int>> unlockAchievementsAsync(int playerId, List<int> achievementIds)
         {
-            return await statsRepository.UnlockAchievementsAsync(playerId, achievementIds);
+            return await statsRepository.unlockAchievementsAsync(playerId, achievementIds);
         }
+
+        public void updatePlaytimeOnly(string username, int minutesPlayed)
+        {
+            var player = playerRepository.getPlayerByUsernameAsync(username);
+
+            if (player != null)
+            {
+                statsRepository.addPlaytimeToPlayer(player.Id, minutesPlayed);
+            }
+        }
+
     }
 }

@@ -38,6 +38,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
         PlayerBanned = 10,
 
         [EnumMember]
-        ValidationError = 11
+        ValidationError = 11,
+
+        [EnumMember]
+        SecurityError = 12
     }
 }

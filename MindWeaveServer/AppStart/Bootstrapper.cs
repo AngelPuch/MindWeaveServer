@@ -73,8 +73,8 @@ namespace MindWeaveServer.AppStart
             builder.RegisterType<PuzzleRepository>()
                 .As<IPuzzleRepository>();
 
-            builder.RegisterType<StatsRepository>()
-                .As<IStatsRepository>();
+            builder.RegisterType<StatsRepository>().
+                As<IStatsRepository>().InstancePerDependency();
 
             builder.RegisterType<GuestInvitationRepository>()
                 .As<IGuestInvitationRepository>();
@@ -132,6 +132,10 @@ namespace MindWeaveServer.AppStart
 
         private static void registerManagers(ContainerBuilder builder)
         {
+            builder.RegisterType<UserSessionManager>()
+                .As<IUserSessionManager>()
+                .SingleInstance();
+
             builder.RegisterType<GameSessionManager>()
                 .AsSelf()
                 .SingleInstance();

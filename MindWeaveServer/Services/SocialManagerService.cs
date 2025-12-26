@@ -1,21 +1,18 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.DataAccess;
-using MindWeaveServer.DataAccess.Repositories;
 using MindWeaveServer.Resources;
+using MindWeaveServer.Utilities.Abstractions;
+using Autofac;
 using NLog;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Data.Entity.Core;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using Autofac;
-using MindWeaveServer.AppStart;
-using MindWeaveServer.BusinessLogic.Abstractions;
 
 namespace MindWeaveServer.Services
 {
@@ -26,372 +23,303 @@ namespace MindWeaveServer.Services
 
         private readonly SocialLogic socialLogic;
         private readonly IGameStateManager gameStateManager;
-        private ISocialCallback currentUserCallback;
+        private readonly IServiceExceptionHandler exceptionHandler;
 
+        private ISocialCallback currentUserCallback;
         private string currentUsername;
 
-        public SocialManagerService() : this(resolveDep()) { }
-
-        private static (SocialLogic, IGameStateManager) resolveDep()
+        public SocialManagerService() : this(
+            Bootstrapper.Container.Resolve<SocialLogic>(),
+            Bootstrapper.Container.Resolve<IGameStateManager>(),
+            Bootstrapper.Container.Resolve<IServiceExceptionHandler>())
         {
-            Bootstrapper.init();
-            return (
-                Bootstrapper.Container.Resolve<SocialLogic>(),
-                Bootstrapper.Container.Resolve<IGameStateManager>()
-            );
         }
 
-        public SocialManagerService((SocialLogic logic, IGameStateManager state) dependencies)
+        public SocialManagerService(
+            SocialLogic socialLogic,
+            IGameStateManager gameStateManager,
+            IServiceExceptionHandler exceptionHandler)
         {
-            this.socialLogic = dependencies.logic;
-            this.gameStateManager = dependencies.state;
+            this.socialLogic = socialLogic;
+            this.gameStateManager = gameStateManager;
+            this.exceptionHandler = exceptionHandler;
 
-            if (OperationContext.Current != null && OperationContext.Current.Channel != null)
-            {
-                OperationContext.Current.Channel.Faulted += Channel_FaultedOrClosed;
-                OperationContext.Current.Channel.Closed += Channel_FaultedOrClosed;
-            }
-        }
-
-        public static bool isUserConnected(string username)
-        {
-            try
-            {
-                var manager = Bootstrapper.Container.Resolve<IGameStateManager>();
-                return manager.isUserConnected(username);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error resolving GameStateManager in static method isUserConnected.");
-                return false;
-            }
+            subscribeToChannelEvents();
         }
 
         public void connect(string username)
         {
-            ISocialCallback callbackChannel = tryGetCallbackChannel(username);
-            if (callbackChannel == null) return;
-
-            this.currentUserCallback = callbackChannel;
-            this.currentUsername = username;
-            string userForContext = username ?? "NULL";
-
-            Task.Run(async () =>
+            try
             {
-                var existingCallback = gameStateManager.getUserCallback(currentUsername);
-                gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
-                await handleConnectionResult(existingCallback, currentUserCallback, userForContext);
-            });
+                ISocialCallback callbackChannel = tryGetCallbackChannel(username);
+                if (callbackChannel == null)
+                {
+                    return;
+                }
+
+                currentUserCallback = callbackChannel;
+                currentUsername = username;
+                string safeUsername = username ?? "Unknown";
+
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        var existingCallback = gameStateManager.getUserCallback(currentUsername);
+                        gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
+                        await handleConnectionResult(existingCallback, currentUserCallback, safeUsername);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Error during async connection initialization for user {UserId}", safeUsername);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Critical error in Connect method.");
+            }
         }
 
         public void disconnect(string username)
         {
             Task.Run(async () =>
             {
-                string userForContext = username ?? "NULL";
-                if (!string.IsNullOrEmpty(currentUsername) &&
-                    currentUsername.Equals(userForContext, StringComparison.OrdinalIgnoreCase))
+                try
                 {
-                    logger.Info("Disconnect requested by user: {Username}", userForContext);
-                    await cleanupAndNotifyDisconnect(currentUsername);
+                    await processDisconnect(username);
                 }
-                else
+                catch (Exception ex)
                 {
-                    logger.Warn("Disconnect mismatch/invalid: Request: {Req}, Session: {Sess}", userForContext, currentUsername ?? "N/A");
+                    logger.Error(ex, "Error processing disconnect for user {UserId}", username);
                 }
             });
         }
 
         public async Task<List<PlayerSearchResultDto>> searchPlayers(string requesterUsername, string query)
         {
-            if (!isCurrentUser(requesterUsername))
-            {
-                logger.Warn("searchPlayers called by {RequesterUsername}, but current session is for {CurrentUsername}. Aborting.", requesterUsername, currentUsername ?? "N/A");
-                return new List<PlayerSearchResultDto>();
-            }
-            logger.Info("SearchPlayers request from {RequesterUsername} with query: '{Query}'", requesterUsername, query ?? "");
             try
             {
+                validateSession(requesterUsername);
+                logger.Info("Player search requested by {UserId}", requesterUsername);
+
                 var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
                 return results ?? new List<PlayerSearchResultDto>();
             }
-            catch (EntityException ex)
-            {
-                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
-                logger.Fatal(ex, "Social Service DB Error in searchPlayers");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
-            }
             catch (Exception ex)
             {
-                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
-                logger.Fatal(ex, "Social Service Critical Error in searchPlayers");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
+                throw exceptionHandler.handleException(ex, $"SearchPlayers - Requester: {requesterUsername}");
             }
         }
 
         public async Task<OperationResultDto> sendFriendRequest(string requesterUsername, string targetUsername)
         {
-            if (!isCurrentUser(requesterUsername))
-            {
-                logger.Warn("sendFriendRequest called by {RequesterUsername}, but current session is for {CurrentUsername}. Aborting.", requesterUsername, currentUsername ?? "N/A");
-                return new OperationResultDto { Success = false, Message = Lang.ErrorSessionMismatch };
-            }
-            logger.Info("sendFriendRequest attempt from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername ?? "NULL");
             try
             {
+                validateSession(requesterUsername);
+                logger.Info("Friend request initiated from {RequesterId} to {TargetId}", requesterUsername, targetUsername);
+
                 var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
+
                 if (result.Success)
                 {
-                    logger.Info("Friend request sent successfully from {RequesterUsername} to {TargetUsername}", requesterUsername, targetUsername);
+                    logger.Info("Friend request successful from {RequesterId} to {TargetId}", requesterUsername, targetUsername);
                     sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
                 }
                 else
                 {
-                    logger.Warn("sendFriendRequest failed from {RequesterUsername} to {TargetUsername}. Reason: {Reason}", requesterUsername, targetUsername, result.Message);
+                    logger.Warn("Friend request failed. Reason: {Reason}", result.Message);
                 }
+
                 return result;
-            }
-            catch (EntityException ex)
-            {
-                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
-                logger.Fatal(ex, "Social Service DB Error in sendFriendRequest");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
             catch (Exception ex)
             {
-                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
-                logger.Fatal(ex, "Social Service Critical Error in sendFriendRequest");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
+                throw exceptionHandler.handleException(ex, $"SendFriendRequest - From: {requesterUsername} To: {targetUsername}");
             }
         }
 
         public async Task<OperationResultDto> respondToFriendRequest(string responderUsername, string requesterUsername, bool accepted)
         {
-            if (!isCurrentUser(responderUsername))
-            {
-                logger.Warn("respondToFriendRequest called by {ResponderUsername}, but current session is for {CurrentUsername}. Aborting.", responderUsername, currentUsername ?? "N/A");
-                return new OperationResultDto { Success = false, Message = Lang.ErrorSessionMismatch };
-            }
-            logger.Info("respondToFriendRequest attempt by {ResponderUsername} to request from {RequesterUsername}. Accepted: {Accepted}", responderUsername, requesterUsername ?? "NULL", accepted);
             try
             {
+                validateSession(responderUsername);
+                string action = accepted ? "Accepted" : "Declined";
+                logger.Info("Friend request response: {Action} by {ResponderId} for {RequesterId}", action, responderUsername, requesterUsername);
+
                 var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, accepted);
+
                 if (result.Success)
                 {
-                    logger.Info("Friend request response ({Accepted}) processed successfully by {ResponderUsername} for request from {RequesterUsername}", accepted ? "Accepted" : "Declined", responderUsername, requesterUsername);
-                    sendNotificationToUser(requesterUsername, cb => cb.notifyFriendResponse(responderUsername, accepted));
-                    if (accepted)
-                    {
-                        await notifyFriendsStatusChange(responderUsername, true);
-                        await notifyFriendsStatusChange(requesterUsername, isUserConnected(requesterUsername));
-                    }
+                    await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted);
                 }
                 else
                 {
-                    logger.Warn("respondToFriendRequest failed by {ResponderUsername} for request from {RequesterUsername}. Reason: {Reason}", responderUsername, requesterUsername, result.Message);
+                    logger.Warn("Friend response failed. Reason: {Reason}", result.Message);
                 }
+
                 return result;
-            }
-            catch (EntityException ex)
-            {
-                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
-                logger.Fatal(ex, "Social Service DB Error in respondToFriendRequest");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
             catch (Exception ex)
             {
-                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
-                logger.Fatal(ex, "Social Service Critical Error in respondToFriendRequest");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
+                throw exceptionHandler.handleException(ex, $"RespondToFriendRequest - Responder: {responderUsername}");
             }
         }
 
         public async Task<OperationResultDto> removeFriend(string username, string friendToRemoveUsername)
         {
-            if (!isCurrentUser(username))
-            {
-                logger.Warn("removeFriend called by {Username}, but current session is for {CurrentUsername}. Aborting.", username, currentUsername ?? "N/A");
-                return new OperationResultDto { Success = false, Message = Lang.ErrorSessionMismatch };
-            }
-            logger.Info("removeFriend attempt by {Username} to remove {FriendToRemoveUsername}", username, friendToRemoveUsername ?? "NULL");
             try
             {
+                validateSession(username);
+                logger.Info("Remove friend requested by {UserId} for target {FriendId}", username, friendToRemoveUsername);
+
                 var result = await socialLogic.removeFriendAsync(username, friendToRemoveUsername);
+
                 if (result.Success)
                 {
-                    logger.Info("Friend removed successfully: {Username} removed {FriendToRemoveUsername}", username, friendToRemoveUsername);
+                    logger.Info("Friend removed successfully: {UserId} removed {FriendId}", username, friendToRemoveUsername);
                     sendNotificationToUser(friendToRemoveUsername, cb => cb.notifyFriendStatusChanged(username, false));
                 }
                 else
                 {
-                    logger.Warn("removeFriend failed for {Username} trying to remove {FriendToRemoveUsername}. Reason: {Reason}", username, friendToRemoveUsername, result.Message);
+                    logger.Warn("Remove friend failed. Reason: {Reason}", result.Message);
                 }
+
                 return result;
-            }
-            catch (EntityException ex)
-            {
-                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
-                logger.Fatal(ex, "Social Service DB Error in removeFriend");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
             catch (Exception ex)
             {
-                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
-                logger.Fatal(ex, "Social Service Critical Error in removeFriend");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
+                throw exceptionHandler.handleException(ex, $"RemoveFriend - User: {username}");
             }
         }
 
         public async Task<List<FriendDto>> getFriendsList(string username)
         {
-            if (!isCurrentUser(username))
-            {
-                logger.Warn("getFriendsList called by {Username}, but current session is for {CurrentUsername}. Aborting.", username, currentUsername ?? "N/A");
-                return new List<FriendDto>();
-            }
-            logger.Info("getFriendsList request for user: {Username}", username);
             try
             {
+                validateSession(username);
+                logger.Info("GetFriendsList requested for {UserId}", username);
                 var connectedUsersList = gameStateManager.ConnectedUsers.Keys.ToList();
                 var friends = await socialLogic.getFriendsListAsync(username, connectedUsersList);
+
                 return friends ?? new List<FriendDto>();
-            }
-            catch (EntityException ex)
-            {
-                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
-                logger.Fatal(ex, "Social Service DB Error in getFriendsList");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
             catch (Exception ex)
             {
-                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
-                logger.Fatal(ex, "Social Service Critical Error in getFriendsList");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
+                throw exceptionHandler.handleException(ex, $"GetFriendsList - User: {username}");
             }
         }
 
         public async Task<List<FriendRequestInfoDto>> getFriendRequests(string username)
         {
-            if (!isCurrentUser(username))
-            {
-                logger.Warn("getFriendRequests called by {Username}, but current session is for {CurrentUsername}. Aborting.", username, currentUsername ?? "N/A");
-                return new List<FriendRequestInfoDto>();
-            }
-            logger.Info("getFriendRequests request for user: {Username}", username);
             try
             {
+                validateSession(username);
+                logger.Info("GetFriendRequests requested for {UserId}", username);
+
                 var requests = await socialLogic.getFriendRequestsAsync(username);
-                logger.Info("Retrieved {Count} friend requests for user {Username}", requests?.Count ?? 0, username);
                 return requests ?? new List<FriendRequestInfoDto>();
-            }
-            catch (EntityException ex)
-            {
-                var fault = new ServiceFaultDto(ServiceErrorType.DatabaseError, Lang.ErrorMsgServerOffline, "Database");
-                logger.Fatal(ex, "Social Service DB Error in getFriendRequests");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Database Unavailable"));
             }
             catch (Exception ex)
             {
-                var fault = new ServiceFaultDto(ServiceErrorType.Unknown, Lang.GenericServerError, "Server");
-                logger.Fatal(ex, "Social Service Critical Error in getFriendRequests");
-                throw new FaultException<ServiceFaultDto>(fault, new FaultReason("Internal Server Error"));
+                throw exceptionHandler.handleException(ex, $"GetFriendRequests - User: {username}");
             }
         }
 
-        private async void Channel_FaultedOrClosed(object sender, EventArgs e)
+        private void subscribeToChannelEvents()
         {
-            logger.Warn("WCF channel Faulted or Closed for user: {Username}. Initiating cleanup.", currentUsername ?? "N/A");
+            if (OperationContext.Current?.Channel != null)
+            {
+                OperationContext.Current.Channel.Faulted += channelFaultedOrClosed;
+                OperationContext.Current.Channel.Closed += channelFaultedOrClosed;
+            }
+        }
+
+        private async void channelFaultedOrClosed(object sender, EventArgs e)
+        {
+            logger.Warn("WCF channel Faulted or Closed for user session: {UserId}. Initiating cleanup.", currentUsername ?? "Unknown");
+
             if (!string.IsNullOrEmpty(currentUsername))
             {
                 await cleanupAndNotifyDisconnect(currentUsername);
             }
+
             cleanupCallbackEvents(sender as ICommunicationObject);
         }
 
-        private static ISocialCallback tryGetCallbackChannel(string username)
+        private ISocialCallback tryGetCallbackChannel(string username)
         {
-            string userForContext = username ?? "NULL";
             if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
             {
-                logger.Warn("Connect failed: Username is empty or OperationContext is null. User: {Username}", userForContext);
+                logger.Warn("Connect failed: Invalid context or empty username.");
                 return null;
             }
 
             try
             {
-                ISocialCallback callbackChannel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
-                if (callbackChannel == null)
+                var channel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
+                if (channel == null)
                 {
-                    logger.Error("Connect failed: GetCallbackChannel returned null for user: {Username}", userForContext);
-                    return null;
+                    logger.Error("Connect failed: Callback channel is null for user {UserId}", username);
                 }
-                return callbackChannel;
+                return channel;
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Connect failed: Exception getting callback channel for user: {Username}", userForContext);
+                logger.Error(ex, "Connect failed: Exception retrieving callback channel for user {UserId}", username);
                 return null;
             }
         }
 
-        private ISocialCallback updateCallbackFactory(string key, ISocialCallback existingCallback)
+        private async Task processDisconnect(string username)
         {
-            var existingComm = existingCallback as ICommunicationObject;
-
-            if (existingCallback != currentUserCallback &&
-                (existingComm == null || existingComm.State != CommunicationState.Opened))
+            string safeUser = username ?? "NULL";
+            if (!string.IsNullOrEmpty(currentUsername) &&
+                currentUsername.Equals(safeUser, StringComparison.OrdinalIgnoreCase))
             {
-                logger.Warn("Replacing existing non-opened callback channel for user: {Username}", key);
-                if (existingComm != null) cleanupCallbackEvents(existingComm);
-                return currentUserCallback;
+                logger.Info("Disconnect requested by user: {UserId}", safeUser);
+                await cleanupAndNotifyDisconnect(currentUsername);
             }
-
-            logger.Debug("Keeping existing callback channel for user: {Username} (State: {State})", key, existingComm?.State);
-
-            if (existingCallback != currentUserCallback)
+            else
             {
-                logger.Debug("Discarding newly obtained callback channel for {Username} as a valid one already exists.", key);
-                currentUserCallback = existingCallback;
+                logger.Warn("Disconnect request mismatch. Request: {ReqId}, Session: {SessId}", safeUser, currentUsername ?? "NULL");
             }
-
-            return existingCallback;
         }
 
-        private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback, string userForContext)
+        private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback, string username)
         {
             if (previousCallback == null || previousCallback == newCallback)
             {
-                logger.Info("User connected and callback registered/updated: {Username}", userForContext);
+                logger.Info("User connected: {UserId}", username);
                 setupCallbackEvents(newCallback as ICommunicationObject);
                 await notifyFriendsStatusChange(currentUsername, true);
             }
             else
             {
-                logger.Warn(
-                    "User {Username} attempted to connect, but an existing active session was found. The new connection replaced the old one.",
-                    userForContext);
-
-                if (previousCallback is ICommunicationObject oldComm) cleanupCallbackEvents(oldComm);
-
+                logger.Warn("User {UserId} replaced an existing active session.", username);
+                if (previousCallback is ICommunicationObject oldComm)
+                {
+                    cleanupCallbackEvents(oldComm);
+                }
                 setupCallbackEvents(newCallback as ICommunicationObject);
             }
         }
 
         private async Task cleanupAndNotifyDisconnect(string username)
         {
-            if (string.IsNullOrEmpty(username))
-            {
-                logger.Debug("cleanupAndNotifyDisconnect called with null or empty username. Skipping.");
-                return;
-            }
+            if (string.IsNullOrEmpty(username)) return;
 
             if (gameStateManager.isUserConnected(username))
             {
                 var callbackToRemove = gameStateManager.getUserCallback(username);
                 gameStateManager.removeConnectedUser(username);
 
-                logger.Info("User {Username} removed from ConnectedUsers.", username);
-                if (callbackToRemove is ICommunicationObject comm) cleanupCallbackEvents(comm);
+                logger.Info("User {UserId} removed from active sessions.", username);
+
+                if (callbackToRemove is ICommunicationObject comm)
+                {
+                    cleanupCallbackEvents(comm);
+                }
 
                 await notifyFriendsStatusChange(username, false);
             }
@@ -400,7 +328,17 @@ namespace MindWeaveServer.Services
             {
                 currentUsername = null;
                 currentUserCallback = null;
-                logger.Debug("Cleared username and callback reference for the current service instance.");
+            }
+        }
+
+        private async Task handleFriendResponseSuccess(string responder, string requester, bool accepted)
+        {
+            sendNotificationToUser(requester, cb => cb.notifyFriendResponse(responder, accepted));
+            if (accepted)
+            {
+                await notifyFriendsStatusChange(responder, true);
+                bool isRequesterConnected = gameStateManager.isUserConnected(requester);
+                await notifyFriendsStatusChange(requester, isRequesterConnected);
             }
         }
 
@@ -408,69 +346,51 @@ namespace MindWeaveServer.Services
         {
             if (string.IsNullOrWhiteSpace(changedUsername)) return;
 
-            logger.Debug("Notifying friends of status change for {Username}. New status: {Status}", changedUsername, isOnline ? "Online" : "Offline");
             try
             {
                 List<FriendDto> friendsToNotify = await socialLogic.getFriendsListAsync(changedUsername, null);
-                logger.Debug("Found {Count} friends to potentially notify for user {Username}.", friendsToNotify?.Count ?? 0, changedUsername);
 
-                if (friendsToNotify == null) return;
+                if (friendsToNotify == null || !friendsToNotify.Any()) return;
 
-                var onlineFriendUsernames = friendsToNotify
-                    .Select(friend => friend.Username)
-                    .Where(SocialManagerService.isUserConnected);
-                
-                foreach (var username in onlineFriendUsernames)
+                var onlineFriends = friendsToNotify
+                    .Where(f => gameStateManager.isUserConnected(f.Username))
+                    .ToList();
+
+                logger.Debug("Notifying {Count} friends of status change for {UserId}", onlineFriends.Count, changedUsername);
+
+                foreach (var friend in onlineFriends)
                 {
-                    logger.Debug("Sending status change notification ({Username} is {Status}) to friend: {FriendUsername}", changedUsername, isOnline ? "Online" : "Offline", username);
-                    sendNotificationToUser(username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
+                    sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
                 }
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "[Service Error] - Exception in NotifyFriendsStatusChange for {Username}", changedUsername);
+                logger.Error(ex, "Failed to notify status change for user {UserId}", changedUsername);
             }
         }
 
-        public static void sendNotificationToUser(string targetUsername, Action<ISocialCallback> action)
+        private void sendNotificationToUser(string targetUsername, Action<ISocialCallback> action)
         {
-            if (string.IsNullOrWhiteSpace(targetUsername))
-            {
-                logger.Warn("sendNotificationToUser called with null or empty targetUsername.");
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(targetUsername)) return;
 
             try
             {
-                var manager = Bootstrapper.Container.Resolve<IGameStateManager>();
-                var callback = manager.getUserCallback(targetUsername);
+                var callback = gameStateManager.getUserCallback(targetUsername);
+                if (callback == null) return;
 
-                if (callback != null)
+                if (callback is ICommunicationObject commObject && commObject.State == CommunicationState.Opened)
                 {
-                    try
-                    {
-                        var commObject = callback as ICommunicationObject;
-                        if (commObject != null && commObject.State == CommunicationState.Opened)
-                        {
-                            logger.Debug("Sending notification callback to user: {TargetUsername}", targetUsername);
-                            action(callback);
-                        }
-                        else
-                        { 
-                            logger.Warn("Callback channel for user {TargetUsername} is not open (State: {State}). Skipping notification and removing.", targetUsername, commObject?.State);
-                            manager.removeConnectedUser(targetUsername);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Exception sending notification callback to user: {TargetUsername}", targetUsername);
-                    }
+                    action(callback);
                 }
-               
+                else
+                {
+                    logger.Warn("Callback channel closed for {UserId}. Removing from session.", targetUsername);
+                    gameStateManager.removeConnectedUser(targetUsername);
+                }
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "Error resolving GameStateManager in sendNotificationToUser.");
+                logger.Error(ex, "Notification failed for target {UserId}", targetUsername);
             }
         }
 
@@ -478,10 +398,10 @@ namespace MindWeaveServer.Services
         {
             if (commObject != null)
             {
-                commObject.Faulted -= Channel_FaultedOrClosed;
-                commObject.Closed -= Channel_FaultedOrClosed;
-                commObject.Faulted += Channel_FaultedOrClosed;
-                commObject.Closed += Channel_FaultedOrClosed;
+                commObject.Faulted -= channelFaultedOrClosed;
+                commObject.Closed -= channelFaultedOrClosed;
+                commObject.Faulted += channelFaultedOrClosed;
+                commObject.Closed += channelFaultedOrClosed;
             }
         }
 
@@ -489,14 +409,21 @@ namespace MindWeaveServer.Services
         {
             if (commObject != null)
             {
-                commObject.Faulted -= Channel_FaultedOrClosed;
-                commObject.Closed -= Channel_FaultedOrClosed;
+                commObject.Faulted -= channelFaultedOrClosed;
+                commObject.Closed -= channelFaultedOrClosed;
             }
         }
 
-        private bool isCurrentUser(string username)
+        private void validateSession(string username)
         {
-            return !string.IsNullOrEmpty(currentUsername) && currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(currentUsername) ||
+                !currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
+            {
+                logger.Warn("Session mismatch. Expected: {SessionId}, Actual: {RequestId}", currentUsername ?? "NULL", username);
+                throw new FaultException<ServiceFaultDto>(
+                    new ServiceFaultDto(ServiceErrorType.SecurityError, Lang.ErrorSessionMismatch, "Session"),
+                    new FaultReason("Session Mismatch"));
+            }
         }
     }
 }

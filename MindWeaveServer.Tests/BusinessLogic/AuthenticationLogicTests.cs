@@ -1,6 +1,7 @@
 ﻿using FluentValidation;
 using FluentValidation.Results; 
 using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.DataAccess; 
@@ -8,8 +9,8 @@ using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using MindWeaveServer.Utilities.Email;
-using Moq;
 using MindWeaveServer.Utilities.Email.Templates;
+using Moq;
 
 namespace MindWeaveServer.Tests.BusinessLogic
 {
@@ -21,6 +22,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         private readonly Mock<IPasswordPolicyValidator> mockPasswordPolicyValidator;
         private readonly Mock<IValidator<UserProfileDto>> mockProfileValidator;
         private readonly Mock<IValidator<LoginDto>> mockLoginValidator;
+        private readonly Mock<IUserSessionManager> mockUserSessionManager;
 
         private readonly AuthenticationLogic authenticationLogic;
 
@@ -46,6 +48,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             mockPasswordPolicyValidator.Setup(v => v.validate(It.IsAny<string>())).Returns(new OperationResultDto { Success = true });
             mockVerificationCodeService1.Setup(vcs => vcs.generateVerificationCode()).Returns(verificationCode);
             mockVerificationCodeService1.Setup(vcs => vcs.getVerificationExpiryTime()).Returns(futureExpiry);
+            mockUserSessionManager.Setup(m => m.isUserLoggedIn(It.IsAny<string>())).Returns(false);
 
             mockProfileValidator.Setup(v => v.ValidateAsync(It.IsAny<UserProfileDto>(), It.IsAny<CancellationToken>()))
                                  .ReturnsAsync(new ValidationResult());
@@ -58,6 +61,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
                 mockPasswordService.Object,
                 mockPasswordPolicyValidator.Object,
                 mockVerificationCodeService1.Object,
+                mockUserSessionManager.Object,
                 mockProfileValidator.Object,
                 mockLoginValidator.Object
             );

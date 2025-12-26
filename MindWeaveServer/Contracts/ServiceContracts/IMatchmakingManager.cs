@@ -29,6 +29,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
         void startGame(string hostUsername, string lobbyId);
 
         [OperationContract(IsOneWay = true)]
+        void leaveGame(string username, string lobbyCode);
+
+        [OperationContract(IsOneWay = true)]
         void kickPlayer(string hostUsername, string playerToKickUsername, string lobbyId);
 
         [OperationContract(IsOneWay = true)] 
@@ -100,6 +103,9 @@ namespace MindWeaveServer.Contracts.ServiceContracts
 
         [OperationContract(IsOneWay = true)]
         void OnAchievementUnlocked(string achievementKey, string imageName);
+
+        [OperationContract(IsOneWay = true)]
+        void onPlayerLeftMatch(string username);
 
     }
 }

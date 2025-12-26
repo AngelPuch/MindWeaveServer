@@ -29,17 +29,12 @@ namespace MindWeaveServer.Services
         private IMatchmakingCallback currentUserCallback;
         private bool isDisconnected;
 
-        public MatchmakingManagerService()
+        public MatchmakingManagerService() : this(
+            Bootstrapper.Container.Resolve<MatchmakingLogic>(),
+            Bootstrapper.Container.Resolve<GameSessionManager>(),
+            Bootstrapper.Container.Resolve<IPlayerRepository>(),
+            Bootstrapper.Container.Resolve<IServiceExceptionHandler>())
         {
-            Bootstrapper.init();
-
-            this.matchmakingLogic = Bootstrapper.Container.Resolve<MatchmakingLogic>();
-            this.gameSessionManager = Bootstrapper.Container.Resolve<GameSessionManager>();
-            this.playerRepository = Bootstrapper.Container.Resolve<IPlayerRepository>();
-            this.exceptionHandler = Bootstrapper.Container.Resolve<IServiceExceptionHandler>();
-            this.exceptionHandler = Bootstrapper.Container.Resolve<IServiceExceptionHandler>();
-
-            initializeService();
         }
 
         public MatchmakingManagerService(
@@ -287,6 +282,13 @@ namespace MindWeaveServer.Services
             });
         }
 
+        public void leaveGame(string username, string lobbyCode)
+        {
+            Task.Run(async () =>
+            {
+                await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
+            });
+        }
 
         public async Task<GuestJoinResultDto> joinLobbyAsGuest(GuestJoinRequestDto joinRequest)
         {

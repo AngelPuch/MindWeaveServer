@@ -7,11 +7,12 @@ using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using MindWeaveServer.Utilities.Validators;
+using NLog; 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using NLog; 
+using Autofac.Features.OwnedInstances;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -21,6 +22,7 @@ namespace MindWeaveServer.BusinessLogic
 
         private readonly IPlayerRepository playerRepository;
         private readonly IGenderRepository genderRepository;
+        private readonly Func<Owned<IStatsRepository>> statsRepositoryFactory;
         private readonly IPasswordService passwordService;
         private readonly IPasswordPolicyValidator passwordPolicyValidator;
         private readonly IValidator<UserProfileForEditDto> profileEditValidator;
@@ -29,11 +31,13 @@ namespace MindWeaveServer.BusinessLogic
             IPlayerRepository playerRepository,
             IGenderRepository genderRepository,
             IPasswordService passwordService,
+            Func<Owned<IStatsRepository>> statsRepositoryFactory,
             IPasswordPolicyValidator passwordPolicyValidator,
             IValidator<UserProfileForEditDto> profileEditValidator)
         {
             this.playerRepository = playerRepository;
             this.genderRepository = genderRepository;
+            this.statsRepositoryFactory = statsRepositoryFactory;
             this.passwordService = passwordService;
             this.passwordPolicyValidator = passwordPolicyValidator;
             this.profileEditValidator = profileEditValidator;
@@ -229,6 +233,30 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Warn("Password change for User {Username} reported 0 changes saved.", username);
                 return new OperationResultDto { Success = false, Message = Lang.PasswordChangedFailed };
+            }
+        }
+
+        public async Task<List<AchievementDto>> getPlayerAchievementsAsync(int playerId)
+        {
+            logger.Info("getPlayerAchievementsAsync called for PlayerId: {PlayerId}", playerId);
+
+            using (var repoScope = statsRepositoryFactory())
+            {
+                var repository = repoScope.Value;
+
+                var allAchievements = await repository.getAllAchievementsAsync();
+                var unlockedIds = await repository.getPlayerAchievementIdsAsync(playerId);
+
+                var achievementDtos = allAchievements.Select(a => new AchievementDto
+                {
+                    Id = a.achievements_id,
+                    Name = a.name,
+                    Description = a.description,
+                    IconPath = a.icon_path,
+                    IsUnlocked = unlockedIds.Contains(a.achievements_id)
+                }).ToList();
+
+                return achievementDtos;
             }
         }
 

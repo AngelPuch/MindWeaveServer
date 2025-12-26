@@ -1,13 +1,16 @@
-﻿using MindWeaveServer.AppStart;
+﻿using Autofac;
+using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Shared;
+using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.Contracts.ServiceContracts;
+using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
-using Autofac;
-using MindWeaveServer.Utilities.Abstractions;
 
 namespace MindWeaveServer.Services
 {
@@ -112,7 +115,61 @@ namespace MindWeaveServer.Services
 
         public void logOut(string username)
         {
-            logger.Info("Logout service request received.");
+            logger.Info("Logout request received for user: {Username}", username);
+            try
+            {
+                authenticationLogic.logout(username);
+                var gameStateManager = Bootstrapper.Container.Resolve<IGameStateManager>();
+
+                if (gameStateManager.isUserConnected(username))
+                {
+                    notifyFriendsUserIsOffline(username);
+                    gameStateManager.removeConnectedUser(username);
+                    logger.Info("User {Username} removed from GameStateManager connected list.", username);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error processing logout for {Username}", username);
+            }
+        }
+
+        private void notifyFriendsUserIsOffline(string username)
+        {
+            try
+            {
+                var socialLogic = Bootstrapper.Container.Resolve<SocialLogic>();
+                var gameStateManager = Bootstrapper.Container.Resolve<IGameStateManager>();
+
+                var task = System.Threading.Tasks.Task.Run(async () =>
+                    await socialLogic.getFriendsListAsync(username, null));
+                task.Wait();
+
+                List<FriendDto> friends = task.Result;
+
+                if (friends != null)
+                {
+                    foreach (var friend in friends)
+                    {
+                        var friendCallback = gameStateManager.getUserCallback(friend.Username);
+                        if (friendCallback != null)
+                        {
+                            try
+                            {
+                                friendCallback.notifyFriendStatusChanged(username, false);
+                            }
+                            catch (Exception)
+                            {
+                                gameStateManager.removeConnectedUser(friend.Username);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Could not notify friends of logout for {Username}", username);
+            }
         }
 
 

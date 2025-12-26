@@ -140,6 +140,7 @@
     <Compile Include="BusinessLogic\Abstractions\INotificationService.cs" />
     <Compile Include="BusinessLogic\Abstractions\IPlayerExpulsionService.cs" />
     <Compile Include="BusinessLogic\Abstractions\IScoreCalculator.cs" />
+    <Compile Include="BusinessLogic\Abstractions\IUserSessionManager.cs" />
     <Compile Include="BusinessLogic\AchievementEvaluator.cs" />
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ChatLogic.cs" />
@@ -149,6 +150,7 @@
     <Compile Include="BusinessLogic\Manager\GameStateManager.cs" />
     <Compile Include="BusinessLogic\Abstractions\IGameStateManager.cs" />
     <Compile Include="BusinessLogic\Manager\LobbyModerationManager.cs" />
+    <Compile Include="BusinessLogic\Manager\UserSessionManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
     <Compile Include="BusinessLogic\Models\LobbyActionContext.cs" />
     <Compile Include="BusinessLogic\Models\ValidationResult.cs" />
@@ -330,7 +332,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\Lang.en.resx" />
+    <EmbeddedResource Include="Resources\Lang.en.resx">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
     <EmbeddedResource Include="Resources\Lang.resx">
       <Generator>PublicResXFileCodeGenerator</Generator>
       <LastGenOutput>Lang.Designer.cs</LastGenOutput>

@@ -78,7 +78,15 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
         }
 
-
+        public void AddPlaytimeOnly(int playerId, int minutesPlayed)
+        {
+            using (var context = new MindWeaveDBEntities1())
+            {
+                var stats = context.PlayerStats.FirstOrDefault(s => s.player_id == playerId);
+                stats.total_playtime_minutes += minutesPlayed;
+                context.SaveChanges();
+            }
+        }
         public async Task updateMatchParticipantStatsAsync(MatchParticipantStatsUpdateDto updateData)
         {
             using (var freshContext = new MindWeaveDBEntities1())

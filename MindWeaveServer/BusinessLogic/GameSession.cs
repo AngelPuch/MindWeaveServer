@@ -366,6 +366,60 @@ namespace MindWeaveServer.BusinessLogic
             GC.SuppressFinalize(this);
         }
 
+        // En MindWeaveServer.BusinessLogic.GameSession
+
+        public async Task handlePlayerVoluntaryLeaveAsync(string username)
+        {
+            var playerEntry = Players.FirstOrDefault(p => p.Value.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
+
+            if (playerEntry.Value == null)
+            {
+                logger.Warn("Player {Username} not found in session {LobbyCode} during leave request.", username, LobbyCode);
+                return;
+            }
+
+            int playerId = playerEntry.Key;
+            PlayerSessionData playerData = playerEntry.Value;
+
+            logger.Info("Processing voluntary leave for {Username} in Lobby {LobbyCode}", username, LobbyCode);
+
+            var duration = DateTime.UtcNow - StartTime;
+            int minutes = Math.Max(1, (int)duration.TotalMinutes);
+
+            try
+            {
+                using (var scope = statsLogicFactory())
+                {
+                    var statsService = scope.Value;
+                    statsService.updatePlaytimeOnly(username, minutes);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to save partial playtime for leaver {Username}", username);
+            }
+
+            if (Players.TryRemove(playerId, out _))
+            {
+                releaseHeldPieces(playerId);
+                broadcast(callback => callback.onPlayerLeftMatch(username));
+            }
+
+            if (Players.Count < 2)
+            {
+                if (Players.Count == 1)
+                { 
+                    await endGameAsync("Forfeit");
+                }
+                else
+                {
+                    logger.Info("All players left Lobby {LobbyCode}. Disposing session.", LobbyCode);
+                    stopTimers();
+                    onSessionEndedCleanup?.Invoke(LobbyCode);
+                }
+            }
+        }
+
         protected virtual void dispose(bool disposing)
         {
             if (isDisposed) return;

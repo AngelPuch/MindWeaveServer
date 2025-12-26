@@ -59,11 +59,17 @@ namespace MindWeaveServer.DataAccess.Repositories
 
         public async Task<List<int>> getPlayerAchievementIdsAsync(int playerId)
         {
-            return await context.Player
-                .Where(p => p.idPlayer == playerId)
-                .SelectMany(p => p.Achievements)
-                .Select(a => a.achievements_id)
-                .ToListAsync();
+            var player = await context.Player
+                .Include("Achievements")
+                .AsNoTracking() // Good practice for read-only operations
+                .FirstOrDefaultAsync(p => p.idPlayer == playerId);
+
+            if (player != null && player.Achievements != null)
+            {
+                return player.Achievements.Select(a => a.achievements_id).ToList();
+            }
+
+            return new List<int>();
         }
 
         public async Task unlockAchievementAsync(int playerId, int achievementId)
@@ -81,12 +87,17 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
         }
 
+        public async Task<List<Achievements>> getAllAchievementsAsync()
+        {
+            return await context.Achievements.AsNoTracking().ToListAsync();
+        }
+
         public async Task<int> saveChangesAsync()
         {
             return await context.SaveChangesAsync();
         }
 
-        public async Task<List<int>> UnlockAchievementsAsync(int playerId, List<int> potentialAchievementIds)
+        public async Task<List<int>> unlockAchievementsAsync(int playerId, List<int> potentialAchievementIds)
         {
             List<int> newlyUnlocked = new List<int>();
 
@@ -120,6 +131,18 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
 
             return newlyUnlocked;
+        }
+
+        public void addPlaytimeToPlayer(int playerId, int minutes)
+        { 
+            var stats = context.PlayerStats.FirstOrDefault(s => s.player_id == playerId);
+            
+            if (stats != null) 
+            { 
+                stats.total_playtime_minutes += minutes; 
+                context.SaveChanges();
+            }
+         
         }
     }
 }

@@ -121,17 +121,6 @@ namespace MindWeaveServer.BusinessLogic
             gameStateManager.MatchmakingCallbacks.AddOrUpdate(username, callback, (k, v) => callback);
         }
 
-        public void removeCallback(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username)) return;
-            gameStateManager.MatchmakingCallbacks.TryRemove(username, out _);
-        }
-
-        public void sendCallbackToUser(string username, Action<IMatchmakingCallback> callbackAction)
-        {
-            notificationService.sendToUser(username, callbackAction);
-        }
-
         public async Task expelPlayerAsync(string lobbyCode, string username, string reasonText)
         {
             logger.Info("ExpelPlayerAsync (System) for {0} in {1}. Reason: {2}", username, lobbyCode, reasonText);
