@@ -29,23 +29,23 @@ namespace MindWeaveServer.BusinessLogic.Services
                 throw new ArgumentNullException(nameof(username));
             }
 
-            logger.Info("Initiating player expulsion from lobby {LobbyCode}. Reason: {Reason}",
-                lobbyCode, reason ?? "Unspecified");
+            _ = executeExpulsionAsync(lobbyCode, username, reason);
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await matchmakingLogicLazy.Value.expelPlayerAsync(lobbyCode, username, reason);
-                    logger.Info("Player expelled successfully from lobby {LobbyCode}", lobbyCode);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Failed to expel player from lobby {LobbyCode}", lobbyCode);
-                }
-            });
 
             return Task.CompletedTask;
         }
+
+        private async Task executeExpulsionAsync(string lobbyCode, string username, string reason)
+        {
+            try
+            {
+                await matchmakingLogicLazy.Value.expelPlayerAsync(lobbyCode, username, reason);
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Error(ex, "Invalid operation expelling player from lobby {0}", lobbyCode);
+            }
+        }
+
     }
 }

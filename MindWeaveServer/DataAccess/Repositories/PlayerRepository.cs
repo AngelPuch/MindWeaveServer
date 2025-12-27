@@ -13,6 +13,10 @@ namespace MindWeaveServer.DataAccess.Repositories
     {
         private readonly MindWeaveDBEntities1 context;
 
+        private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
+        private const int DEFAULT_MAX_SEARCH_RESULTS = 10;
+        private const int INITIAL_SEARCH_FETCH_LIMIT = 20;
+
         public PlayerRepository(MindWeaveDBEntities1 context)
         {
             this.context = context;
@@ -48,14 +52,12 @@ namespace MindWeaveServer.DataAccess.Repositories
                 .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
         }
 
-        public async Task<List<PlayerSearchResultDto>> searchPlayersAsync(int requesterId, string query, int maxResults = 10)
+        public async Task<List<PlayerSearchResultDto>> searchPlayersAsync(int requesterId, string query, int maxResults = DEFAULT_MAX_SEARCH_RESULTS)
         {
-            const int INITIAL_FETCH_LIMIT = 20;
-
             var potentialMatchIds = await context.Player
                 .Where(p => p.username.Contains(query) && p.idPlayer != requesterId)
                 .Select(p => p.idPlayer)
-                .Take(INITIAL_FETCH_LIMIT)
+                .Take(INITIAL_SEARCH_FETCH_LIMIT)
                 .ToListAsync();
 
             if (!potentialMatchIds.Any())
@@ -80,11 +82,11 @@ namespace MindWeaveServer.DataAccess.Repositories
 
             var finalResults = await context.Player
                 .Where(p => validResultIds.Contains(p.idPlayer))
-                .OrderBy(p => p.username) // Order alphabetically
+                .OrderBy(p => p.username)
                 .Select(p => new PlayerSearchResultDto
                 {
                     Username = p.username,
-                    AvatarPath = p.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png"
+                    AvatarPath = p.avatar_path ?? DEFAULT_AVATAR_PATH
                 })
                 .Take(maxResults)
                 .ToListAsync();

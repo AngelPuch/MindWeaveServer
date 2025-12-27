@@ -4,7 +4,6 @@ using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.Contracts.ServiceContracts;
 using NLog;
 using System;
-using System.Collections.Generic;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -23,21 +22,18 @@ namespace MindWeaveServer.Services
         private volatile bool isDisconnected;
         private readonly object disconnectLock = new object();
 
-        public ChatManagerService() : this(resolveLogic())
+        public ChatManagerService()
         {
+            Bootstrapper.init();
+            this.chatLogic = Bootstrapper.Container.Resolve<ChatLogic>();
         }
 
         public ChatManagerService(ChatLogic chatLogic)
         {
-            this.chatLogic = chatLogic ?? throw new ArgumentNullException(nameof(chatLogic));
+            this.chatLogic = chatLogic;
             attachChannelEventHandlers();
         }
 
-        private static ChatLogic resolveLogic()
-        {
-            Bootstrapper.init();
-            return Bootstrapper.Container.Resolve<ChatLogic>();
-        }
 
         public void joinLobbyChat(string username, string lobbyId)
         {
@@ -58,22 +54,12 @@ namespace MindWeaveServer.Services
             try
             {
                 chatLogic.joinLobbyChat(currentUsername, currentLobbyId, currentUserCallback);
-                logger.Info("User successfully joined chat for lobby {LobbyId}", currentLobbyId);
-            }
-            catch (TimeoutException ex)
-            {
-                logger.Error(ex, "Chat Service Timeout for lobby {LobbyId}", lobbyId);
-                initiateDisconnectAsync();
             }
             catch (ArgumentNullException ex)
             {
                 logger.Warn(ex, "Chat Service Validation Error for lobby {LobbyId}", lobbyId);
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Chat Service Unexpected Error inside joinLobbyChat for lobby {LobbyId}", lobbyId);
-                initiateDisconnectAsync();
-            }
+            
         }
 
         public void leaveLobbyChat(string username, string lobbyId)
@@ -85,19 +71,7 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            try
-            {
-                chatLogic.leaveLobbyChat(username, lobbyId);
-                logger.Info("User successfully left chat for lobby {LobbyId}", lobbyId);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                logger.Warn(ex, "Chat Service Warning: User tried to leave non-existent lobby {LobbyId}", lobbyId);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Chat Service Error inside leaveLobbyChat for lobby {LobbyId}", lobbyId);
-            }
+            chatLogic.leaveLobbyChat(username, lobbyId);
         }
 
         public void sendLobbyMessage(string senderUsername, string lobbyId, string messageContent)
@@ -119,24 +93,13 @@ namespace MindWeaveServer.Services
                 {
                     logger.Warn(ex, "Chat Message Validation Failed for lobby {LobbyId}", lobbyId);
                 }
-                catch (KeyNotFoundException ex)
-                {
-                    logger.Warn(ex, "Chat Message Error: Lobby {LobbyId} not found", lobbyId);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Chat Service Critical Error processing message for lobby {LobbyId}", lobbyId);
-                }
             });
-
-            logger.Debug("sendLobbyMessage dispatched for lobby {LobbyId}", lobbyId);
-        }
+            }
 
         private bool tryRegisterSession(string username, string lobbyId)
         {
             if (currentUserCallback != null && currentUsername == username && currentLobbyId == lobbyId)
             {
-                logger.Debug("Session details already registered for lobby {LobbyId}", lobbyId);
                 return true;
             }
 
@@ -156,11 +119,16 @@ namespace MindWeaveServer.Services
                         logger.Error("GetCallbackChannel returned null for lobby {LobbyId}.", lobbyId);
                         return false;
                     }
-                    logger.Debug("Callback channel obtained for lobby {LobbyId}.", lobbyId);
                 }
-                catch (Exception ex)
+                catch (InvalidCastException)
                 {
-                    logger.Error(ex, "Exception getting callback channel for lobby {LobbyId}.", lobbyId);
+                    logger.Error("Callback channel casting failed.");
+                    currentUserCallback = null;
+                    return false;
+                }
+                catch (InvalidOperationException)
+                {
+                    logger.Error("Callback channel retrieval invalid op (Context closed?).");
                     currentUserCallback = null;
                     return false;
                 }
@@ -168,7 +136,6 @@ namespace MindWeaveServer.Services
 
             currentUsername = username;
             currentLobbyId = lobbyId;
-            logger.Info("Session details registered for lobby {LobbyId}.", currentLobbyId);
             return true;
         }
 
@@ -210,13 +177,7 @@ namespace MindWeaveServer.Services
             bool usernameMatches = currentUsername.Equals(senderUsername, StringComparison.OrdinalIgnoreCase);
             bool lobbyMatches = currentLobbyId != null && currentLobbyId.Equals(lobbyId, StringComparison.OrdinalIgnoreCase);
 
-            if (!usernameMatches || !lobbyMatches)
-            {
-                logger.Warn("sendLobbyMessage denied: Session mismatch for lobby {LobbyId}.", lobbyId);
-                return false;
-            }
-
-            return true;
+            return usernameMatches && lobbyMatches;
         }
 
         private void attachChannelEventHandlers()
@@ -229,18 +190,16 @@ namespace MindWeaveServer.Services
 
             OperationContext.Current.Channel.Faulted += onChannelFaultedOrClosed;
             OperationContext.Current.Channel.Closed += onChannelFaultedOrClosed;
-            logger.Debug("Attached Faulted/Closed event handlers to the current WCF channel.");
         }
 
         private void onChannelFaultedOrClosed(object sender, EventArgs e)
         {
-            logger.Warn("WCF channel Faulted or Closed for lobby {LobbyId}. Initiating disconnect.", currentLobbyId);
             initiateDisconnectAsync();
         }
 
         private void initiateDisconnectAsync()
         {
-            Task.Run(() => handleDisconnect());
+            Task.Run(handleDisconnect);
         }
 
         private void handleDisconnect()
@@ -249,7 +208,6 @@ namespace MindWeaveServer.Services
             {
                 if (isDisconnected)
                 {
-                    logger.Debug("handleDisconnect ignored: Session already disconnected.");
                     return;
                 }
                 isDisconnected = true;
@@ -258,26 +216,13 @@ namespace MindWeaveServer.Services
             string userToDisconnect = currentUsername;
             string lobbyToDisconnect = currentLobbyId;
 
-            logger.Info("Disconnect triggered for session in lobby {LobbyId}", lobbyToDisconnect ?? "UNKNOWN");
 
             cleanupCallbackEvents(OperationContext.Current?.Channel);
             cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
 
             if (!string.IsNullOrWhiteSpace(userToDisconnect) && !string.IsNullOrWhiteSpace(lobbyToDisconnect))
             {
-                try
-                {
-                    chatLogic.leaveLobbyChat(userToDisconnect, lobbyToDisconnect);
-                    logger.Info("ChatLogic.leaveLobbyChat called successfully for lobby {LobbyId}", lobbyToDisconnect);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Error during ChatLogic.leave for lobby {LobbyId}", lobbyToDisconnect);
-                }
-            }
-            else
-            {
-                logger.Info("No user/lobby associated with this session, skipping ChatLogic.leave call.");
+                chatLogic.leaveLobbyChat(userToDisconnect, lobbyToDisconnect);
             }
 
             currentUsername = null;
@@ -291,7 +236,6 @@ namespace MindWeaveServer.Services
             {
                 commObject.Faulted -= onChannelFaultedOrClosed;
                 commObject.Closed -= onChannelFaultedOrClosed;
-                logger.Debug("Removed Faulted/Closed event handlers from a callback channel.");
             }
         }
     }

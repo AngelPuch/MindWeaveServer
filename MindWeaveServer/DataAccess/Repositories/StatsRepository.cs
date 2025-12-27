@@ -1,6 +1,5 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.DataAccess.Abstractions;
-using NLog;
 using System;
 using System.Collections.Generic;
 using System.Data.Entity;
@@ -12,7 +11,10 @@ namespace MindWeaveServer.DataAccess.Repositories
     public class StatsRepository : IStatsRepository
     {
         private readonly MindWeaveDBEntities1 context;
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+        private const int INITIAL_STAT_VALUE = 0;
+        private const int STAT_INCREMENT = 1;
+        private const string NAVIGATION_ACHIEVEMENTS = "Achievements";
 
         public StatsRepository(MindWeaveDBEntities1 context)
         {
@@ -30,23 +32,23 @@ namespace MindWeaveServer.DataAccess.Repositories
                 stats = new PlayerStats
                 {
                     player_id = matchStats.PlayerId,
-                    puzzles_completed = 0,
-                    puzzles_won = 0,
-                    total_playtime_minutes = 0,
-                    highest_score = 0
+                    puzzles_completed = INITIAL_STAT_VALUE,
+                    puzzles_won = INITIAL_STAT_VALUE,
+                    total_playtime_minutes = INITIAL_STAT_VALUE,
+                    highest_score = INITIAL_STAT_VALUE
                 };
                 context.PlayerStats.Add(stats);
             }
 
-            stats.puzzles_completed = (stats.puzzles_completed ?? 0) + 1;
-            stats.total_playtime_minutes = (stats.total_playtime_minutes ?? 0) + matchStats.PlaytimeMinutes;
+            stats.puzzles_completed = (stats.puzzles_completed ?? INITIAL_STAT_VALUE) + STAT_INCREMENT;
+            stats.total_playtime_minutes = (stats.total_playtime_minutes ?? INITIAL_STAT_VALUE) + matchStats.PlaytimeMinutes;
 
             if (matchStats.IsWin)
             {
-                stats.puzzles_won = (stats.puzzles_won ?? 0) + 1;
+                stats.puzzles_won = (stats.puzzles_won ?? INITIAL_STAT_VALUE) + STAT_INCREMENT;
             }
 
-            if (matchStats.Score > (stats.highest_score ?? 0))
+            if (matchStats.Score > (stats.highest_score ?? INITIAL_STAT_VALUE))
             {
                 stats.highest_score = matchStats.Score;
             }
@@ -60,8 +62,8 @@ namespace MindWeaveServer.DataAccess.Repositories
         public async Task<List<int>> getPlayerAchievementIdsAsync(int playerId)
         {
             var player = await context.Player
-                .Include("Achievements")
-                .AsNoTracking() // Good practice for read-only operations
+                .Include(NAVIGATION_ACHIEVEMENTS)
+                .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.idPlayer == playerId);
 
             if (player != null && player.Achievements != null)
@@ -82,7 +84,6 @@ namespace MindWeaveServer.DataAccess.Repositories
                 if (!player.Achievements.Contains(achievement))
                 {
                     player.Achievements.Add(achievement);
-                    logger.Info($"Achievement {achievementId} unlocked for Player {playerId}");
                 }
             }
         }
@@ -107,7 +108,7 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
 
             var player = await context.Player
-                .Include("Achievements")
+                .Include(NAVIGATION_ACHIEVEMENTS)
                 .FirstOrDefaultAsync(p => p.idPlayer == playerId);
 
             if (player == null) return newlyUnlocked;

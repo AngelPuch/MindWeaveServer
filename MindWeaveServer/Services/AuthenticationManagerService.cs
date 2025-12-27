@@ -1,4 +1,5 @@
 ﻿using Autofac;
+using Autofac.Core;
 using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.BusinessLogic.Abstractions;
@@ -10,6 +11,9 @@ using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.Data.Entity.Core;
+using System.Data.SqlClient;
+using System.ServiceModel;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
@@ -116,33 +120,52 @@ namespace MindWeaveServer.Services
         public void logOut(string username)
         {
             logger.Info("Logout request received for user: {Username}", username);
+
             try
             {
                 authenticationLogic.logout(username);
+                handlePostLogoutCleanup(username);
+            }
+            catch (EntityException entityEx)
+            {
+                logger.Error(entityEx, "Database error during logout for {Username}", username);
+            }
+            catch (SqlException sqlEx)
+            {
+                logger.Error(sqlEx, "SQL error during logout for {Username}", username);
+            }
+            catch (TimeoutException timeoutEx)
+            {
+                logger.Error(timeoutEx, "Operation timed out during logout for {Username}", username);
+            }
+        }
+
+        private static void handlePostLogoutCleanup(string username)
+        {
+            try
+            {
                 var gameStateManager = Bootstrapper.Container.Resolve<IGameStateManager>();
 
                 if (gameStateManager.isUserConnected(username))
                 {
-                    notifyFriendsUserIsOffline(username);
+                    notifyFriendsUserIsOffline(username, gameStateManager);
                     gameStateManager.removeConnectedUser(username);
                     logger.Info("User {Username} removed from GameStateManager connected list.", username);
                 }
             }
-            catch (Exception ex)
+            catch (DependencyResolutionException depEx)
             {
-                logger.Error(ex, "Error processing logout for {Username}", username);
+                logger.Fatal(depEx, "Critical: Could not resolve IGameStateManager during logout cleanup.");
             }
         }
 
-        private void notifyFriendsUserIsOffline(string username)
+        private static void notifyFriendsUserIsOffline(string username, IGameStateManager gameStateManager)
         {
             try
             {
                 var socialLogic = Bootstrapper.Container.Resolve<SocialLogic>();
-                var gameStateManager = Bootstrapper.Container.Resolve<IGameStateManager>();
 
-                var task = System.Threading.Tasks.Task.Run(async () =>
-                    await socialLogic.getFriendsListAsync(username, null));
+                var task = Task.Run(async () => await socialLogic.getFriendsListAsync(username, null));
                 task.Wait();
 
                 List<FriendDto> friends = task.Result;
@@ -154,24 +177,45 @@ namespace MindWeaveServer.Services
                         var friendCallback = gameStateManager.getUserCallback(friend.Username);
                         if (friendCallback != null)
                         {
-                            try
-                            {
-                                friendCallback.notifyFriendStatusChanged(username, false);
-                            }
-                            catch (Exception)
-                            {
-                                gameStateManager.removeConnectedUser(friend.Username);
-                            }
+                            notifySingleFriend(friendCallback, username, friend.Username, gameStateManager);
                         }
                     }
                 }
             }
-            catch (Exception ex)
+            catch (DependencyResolutionException depEx)
             {
-                logger.Warn(ex, "Could not notify friends of logout for {Username}", username);
+                logger.Error(depEx, "Could not resolve SocialLogic to notify friends.");
+            }
+            catch (AggregateException aggEx)
+            {
+                foreach (var innerEx in aggEx.InnerExceptions)
+                {
+                    logger.Warn(innerEx, "Error retrieving friend list for logout notification for {Username}", username);
+                }
             }
         }
 
-
+        private static void notifySingleFriend(ISocialCallback friendCallback, string username, string friendUsername, IGameStateManager gameStateManager)
+        {
+            try
+            {
+                friendCallback.notifyFriendStatusChanged(username, false);
+            }
+            catch (CommunicationException commEx)
+            {
+                logger.Warn(commEx, "Connection lost with friend {Friend}. Removing from active users.", friendUsername);
+                gameStateManager.removeConnectedUser(friendUsername);
+            }
+            catch (TimeoutException timeoutEx)
+            {
+                logger.Warn(timeoutEx, "Timeout notifying friend {Friend}. Removing from active users.", friendUsername);
+                gameStateManager.removeConnectedUser(friendUsername);
+            }
+            catch (ObjectDisposedException disposedEx)
+            {
+                logger.Warn(disposedEx, "Channel disposed for friend {Friend}.", friendUsername);
+                gameStateManager.removeConnectedUser(friendUsername);
+            }
+        }
     }
 }

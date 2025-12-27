@@ -34,8 +34,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                 playersSnapshot = lobbyState.Players.ToList();
             }
 
-            logger.Debug("Broadcasting lobby state for Lobby {0} to {1} players.", lobbyState.LobbyId, playersSnapshot.Count);
-
             foreach (var player in playersSnapshot)
             {
                 notifyLobbyState(player, lobbyState);
@@ -119,10 +117,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Warn("ObjectDisposedException sending callback to {0}.", username);
                 cleanupUserReference(username, isMatchmaking);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Unexpected exception sending callback to {0}.", username);
             }
         }
 

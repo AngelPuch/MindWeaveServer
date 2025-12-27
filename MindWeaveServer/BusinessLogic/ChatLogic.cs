@@ -6,6 +6,8 @@ using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data.Entity.Core;
+using System.Data.SqlClient;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -32,28 +34,21 @@ namespace MindWeaveServer.BusinessLogic
             IPlayerExpulsionService expulsionService,
             LobbyModerationManager moderationManager)
         {
-            this.gameStateManager = gameStateManager
-                ?? throw new ArgumentNullException(nameof(gameStateManager));
-            this.expulsionService = expulsionService
-                ?? throw new ArgumentNullException(nameof(expulsionService));
-            this.moderationManager = moderationManager
-                ?? throw new ArgumentNullException(nameof(moderationManager));
+            this.gameStateManager = gameStateManager;
+            this.expulsionService = expulsionService;
+            this.moderationManager = moderationManager;
         }
 
-        private ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers
-            => gameStateManager.LobbyChatUsers;
+        private ConcurrentDictionary<string, ConcurrentDictionary<string, IChatCallback>> lobbyChatUsers => gameStateManager.LobbyChatUsers;
 
-        private ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory
-            => gameStateManager.LobbyChatHistory;
+        private ConcurrentDictionary<string, List<ChatMessageDto>> lobbyChatHistory => gameStateManager.LobbyChatHistory;
 
         public void joinLobbyChat(string username, string lobbyId, IChatCallback userCallback)
         {
             validateJoinParameters(username, lobbyId, userCallback);
 
-            logger.Info("User joining chat for lobby {LobbyId}", lobbyId);
-
             registerUserCallback(username, lobbyId, userCallback);
-            sendLobbyHistoryToUser(username, lobbyId, userCallback);
+            sendLobbyHistoryToUser(lobbyId, userCallback);
         }
 
         public void leaveLobbyChat(string username, string lobbyId)
@@ -63,8 +58,6 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("leaveLobbyChat ignored: Username or LobbyId is null/whitespace.");
                 return;
             }
-
-            logger.Info("User leaving chat for lobby {LobbyId}", lobbyId);
 
             if (!tryRemoveUserFromLobby(username, lobbyId, out bool lobbyIsEmpty))
             {
@@ -78,7 +71,7 @@ namespace MindWeaveServer.BusinessLogic
         }
 
         public async Task processAndBroadcastMessageAsync(
-            string senderUsername,
+           string senderUsername,
             string lobbyId,
             string messageContent)
         {
@@ -98,7 +91,7 @@ namespace MindWeaveServer.BusinessLogic
             broadcastMessage(lobbyId, messageDto);
         }
 
-        private void validateJoinParameters(string username, string lobbyId, IChatCallback userCallback)
+        private static void validateJoinParameters(string username, string lobbyId, IChatCallback userCallback)
         {
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -116,7 +109,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private void validateMessageParameters(string senderUsername, string lobbyId, string messageContent)
+        private static void validateMessageParameters(string senderUsername, string lobbyId, string messageContent)
         {
             if (string.IsNullOrWhiteSpace(senderUsername))
             {
@@ -144,16 +137,22 @@ namespace MindWeaveServer.BusinessLogic
                 return false;
             }
 
-            logger.Warn("Profanity detected in lobby {LobbyId}", lobbyId);
-
             int strikes = moderationManager.addStrike(lobbyId, senderUsername);
 
             if (strikes >= MAX_STRIKES_BEFORE_EXPULSION)
             {
-                logger.Info("User reached {MaxStrikes} strikes in lobby {LobbyId}. Initiating expulsion.",
-                    MAX_STRIKES_BEFORE_EXPULSION, lobbyId);
-
-                await expulsionService.expelPlayerAsync(lobbyId, senderUsername, EXPULSION_REASON_PROFANITY);
+                try
+                {
+                    await expulsionService.expelPlayerAsync(lobbyId, senderUsername, EXPULSION_REASON_PROFANITY);
+                }
+                catch (EntityException dbEx)
+                {
+                    logger.Error(dbEx, "Database error expelling player {User} from lobby {LobbyId}", senderUsername, lobbyId);
+                }
+                catch (SqlException sqlEx)
+                {
+                    logger.Error(sqlEx, "SQL error expelling player {User} from lobby {LobbyId}", senderUsername, lobbyId);
+                }
             }
             else
             {
@@ -176,10 +175,8 @@ namespace MindWeaveServer.BusinessLogic
             {
                 senderCallback.receiveSystemMessage($"{STRIKE_WARNING_PREFIX}{strikes}");
             }
-            catch (Exception ex)
-            {
-                logger.Warn(ex, "Failed to send strike warning in lobby {LobbyId}", lobbyId);
-            }
+            catch (CommunicationException) { }
+            catch (TimeoutException) { }
         }
 
         private IChatCallback findUserCallback(string username, string lobbyId)
@@ -193,7 +190,7 @@ namespace MindWeaveServer.BusinessLogic
             return callback;
         }
 
-        private string sanitizeMessageContent(string messageContent)
+        private static string sanitizeMessageContent(string messageContent)
         {
             if (messageContent.Length <= MAX_MESSAGE_LENGTH)
             {
@@ -203,7 +200,7 @@ namespace MindWeaveServer.BusinessLogic
             return messageContent.Substring(0, MAX_MESSAGE_LENGTH) + "...";
         }
 
-        private ChatMessageDto createMessageDto(string senderUsername, string content)
+        private static ChatMessageDto createMessageDto(string senderUsername, string content)
         {
             return new ChatMessageDto
             {
@@ -226,9 +223,6 @@ namespace MindWeaveServer.BusinessLogic
                     history.RemoveAt(0);
                 }
             }
-
-            logger.Debug("Message added to history for lobby {LobbyId}. Count: {Count}",
-                lobbyId, history.Count);
         }
 
         private void broadcastMessage(string lobbyId, ChatMessageDto messageDto)
@@ -240,7 +234,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             var usersSnapshot = usersInLobby.ToList();
-            var failedUsers = sendMessageToUsers(usersSnapshot, messageDto, lobbyId);
+            var failedUsers = sendMessageToUsers(usersSnapshot, messageDto);
 
             if (failedUsers.Any())
             {
@@ -257,14 +251,9 @@ namespace MindWeaveServer.BusinessLogic
                 username,
                 userCallback,
                 (key, existingCallback) => selectBestCallback(lobbyId, existingCallback, userCallback));
-
-            logger.Info("User registered in chat lobby {LobbyId}", lobbyId);
         }
 
-        private IChatCallback selectBestCallback(
-            string lobbyId,
-            IChatCallback existing,
-            IChatCallback incoming)
+        private static IChatCallback selectBestCallback(string lobbyId, IChatCallback existing, IChatCallback incoming)
         {
             if (existing == incoming)
             {
@@ -283,11 +272,10 @@ namespace MindWeaveServer.BusinessLogic
             return existing;
         }
 
-        private void sendLobbyHistoryToUser(string username, string lobbyId, IChatCallback userCallback)
+        private void sendLobbyHistoryToUser(string lobbyId, IChatCallback userCallback)
         {
             if (!lobbyChatHistory.TryGetValue(lobbyId, out var history))
             {
-                logger.Debug("No chat history for lobby {LobbyId}", lobbyId);
                 return;
             }
 
@@ -296,8 +284,6 @@ namespace MindWeaveServer.BusinessLogic
             {
                 historySnapshot = history.ToList();
             }
-
-            logger.Debug("Sending {Count} historical messages for lobby {LobbyId}", historySnapshot.Count, lobbyId);
 
             foreach (var message in historySnapshot)
             {
@@ -308,7 +294,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private bool trySendHistoryMessage(IChatCallback callback, ChatMessageDto message, string lobbyId)
+        private static bool trySendHistoryMessage(IChatCallback callback, ChatMessageDto message, string lobbyId)
         {
             var commObject = callback as ICommunicationObject;
 
@@ -323,10 +309,20 @@ namespace MindWeaveServer.BusinessLogic
                 callback.receiveLobbyMessage(message);
                 return true;
             }
-            catch (Exception ex)
+            catch (CommunicationException commEx)
             {
-                logger.Error(ex, "Error sending history for lobby {LobbyId}", lobbyId);
-                return true;
+                logger.Warn(commEx, "Connection lost sending history to lobby {LobbyId}", lobbyId);
+                return false;
+            }
+            catch (TimeoutException timeEx)
+            {
+                logger.Warn(timeEx, "Timeout sending history to lobby {LobbyId}", lobbyId);
+                return false;
+            }
+            catch (ObjectDisposedException dispEx)
+            {
+                logger.Warn(dispEx, "Channel disposed sending history to lobby {LobbyId}", lobbyId);
+                return false;
             }
         }
 
@@ -346,7 +342,6 @@ namespace MindWeaveServer.BusinessLogic
                 return false;
             }
 
-            logger.Info("User removed from chat lobby {LobbyId}", lobbyId);
             lobbyIsEmpty = usersInLobby.IsEmpty;
 
             return true;
@@ -354,53 +349,47 @@ namespace MindWeaveServer.BusinessLogic
 
         private void cleanUpEmptyLobby(string lobbyId)
         {
-            logger.Info("Chat lobby {LobbyId} is empty. Cleaning up resources.", lobbyId);
-
             lobbyChatUsers.TryRemove(lobbyId, out _);
             lobbyChatHistory.TryRemove(lobbyId, out _);
         }
 
-        private List<string> sendMessageToUsers(
-            List<KeyValuePair<string, IChatCallback>> usersSnapshot,
-            ChatMessageDto messageDto,
-            string lobbyId)
+        private static List<string> sendMessageToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto)
         {
             var failedUsers = new List<string>();
 
             foreach (var userEntry in usersSnapshot)
             {
-                if (!trySendMessageToUser(userEntry.Value, lobbyId))
+                if (!trySendMessageToUser(userEntry.Value, messageDto))
                 {
                     failedUsers.Add(userEntry.Key);
-                }
-                else
-                {
-                    try
-                    {
-                        userEntry.Value.receiveLobbyMessage(messageDto);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Exception sending message in lobby {LobbyId}. Marking for removal.", lobbyId);
-                        failedUsers.Add(userEntry.Key);
-                    }
                 }
             }
 
             return failedUsers;
         }
 
-        private bool trySendMessageToUser(IChatCallback callback, string lobbyId)
+        private static bool trySendMessageToUser(IChatCallback callback, ChatMessageDto messageDto)
         {
             var commObject = callback as ICommunicationObject;
+            if (commObject?.State != CommunicationState.Opened) return false;
 
-            if (commObject?.State != CommunicationState.Opened)
+            try
             {
-                logger.Warn("Channel not open in lobby {LobbyId}. Marking for removal.", lobbyId);
+                callback.receiveLobbyMessage(messageDto);
+                return true;
+            }
+            catch (CommunicationException)
+            {
                 return false;
             }
-
-            return true;
+            catch (TimeoutException)
+            {
+                return false;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
         }
 
         private void removeFailedUsers(
@@ -415,8 +404,6 @@ namespace MindWeaveServer.BusinessLogic
             {
                 usersInLobby.TryRemove(username, out _);
             }
-
-            logger.Info("Removed users with failed channels from lobby {LobbyId}", lobbyId);
 
             if (usersInLobby.IsEmpty)
             {

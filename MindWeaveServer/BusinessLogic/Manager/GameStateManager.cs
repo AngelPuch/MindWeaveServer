@@ -5,14 +5,11 @@ using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Chat;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
-using NLog;
 
 namespace MindWeaveServer.BusinessLogic.Manager
 {
     public class GameStateManager : IGameStateManager
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
         public ConcurrentDictionary<string, LobbyStateDto> ActiveLobbies { get; }
         public GameSessionManager GameSessionManager { get; }
 
@@ -37,8 +34,6 @@ namespace MindWeaveServer.BusinessLogic.Manager
             LobbyChatHistory = new ConcurrentDictionary<string, List<ChatMessageDto>>(StringComparer.OrdinalIgnoreCase);
 
             ConnectedUsers = new ConcurrentDictionary<string, ISocialCallback>(StringComparer.OrdinalIgnoreCase);
-
-            logger.Info("GameStateManager (Singleton) initialized with full state support.");
         }
 
         public bool isUserConnected(string username)

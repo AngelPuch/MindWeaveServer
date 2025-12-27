@@ -1,4 +1,5 @@
 ﻿using System;
+using BCrypt.Net;
 using MindWeaveServer.Resources;
 
 namespace MindWeaveServer.Utilities
@@ -24,7 +25,7 @@ namespace MindWeaveServer.Utilities
             {
                 return BCrypt.Net.BCrypt.Verify(password, storedHash);
             }
-            catch (BCrypt.Net.SaltParseException)
+            catch (SaltParseException)
             {
                 return false;
             }

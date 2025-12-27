@@ -1,10 +1,11 @@
 ﻿using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using NLog;
 using System;
 using System.Configuration;
+using System.IO;
 using System.Threading.Tasks;
-using NLog;
 
 namespace MindWeaveServer.Utilities.Email
 {
@@ -21,22 +22,34 @@ namespace MindWeaveServer.Utilities.Email
         public SmtpEmailService()
         {
             logger.Info("SmtpEmailService (MailKit) instance created.");
+
+            host = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_HOST");
+            string portStr = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PORT");
+            user = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_USER");
+            pass = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PASS");
+            senderName = "Mind Weave Team";
+
             try
             {
-                host = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_HOST");
-                port = Convert.ToInt32(Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PORT"));
-                user = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_USER");
-                pass = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PASS");
-                senderName = "Mind Weave Team";
-
-                if (string.IsNullOrWhiteSpace(host) || port <= 0 || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass) || string.IsNullOrWhiteSpace(senderName))
+                if (!string.IsNullOrWhiteSpace(portStr))
                 {
-                    logger.Fatal("CRITICAL: SMTP (MailKit) configuration is missing or invalid in App.config. Email service will likely fail.");
+                    port = Convert.ToInt32(portStr);
                 }
             }
-            catch (Exception ex)
+            catch (FormatException formatEx)
             {
-                logger.Fatal(ex, "CRITICAL: Failed to load or parse SMTP (MailKit) configuration from App.config. Email service might be non-functional."); 
+                logger.Fatal(formatEx, "SMTP Port is not a valid number.");
+                port = 0;
+            }
+            catch (OverflowException overflowEx)
+            {
+                logger.Fatal(overflowEx, "SMTP Port number is too large.");
+                port = 0;
+            }
+
+            if (string.IsNullOrWhiteSpace(host) || port <= 0 || string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pass))
+            {
+                logger.Fatal("CRITICAL: SMTP (MailKit) configuration is missing or invalid. Email service will fail.");
             }
         }
 
@@ -80,19 +93,33 @@ namespace MindWeaveServer.Utilities.Email
             }
             catch (AuthenticationException authEx)
             {
-                logger.Error(authEx, "MailKit AuthenticationException sending email to {RecipientEmail}. Check SMTP credentials (User: {SmtpUser}).", recipientEmail, user); 
+                logger.Error(authEx, "SMTP Authentication failed for user {SmtpUser}.", user);
+                throw;
             }
             catch (SmtpCommandException smtpCmdEx)
             {
-                logger.Error(smtpCmdEx, "MailKit SmtpCommandException sending email to {RecipientEmail}. StatusCode: {StatusCode}, Mailbox: {Mailbox}", recipientEmail, smtpCmdEx.StatusCode, smtpCmdEx.Mailbox?.Address ?? "N/A");
+                logger.Error(smtpCmdEx, "SMTP Command error. Status: {StatusCode}", smtpCmdEx.StatusCode);
+                throw;
+            }
+            catch (SmtpProtocolException smtpProtoEx)
+            {
+                logger.Error(smtpProtoEx, "SMTP Protocol error.");
+                throw;
+            }
+            catch (IOException ioEx)
+            {
+                logger.Error(ioEx, "Network error while sending email to {RecipientEmail}.", recipientEmail);
+                throw;
             }
             catch (System.Net.Sockets.SocketException sockEx)
             {
-                logger.Error(sockEx, "SocketException during MailKit operation (likely ConnectAsync) for {RecipientEmail}. Check Host/Port ({SmtpHost}:{SmtpPort}) and network.", recipientEmail, host, port);
+                logger.Error(sockEx, "Socket connection failed to SMTP host {Host}:{Port}.", host, port);
+                throw;
             }
             catch (Exception ex)
             {
-                logger.Error(ex, "General exception occurred while sending email (MailKit) to {RecipientEmail}", recipientEmail);
+                logger.Error(ex, "Unexpected error sending email to {RecipientEmail}.", recipientEmail);
+                throw;
             }
         }
     }

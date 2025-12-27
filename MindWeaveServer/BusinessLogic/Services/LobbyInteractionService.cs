@@ -34,6 +34,9 @@ namespace MindWeaveServer.BusinessLogic.Services
         private const int MATCH_STATUS_CANCELED = 4;
         private const int ID_REASON_HOST_DECISION = 1;
         private const int GUEST_EXPIRY_MINUTES = 10;
+        private const int INVALID_ID = 0;
+        private const int MAX_PLAYERS_PER_LOBBY = 4;
+
 
         public LobbyInteractionService(
             IGameStateManager gameStateManager,
@@ -70,7 +73,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             notificationService.sendSocialNotification(context.TargetUsername,
                 cb => cb.notifyLobbyInvite(context.RequesterUsername, context.LobbyCode));
 
-            logger.Info("Invitation sent from {0} to {1}", context.RequesterUsername, context.TargetUsername);
             await Task.CompletedTask;
         }
 
@@ -153,7 +155,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return;
             }
 
-            if (lobby.Players.Count >= 4)
+            if (lobby.Players.Count >= MAX_PLAYERS_PER_LOBBY)
             {
                 notificationService.notifyActionFailed(inviterUsername, Lang.LobbyIsFull);
                 return;
@@ -190,27 +192,21 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task kickFromLobbyStateAsync(LobbyStateDto lobby, int targetId, int hostId, string targetUsername)
         {
-            try
+            using (var scope = matchmakingFactory())
             {
-                using (var scope = matchmakingFactory())
+                var match = await scope.Value.getMatchByLobbyCodeAsync(lobby.LobbyId);
+                if (match != null)
                 {
-                    var match = await scope.Value.getMatchByLobbyCodeAsync(lobby.LobbyId);
-                    if (match != null)
+                    await scope.Value.registerExpulsionAsync(new ExpulsionDto
                     {
-                        await scope.Value.registerExpulsionAsync(new ExpulsionDto
-                        {
-                            MatchId = match.matches_id,
-                            PlayerId = targetId,
-                            HostPlayerId = hostId,
-                            ReasonId = ID_REASON_HOST_DECISION
-                        });
-                    }
+                        MatchId = match.matches_id,
+                        PlayerId = targetId,
+                        HostPlayerId = hostId,
+                        ReasonId = ID_REASON_HOST_DECISION
+                    });
                 }
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error registering kick in DB");
-            }
+
             notificationService.notifyKicked(targetUsername, Lang.KickedByHost);
         }
 
@@ -230,24 +226,16 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task<Matches> updateMatchStatusAsync(string lobbyCode, int statusId)
         {
-            try
+            using (var scope = matchmakingFactory())
             {
-                using (var scope = matchmakingFactory())
+                var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
+                if (match != null)
                 {
-                    var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                    if (match != null)
-                    {
-                        scope.Value.updateMatchStatus(match, statusId);
-                        scope.Value.updateMatchStartTime(match);
-                        await scope.Value.saveChangesAsync();
-                    }
-                    return match;
+                    scope.Value.updateMatchStatus(match, statusId);
+                    scope.Value.updateMatchStartTime(match);
+                    await scope.Value.saveChangesAsync();
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "DB Error starting match {0}", lobbyCode);
-                return null;
+                return match;
             }
         }
 
@@ -300,59 +288,43 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task<bool> persistDifficultyChangeAsync(string lobbyCode, int difficultyId)
         {
-            try
+            using (var scope = matchmakingFactory())
             {
-                using (var scope = matchmakingFactory())
+                var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
+                if (match != null)
                 {
-                    var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                    if (match != null)
-                    {
-                        scope.Value.updateMatchDifficulty(match, difficultyId);
-                        await scope.Value.saveChangesAsync();
-                        return true;
-                    }
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "DB Error changing difficulty for {0}", lobbyCode);
-                return false;
-            }
-        }
-
-        private async Task<bool> saveGuestInvitationAsync(int matchId, int inviterId, string email)
-        {
-            try
-            {
-                using (var scope = invitationFactory())
-                {
-                    await scope.Value.addInvitationAsync(new GuestInvitations
-                    {
-                        match_id = matchId,
-                        inviter_player_id = inviterId,
-                        guest_email = email,
-                        sent_timestamp = DateTime.UtcNow,
-                        expiry_timestamp = DateTime.UtcNow.AddMinutes(GUEST_EXPIRY_MINUTES)
-                    });
+                    scope.Value.updateMatchDifficulty(match, difficultyId);
                     await scope.Value.saveChangesAsync();
                     return true;
                 }
             }
-            catch (Exception ex)
+            return false;
+        }
+
+        private async Task<bool> saveGuestInvitationAsync(int matchId, int inviterId, string email)
+        {
+            using (var scope = invitationFactory())
             {
-                logger.Error(ex, "DB Error saving guest invite");
-                return false;
+                await scope.Value.addInvitationAsync(new GuestInvitations
+                {
+                    match_id = matchId,
+                    inviter_player_id = inviterId,
+                    guest_email = email,
+                    sent_timestamp = DateTime.UtcNow,
+                    expiry_timestamp = DateTime.UtcNow.AddMinutes(GUEST_EXPIRY_MINUTES)
+                });
+                await scope.Value.saveChangesAsync();
+                return true;
             }
         }
 
         private async Task<int> getPlayerIdAsync(string username)
         {
-            if (string.IsNullOrEmpty(username)) return 0;
+            if (string.IsNullOrEmpty(username)) return INVALID_ID;
             using (var scope = playerFactory())
             {
                 var p = await scope.Value.getPlayerByUsernameAsync(username);
-                return p?.idPlayer ?? 0;
+                return p?.idPlayer ?? INVALID_ID;
             }
         }
 
@@ -361,7 +333,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             using (var scope = matchmakingFactory())
             {
                 var m = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                return m?.matches_id ?? 0;
+                return m?.matches_id ?? INVALID_ID;
             }
         }
     }

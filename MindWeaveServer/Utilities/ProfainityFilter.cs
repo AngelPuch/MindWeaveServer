@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -9,7 +8,6 @@ namespace MindWeaveServer.Utilities
 {
     public static class ProfanityFilter
     {
-        private static readonly HashSet<string> deniedWordsSet;
         private static readonly Regex profanityRegex;
 
 
@@ -21,13 +19,13 @@ namespace MindWeaveServer.Utilities
             "asshole","idiotic","dumbass","dipshit","sonofabitch","bitch","bitches",
             "bloody","piss","pissed","retard","retarded","loser","scumbag","trash",
 
-            "groseria","estupido","idiota","basura","inutil","maldito",
+            "estupido","idiota","basura","inutil","maldito",
             "pendejo","pendeja","cabron","cabrona","chingar","chingada","chingado",
             "chingadera","mierda","pinche","cagon","cagona","putazo","madrazo","carajo",
             "coño","jodido","jodida","joder","jodete","zorra","zorro","baboso","babosa",
             "tarado","tarada","tonto","tonta","bobo","boba","asqueroso","asquerosa",
-            "imbecil","imbécil","malparido","malnacido","culero","culera","güey","wey",
-            "perra","perro", "putamadre", "puto", "puta", "putos", "putas", "verga", "pito", "retrasado", "retrasada"
+            "imbecil","imbécil","malparido","malnacido","culero","culera","güey",
+            "perra", "putamadre", "puto", "puta", "putos", "putas", "verga", "pito", "retrasado", "retrasada"
         };
 
         private static readonly Dictionary<char, char> leetMap = new Dictionary<char, char>
@@ -37,12 +35,12 @@ namespace MindWeaveServer.Utilities
 
         static ProfanityFilter()
         {
-            deniedWordsSet = new HashSet<string>();
+            var deniedWordsSet1 = new HashSet<string>();
             foreach (var word in rawDeniedWords)
             {
-                deniedWordsSet.Add(Normalize(word));
+                deniedWordsSet1.Add(normalize(word));
             }
-            var escapedWords = deniedWordsSet.Select(Regex.Escape);
+            var escapedWords = deniedWordsSet1.Select(Regex.Escape);
             string pattern = @"\b(" + string.Join("|", escapedWords) + @")[a-z]*\b";
             profanityRegex = new Regex(
                 pattern,
@@ -50,22 +48,22 @@ namespace MindWeaveServer.Utilities
             );
         }
 
-        public static bool ContainsProfanity(string message)
+        public static bool containsProfanity(string message)
         {
             if (string.IsNullOrWhiteSpace(message))
             {
                 return false;
             }
 
-            string normalized = Normalize(message);
-            string symbolCleaned = NormalizeSymbols(normalized); 
-            string leetCleaned = NormalizeLeet(normalized);
+            string normalized = normalize(message);
+            normalizeSymbols(normalized); 
+            string leetCleaned = normalizeLeet(normalized);
 
             return profanityRegex.IsMatch(leetCleaned);
 
         }
 
-        private static string Normalize(string input)
+        private static string normalize(string input)
         {
             string formD = input.ToLowerInvariant().Normalize(NormalizationForm.FormD);
             var sb = new StringBuilder();
@@ -80,24 +78,17 @@ namespace MindWeaveServer.Utilities
             return sb.ToString().Normalize(NormalizationForm.FormC);
         }
 
-        private static string NormalizeLeet(string word)
+        private static string normalizeLeet(string word)
         {
             var result = new StringBuilder(word.Length);
             foreach (char c in word)
             {
-                if (leetMap.TryGetValue(c, out char replacement))
-                {
-                    result.Append(replacement);
-                }
-                else
-                {
-                    result.Append(c);
-                }
+                result.Append(leetMap.TryGetValue(c, out char replacement) ? replacement : c);
             }
             return result.ToString();
         }
 
-        private static string NormalizeSymbols(string word)
+        private static void normalizeSymbols(string word)
         {
             char[] removableSymbols = { '.', '_', '-', '*', '~', ',', ';', ':', '|', '/', '\\', ' ' };
            
@@ -109,7 +100,6 @@ namespace MindWeaveServer.Utilities
                     sb.Append(c);
                 }
             }
-            return sb.ToString();
         }
 
     }

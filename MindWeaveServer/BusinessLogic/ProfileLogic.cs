@@ -6,7 +6,6 @@ using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
-using MindWeaveServer.Utilities.Validators;
 using NLog; 
 using System;
 using System.Collections.Generic;
@@ -19,6 +18,8 @@ namespace MindWeaveServer.BusinessLogic
     public class ProfileLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+        private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
 
         private readonly IPlayerRepository playerRepository;
         private readonly IGenderRepository genderRepository;
@@ -45,16 +46,12 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<PlayerProfileViewDto> getPlayerProfileViewAsync(string username)
         {
-            logger.Info("getPlayerProfileViewAsync called for User: {Username}", username ?? "NULL");
-
             if (string.IsNullOrWhiteSpace(username))
             {
                 logger.Warn("getPlayerProfileViewAsync: Username is null or whitespace.");
                 return null; 
             }
 
-         
-            logger.Debug("Fetching player with profile view data for User: {Username}", username);
             var player = await playerRepository.getPlayerWithProfileViewDataAsync(username);
 
             if (player == null)
@@ -63,24 +60,17 @@ namespace MindWeaveServer.BusinessLogic
                 return null; 
             }
 
-            logger.Info("Successfully retrieved profile view data for User: {Username}", username);
-                
             return mapToPlayerProfileViewDto(player);
-            
         }
 
         public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
         {
-            logger.Info("getPlayerProfileForEditAsync called for User: {Username}", username ?? "NULL");
-
             if (string.IsNullOrWhiteSpace(username))
             {
                 logger.Warn("getPlayerProfileForEditAsync: Username is null or whitespace.");
                 return null;
             }
 
-           
-            logger.Debug("Fetching player data for editing for User: {Username}", username);
             var player = await playerRepository.getPlayerByUsernameAsync(username); 
 
             if (player == null)
@@ -88,30 +78,23 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("getPlayerProfileForEditAsync: Player not found for User: {Username}", username);
                 return null;
             }
-            logger.Debug("Player found. Fetching all genders.");
 
             var allGendersData = await genderRepository.getAllGendersAsync();
             var allGendersDto = allGendersData.Select
                 (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList(); 
-            logger.Debug("Retrieved {Count} genders.", allGendersDto.Count);
 
-            logger.Info("Successfully retrieved editable profile data for User: {Username}", username);
             return mapToUserProfileForEditDto(player, allGendersDto);
-            
         }
 
 
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
         {
-            logger.Info("updateProfileAsync called for User: {Username}", username ?? "NULL");
-
             if (updatedProfileData == null)
             {
                 logger.Warn("Update profile failed for {Username}: Updated profile data is null.", username ?? "NULL");
                 return new OperationResultDto { Success = false, Message = Lang.ValidationProfileOrPasswordRequired };
             }
 
-            logger.Debug("Validating updated profile data for User: {Username}", username);
             var validationResult = await profileEditValidator.ValidateAsync(updatedProfileData);
             if (!validationResult.IsValid)
             {
@@ -119,9 +102,7 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Update profile failed for {Username}: Validation failed. Reason: {Reason}", username ?? "NULL", firstError);
                 return new OperationResultDto { Success = false, Message = firstError };
             }
-            logger.Debug("Profile data validation successful for User: {Username}", username);
 
-            logger.Debug("Fetching player with tracking for update: {Username}", username);
             var playerToUpdate = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
 
             if (playerToUpdate == null)
@@ -129,31 +110,21 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Update profile failed: Player {Username} not found.", username);
                 return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
-            logger.Debug("Player {Username} found. Applying updates.", username);
 
             applyProfileUpdates(playerToUpdate, updatedProfileData);
-
-            logger.Debug("Saving profile changes for User: {Username}", username);
             await playerRepository.saveChangesAsync();
-            logger.Info("Profile updated successfully for User: {Username}", username);
 
             return new OperationResultDto { Success = true, Message = Lang.ProfileUpdatedSuccessfully };
-            
         }
-
 
         public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
         {
-            logger.Info("updateAvatarPathAsync called for User: {Username}, NewPath: {AvatarPath}", username ?? "NULL", newAvatarPath ?? "NULL");
-
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(newAvatarPath))
             {
                 logger.Warn("Update avatar path failed: Username or new path is null/whitespace.");
                 return new OperationResultDto { Success = false, Message = Lang.ErrorAvatarPathCannotBeEmpty };
             }
 
-            
-            logger.Debug("Fetching player with tracking for avatar update: {Username}", username);
             var playerToUpdate = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
 
             if (playerToUpdate == null)
@@ -162,39 +133,27 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
 
-            logger.Debug("Player {Username} found. Updating avatar path.", username);
             playerToUpdate.avatar_path = newAvatarPath; 
 
-            logger.Debug("Saving avatar path change for User: {Username}", username);
             int changes = await playerRepository.saveChangesAsync();
-            logger.Debug("SaveChanges result for avatar update: {ChangesCount}", changes);
 
             bool success = changes > 0;
-            if (success)
-                logger.Info("Avatar path updated successfully for User: {Username}", username);
-            else
-                logger.Warn("Avatar path update for User {Username} reported 0 changes saved.", username);
-
 
             return new OperationResultDto
             {
                 Success = success,
                 Message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
             };
-
         }
 
         public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
         {
-            logger.Info("changePasswordAsync logic called for User: {Username}", username ?? "NULL");
-
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
             {
                 logger.Warn("Change password failed for {Username}: One or more fields are null/whitespace.", username ?? "NULL");
                 return new OperationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired };
             }
 
-            logger.Debug("Fetching player with tracking for password change: {Username}", username);
             var player = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
 
             if (player == null)
@@ -218,7 +177,6 @@ namespace MindWeaveServer.BusinessLogic
                 return policyValidation;
             }
 
-            logger.Debug("Hashing new password for User: {Username}", username);
             string newPasswordHash = passwordService.hashPassword(newPassword);
             player.password_hash = newPasswordHash;
             
@@ -226,7 +184,6 @@ namespace MindWeaveServer.BusinessLogic
 
             if (changes > 0)
             {
-                logger.Info("Password changed successfully for User: {Username}", username);
                 return new OperationResultDto { Success = true, Message = Lang.PasswordChangedSuccessfully };
             }
             else
@@ -238,8 +195,6 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<List<AchievementDto>> getPlayerAchievementsAsync(int playerId)
         {
-            logger.Info("getPlayerAchievementsAsync called for PlayerId: {PlayerId}", playerId);
-
             using (var repoScope = statsRepositoryFactory())
             {
                 var repository = repoScope.Value;
@@ -260,12 +215,12 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private PlayerProfileViewDto mapToPlayerProfileViewDto(Player player)
+        private static PlayerProfileViewDto mapToPlayerProfileViewDto(Player player)
         {
             return new PlayerProfileViewDto
             {
                 Username = player.username,
-                AvatarPath = player.avatar_path ?? "/Resources/Images/Avatar/default_avatar.png",
+                AvatarPath = player.avatar_path ?? DEFAULT_AVATAR_PATH,
                 FirstName = player.first_name,
                 LastName = player.last_name,
                 DateOfBirth = player.date_of_birth,
@@ -285,7 +240,7 @@ namespace MindWeaveServer.BusinessLogic
                 }).ToList() ?? new List<AchievementDto>() 
             };
         }
-        private UserProfileForEditDto mapToUserProfileForEditDto(Player player, List<GenderDto> allGendersDto)
+        private static UserProfileForEditDto mapToUserProfileForEditDto(Player player, List<GenderDto> allGendersDto)
         {
             return new UserProfileForEditDto
             {

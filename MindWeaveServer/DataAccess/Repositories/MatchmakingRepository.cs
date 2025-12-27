@@ -11,6 +11,9 @@ namespace MindWeaveServer.DataAccess.Repositories
     {
         private readonly MindWeaveDBEntities1 context;
 
+        private const int MATCH_STATUS_FINISHED = 2;
+        private const int DEFAULT_MATCH_DURATION_SECONDS = 300;
+
         public MatchmakingRepository(MindWeaveDBEntities1 context)
         {
             this.context = context ?? throw new ArgumentNullException(nameof(context));
@@ -112,8 +115,8 @@ namespace MindWeaveServer.DataAccess.Repositories
                 var match = await freshContext.Matches.FirstOrDefaultAsync(m => m.matches_id == matchId);
                 if (match != null)
                 {
-                    match.end_time = DateTime.Now;
-                    match.match_status_id = 2;
+                    match.end_time = DateTime.UtcNow;
+                    match.match_status_id = MATCH_STATUS_FINISHED;
                     await freshContext.SaveChangesAsync();
                 }
             }
@@ -133,7 +136,7 @@ namespace MindWeaveServer.DataAccess.Repositories
                 }
             }
 
-            return 300;
+            return DEFAULT_MATCH_DURATION_SECONDS;
         }
 
         public async Task<int> saveChangesAsync()

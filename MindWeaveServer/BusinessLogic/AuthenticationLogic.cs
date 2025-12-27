@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using FluentValidation.Results;
+using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.DataAccess;
@@ -10,11 +11,11 @@ using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Email.Templates;
 using NLog;
 using System;
-using System.Data.SqlClient;
 using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
 using System.Linq;
+using System.Net.Mail;
 using System.Threading.Tasks;
-using MindWeaveServer.BusinessLogic.Abstractions;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -72,7 +73,7 @@ namespace MindWeaveServer.BusinessLogic
             catch (DbUpdateException dbEx) when (isDuplicateKeyException(dbEx))
             {
                 logger.Warn("Duplicate record detected in DB layer during registration.");
-                throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER);
+                throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER, dbEx);
             }
         }
         
@@ -316,7 +317,7 @@ namespace MindWeaveServer.BusinessLogic
             if (existingPlayer.is_verified)
             {
                 logger.Warn("Registration attempt on already verified account. PlayerId: {Id}", existingPlayer.idPlayer);
-                return new OperationResultDto { Success = false, Message = Lang.RegistrationUsernameOrEmailExists };
+                throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER);
             }
 
             updatePlayerEntity(existingPlayer, userProfile, password);
@@ -356,7 +357,7 @@ namespace MindWeaveServer.BusinessLogic
         private bool checkCodeValidity(Player player, string inputCode)
         {
             bool isMatch = player.verification_code == inputCode;
-            bool isNotExpired = player.code_expiry_date >= DateTime.UtcNow;
+            bool isNotExpired = player.code_expiry_date.HasValue && player.code_expiry_date.Value >= DateTime.UtcNow;
             return isMatch && isNotExpired;
         }
 
@@ -407,9 +408,13 @@ namespace MindWeaveServer.BusinessLogic
                 var emailTemplate = new VerificationEmailTemplate(username, code);
                 await emailService.sendEmailAsync(email, username, emailTemplate);
             }
-            catch (Exception ex)
+            catch (SmtpException smtpEx)
             {
-                logger.Error(ex, "Failed to send verification email. PlayerId: {Id}", playerId);
+                logger.Error(smtpEx, "SMTP failure sending verification email to {Email}. PlayerId: {Id}", email, playerId);
+            }
+            catch (TimeoutException timeoutEx)
+            {
+                logger.Error(timeoutEx, "Timeout sending verification email to {Email}. PlayerId: {Id}", email, playerId);
             }
         }
 

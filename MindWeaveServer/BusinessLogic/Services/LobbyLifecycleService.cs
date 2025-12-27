@@ -1,4 +1,5 @@
-﻿using Autofac.Features.OwnedInstances;
+﻿using Autofac.Core;
+using Autofac.Features.OwnedInstances;
 using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Models;
@@ -11,7 +12,9 @@ using MindWeaveServer.Utilities;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.Data.Entity.Core;
 using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -101,7 +104,6 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (gameStateManager.ActiveLobbies.TryAdd(newMatch.lobby_code, lobbyState))
             {
-                logger.Info("Lobby {0} created by {1}", newMatch.lobby_code, hostUsername);
                 return new LobbyCreationResultDto
                 {
                     Success = true,
@@ -143,13 +145,16 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (addedToMemory)
             {
-                bool dbSuccess = await tryAddParticipantToDbAsync(context.LobbyCode, context.RequesterUsername);
-                if (!dbSuccess)
+                try
                 {
-                    revertPlayerFromMemory(lobby, context.RequesterUsername);
-                    notificationService.notifyLobbyCreationFailed(context.RequesterUsername, Lang.ErrorJoiningLobbyData);
-                    return;
+                    await tryAddParticipantToDbAsync(context.LobbyCode, context.RequesterUsername);
                 }
+                catch (DbUpdateException)
+                {
+                    handleJoinFailure(lobby, context.RequesterUsername);
+                    throw;
+                }
+
             }
 
             notificationService.broadcastLobbyState(lobby);
@@ -217,7 +222,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 {
                     isLobbyClosed = true;
                     remainingPlayers = lobby.Players.ToList();
-                } 
+                }
 
                 if (wasGuest)
                 {
@@ -282,13 +287,23 @@ namespace MindWeaveServer.BusinessLogic.Services
                     try
                     {
                         var created = await repo.createMatchAsync(match);
-                        await repo.addParticipantAsync(new MatchParticipants { match_id = created.matches_id, player_id = host.idPlayer, is_host = true });
+                        await repo.addParticipantAsync(new MatchParticipants
+                            { match_id = created.matches_id, player_id = host.idPlayer, is_host = true });
                         return created;
                     }
-                    catch (DbUpdateException) { /* Retry on collision */ }
+                    catch (DbUpdateException)
+                    {
+                        logger.Warn("Lobby code collision detected for {0}. Retrying.", code);
+                    }
                 }
             }
             return null;
+        }
+
+        private void handleJoinFailure(LobbyStateDto lobby, string username)
+        {
+            revertPlayerFromMemory(lobby, username);
+            notificationService.notifyLobbyCreationFailed(username, Lang.ErrorJoiningLobbyData);
         }
 
         private async Task<(byte[] bytes, string path)> resolvePuzzleResourcesAsync(int puzzleId, byte[] customBytes)
@@ -312,66 +327,55 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private async Task<bool> tryAddParticipantToDbAsync(string lobbyCode, string username)
+        private async Task tryAddParticipantToDbAsync(string lobbyCode, string username)
         {
-            try
+            using (var scope = matchmakingFactory())
+            using (var playerScope = playerFactory())
             {
-                using (var scope = matchmakingFactory())
-                using (var playerScope = playerFactory())
-                {
-                    var matchRepo = scope.Value;
-                    var match = await matchRepo.getMatchByLobbyCodeAsync(lobbyCode);
-                    var player = await playerScope.Value.getPlayerByUsernameAsync(username);
+                var matchRepo = scope.Value;
+                var match = await matchRepo.getMatchByLobbyCodeAsync(lobbyCode);
+                var player = await playerScope.Value.getPlayerByUsernameAsync(username);
 
-                    if (match != null && player != null && match.match_status_id == MATCH_STATUS_WAITING)
+                if (match != null && player != null && match.match_status_id == MATCH_STATUS_WAITING)
+                {
+                    var exists = await matchRepo.getParticipantAsync(match.matches_id, player.idPlayer);
+                    if (exists == null)
                     {
-                        var exists = await matchRepo.getParticipantAsync(match.matches_id, player.idPlayer);
-                        if (exists == null)
+                        await matchRepo.addParticipantAsync(new MatchParticipants
                         {
-                            await matchRepo.addParticipantAsync(new MatchParticipants { match_id = match.matches_id, player_id = player.idPlayer, is_host = false });
-                        }
-                        return true;
+                            match_id = match.matches_id, 
+                            player_id = player.idPlayer, 
+                            is_host = false
+                        });
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error adding participant to DB: {0}", username);
-            }
-            return false;
         }
 
         private async Task SyncDbOnLeaveAsync(string lobbyCode, string username, bool wasGuest, bool isLobbyClosed)
         {
-            try
+            using (var scope = matchmakingFactory())
+            using (var playerScope = playerFactory())
             {
-                using (var scope = matchmakingFactory())
-                using (var playerScope = playerFactory())
+                var matchRepo = scope.Value;
+                var match = await matchRepo.getMatchByLobbyCodeAsync(lobbyCode);
+                if (match == null) return;
+
+                if (!wasGuest)
                 {
-                    var matchRepo = scope.Value;
-                    var match = await matchRepo.getMatchByLobbyCodeAsync(lobbyCode);
-                    if (match == null) return;
-
-                    if (!wasGuest)
+                    var player = await playerScope.Value.getPlayerByUsernameAsync(username);
+                    if (player != null)
                     {
-                        var player = await playerScope.Value.getPlayerByUsernameAsync(username);
-                        if (player != null)
-                        {
-                            var participant = await matchRepo.getParticipantAsync(match.matches_id, player.idPlayer);
-                            if (participant != null) await matchRepo.removeParticipantAsync(participant);
-                        }
-                    }
-
-                    if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
-                    {
-                        matchRepo.updateMatchStatus(match, MATCH_STATUS_CANCELED);
-                        await matchRepo.saveChangesAsync();
+                        var participant = await matchRepo.getParticipantAsync(match.matches_id, player.idPlayer);
+                        if (participant != null) await matchRepo.removeParticipantAsync(participant);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error syncing DB on leave for {0}", username);
+
+                if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
+                {
+                    matchRepo.updateMatchStatus(match, MATCH_STATUS_CANCELED);
+                    await matchRepo.saveChangesAsync();
+                }
             }
         }
 

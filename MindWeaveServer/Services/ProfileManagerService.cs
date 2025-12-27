@@ -22,10 +22,11 @@ namespace MindWeaveServer.Services
         private readonly ProfileLogic profileLogic;
         private readonly IServiceExceptionHandler exceptionHandler;
 
-        public ProfileManagerService() : this(
-            Bootstrapper.Container.Resolve<ProfileLogic>(),
-            Bootstrapper.Container.Resolve<IServiceExceptionHandler>())
+        public ProfileManagerService()
         {
+            Bootstrapper.init();
+            this.profileLogic = Bootstrapper.Container.Resolve<ProfileLogic>();
+            this.exceptionHandler = Bootstrapper.Container.Resolve<IServiceExceptionHandler>();
         }
 
         public ProfileManagerService(ProfileLogic profileLogic, IServiceExceptionHandler exceptionHandler)
@@ -43,7 +44,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"GetPlayerProfileView - User: {username}");
+                throw exceptionHandler.handleException(ex, "GetPlayerProfileViewOperation");
             }
         }
 
@@ -56,7 +57,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"GetPlayerProfileForEditAsync - User: {username}");
+                throw exceptionHandler.handleException(ex, "GetPlayerProfileForEditOperation");
             }
         }
 
@@ -69,7 +70,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"UpdateProfileAsync - User: {username}");
+                throw exceptionHandler.handleException(ex, "UpdateProfileOperation");
             }
         }
 
@@ -82,7 +83,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"UpdateAvatarPathAsync - User: {username}");
+                throw exceptionHandler.handleException(ex, "UpdateAvatarPathOperation");
             }
         }
 
@@ -95,7 +96,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"ChangePasswordAsync - User: {username}");
+                throw exceptionHandler.handleException(ex, "ChangePasswordOperation");
             }
         }
 
@@ -109,7 +110,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"GetPlayerAchievements - PlayerId: {playerId}");
+                throw exceptionHandler.handleException(ex, "GetPlayerAchievementsOperation");
             }
         }
 

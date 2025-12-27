@@ -22,13 +22,9 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task processMatchResultsAsync(PlayerMatchStatsDto matchStats)
         {
-            if (matchStats == null) throw new ArgumentNullException(nameof(matchStats));
-
-            logger.Info("processMatchResultsAsync called for PlayerID: {PlayerId}, Rank: {Rank}",
-                matchStats.PlayerId, matchStats.Rank);
+            if (matchStats == null);
 
             await statsRepository.updatePlayerStatsAsync(matchStats);
-
             await statsRepository.saveChangesAsync();
         }
 

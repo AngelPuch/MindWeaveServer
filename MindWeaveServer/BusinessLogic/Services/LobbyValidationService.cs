@@ -18,6 +18,12 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly LobbyModerationManager moderationManager;
 
         private const int MAX_PLAYERS_PER_LOBBY = 4;
+        private const int MIN_PLAYERS_TO_START_GAME = 2;
+
+        private const string ERROR_USER_BUSY_GENERIC = "User is already in a game or lobby.";
+        private const string ERROR_USER_BANNED = "You are banned from this lobby.";
+        private const string ERROR_USER_BUSY_SPECIFIC = "You are already in another game or lobby.";
+        private const string ERROR_HOST_CANNOT_KICK_SELF = "Host cannot kick themselves.";
 
         public LobbyValidationService(
             IGameStateManager gameStateManager,
@@ -38,7 +44,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (isUserBusy(hostUsername, null))
             {
-                return ValidationResult.failure("User is already in a game or lobby.");
+                return ValidationResult.failure(ERROR_USER_BUSY_GENERIC);
             }
 
             return ValidationResult.success();
@@ -63,7 +69,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (moderationManager.isBanned(lobby.LobbyId, username))
             {
-                return ValidationResult.failure("You are banned from this lobby.");
+                return ValidationResult.failure(ERROR_USER_BANNED);
             }
 
             if (lobby.Players.Count >= MAX_PLAYERS_PER_LOBBY)
@@ -78,7 +84,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (isUserBusy(username, lobby.LobbyId))
             {
-                return ValidationResult.failure("You are already in another game or lobby.");
+                return ValidationResult.failure(ERROR_USER_BUSY_SPECIFIC);
             }
 
             return ValidationResult.success();
@@ -113,7 +119,6 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (isUserBusy(targetUsername, lobby.LobbyId))
             {
-                logger.Info($"CanInvitePlayer: Blocked invite to {targetUsername} because IsUserBusy returned true.");
                 return ValidationResult.failure(string.Format(Lang.ValidationUserAlreadyInGame, targetUsername));
             }
 
@@ -129,7 +134,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return ValidationResult.failure(Lang.notHost);
             }
 
-            // if (lobby.Players.Count < 2) return ValidationResult.failure(Lang.NotEnoughPlayersToStart);
+            if (lobby.Players.Count < MIN_PLAYERS_TO_START_GAME) return ValidationResult.failure(Lang.NotEnoughPlayersToStart);
 
             if (lobby.Players.Count > MAX_PLAYERS_PER_LOBBY)
             {
@@ -150,7 +155,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (hostUsername.Equals(targetUsername, StringComparison.OrdinalIgnoreCase))
             {
-                return ValidationResult.failure("Host cannot kick themselves.");
+                return ValidationResult.failure(ERROR_HOST_CANNOT_KICK_SELF);
             }
 
             if (!lobby.Players.Contains(targetUsername, StringComparer.OrdinalIgnoreCase))

@@ -61,7 +61,6 @@ namespace MindWeaveServer.Contracts.ServiceContracts
     [ServiceContract]
     public interface IMatchmakingCallback
     {
-        
         [OperationContract(IsOneWay = true)]
         void updateLobbyState(LobbyStateDto lobbyStateDto);
 

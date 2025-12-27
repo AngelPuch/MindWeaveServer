@@ -41,7 +41,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "GetAvailablePuzzlesAsync");
+                throw exceptionHandler.handleException(ex, "GetAvailablePuzzlesOperation");
             }
         }
 
@@ -54,7 +54,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"GetPuzzleDefinitionAsync - PuzzleID: {puzzleId}");
+                throw exceptionHandler.handleException(ex, "GetPuzzleDefinitionOperation");
             }
         }
 
@@ -68,7 +68,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"UploadPuzzleImageAsync - User: {username}");
+                throw exceptionHandler.handleException(ex, "UploadPuzzleImageOperation");
             }
         }
     }

@@ -1,4 +1,5 @@
-﻿using MindWeaveServer.AppStart;
+﻿using Autofac;
+using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Shared;
@@ -6,10 +7,11 @@ using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
-using Autofac;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.Data.Entity.Core;
+using System.Data.SqlClient;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -62,22 +64,20 @@ namespace MindWeaveServer.Services
                 string safeUsername = username ?? "Unknown";
 
                 Task.Run(async () =>
-                {
-                    try
-                    {
-                        var existingCallback = gameStateManager.getUserCallback(currentUsername);
-                        gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
-                        await handleConnectionResult(existingCallback, currentUserCallback, safeUsername);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Error during async connection initialization for user {UserId}", safeUsername);
-                    }
+                { 
+                    var existingCallback = gameStateManager.getUserCallback(currentUsername); 
+                    gameStateManager.addConnectedUser(currentUsername, currentUserCallback); 
+                    await handleConnectionResult(existingCallback, currentUserCallback, safeUsername);
+                    
                 });
             }
-            catch (Exception ex)
+            catch (InvalidOperationException opEx)
             {
-                logger.Error(ex, "Critical error in Connect method.");
+                logger.Error(opEx, "Invalid WCF operation context during Connect for {User}", username);
+            }
+            catch (ArgumentException argEx)
+            {
+                logger.Error(argEx, "Invalid argument provided during Connect for {User}", username);
             }
         }
 
@@ -85,14 +85,8 @@ namespace MindWeaveServer.Services
         {
             Task.Run(async () =>
             {
-                try
-                {
-                    await processDisconnect(username);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "Error processing disconnect for user {UserId}", username);
-                }
+                await processDisconnect(username);
+              
             });
         }
 
@@ -100,15 +94,14 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                validateSession(requesterUsername);
                 logger.Info("Player search requested by {UserId}", requesterUsername);
 
-                var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
-                return results ?? new List<PlayerSearchResultDto>();
+                validateSession(requesterUsername);
+                return  await socialLogic.searchPlayersAsync(requesterUsername, query);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"SearchPlayers - Requester: {requesterUsername}");
+                throw exceptionHandler.handleException(ex, "SearchPlayersOperation");
             }
         }
 
@@ -116,26 +109,22 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                validateSession(requesterUsername);
                 logger.Info("Friend request initiated from {RequesterId} to {TargetId}", requesterUsername, targetUsername);
+
+                validateSession(requesterUsername);
 
                 var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
                 if (result.Success)
                 {
-                    logger.Info("Friend request successful from {RequesterId} to {TargetId}", requesterUsername, targetUsername);
                     sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
-                }
-                else
-                {
-                    logger.Warn("Friend request failed. Reason: {Reason}", result.Message);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"SendFriendRequest - From: {requesterUsername} To: {targetUsername}");
+                throw exceptionHandler.handleException(ex, "SendFriendRequestOperation");
             }
         }
 
@@ -144,8 +133,6 @@ namespace MindWeaveServer.Services
             try
             {
                 validateSession(responderUsername);
-                string action = accepted ? "Accepted" : "Declined";
-                logger.Info("Friend request response: {Action} by {ResponderId} for {RequesterId}", action, responderUsername, requesterUsername);
 
                 var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, accepted);
 
@@ -153,16 +140,12 @@ namespace MindWeaveServer.Services
                 {
                     await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted);
                 }
-                else
-                {
-                    logger.Warn("Friend response failed. Reason: {Reason}", result.Message);
-                }
 
                 return result;
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"RespondToFriendRequest - Responder: {responderUsername}");
+                throw exceptionHandler.handleException(ex, "RespondToFriendRequestOperation");
             }
         }
 
@@ -170,26 +153,22 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                validateSession(username);
                 logger.Info("Remove friend requested by {UserId} for target {FriendId}", username, friendToRemoveUsername);
+
+                validateSession(username);
 
                 var result = await socialLogic.removeFriendAsync(username, friendToRemoveUsername);
 
                 if (result.Success)
                 {
-                    logger.Info("Friend removed successfully: {UserId} removed {FriendId}", username, friendToRemoveUsername);
                     sendNotificationToUser(friendToRemoveUsername, cb => cb.notifyFriendStatusChanged(username, false));
-                }
-                else
-                {
-                    logger.Warn("Remove friend failed. Reason: {Reason}", result.Message);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"RemoveFriend - User: {username}");
+                throw exceptionHandler.handleException(ex, "RemoveFriendOperation");
             }
         }
 
@@ -197,16 +176,15 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                validateSession(username);
                 logger.Info("GetFriendsList requested for {UserId}", username);
-                var connectedUsersList = gameStateManager.ConnectedUsers.Keys.ToList();
-                var friends = await socialLogic.getFriendsListAsync(username, connectedUsersList);
 
-                return friends ?? new List<FriendDto>();
+                validateSession(username);
+                var connectedUsersList = gameStateManager.ConnectedUsers.Keys.ToList();
+                return await socialLogic.getFriendsListAsync(username, connectedUsersList);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"GetFriendsList - User: {username}");
+                throw exceptionHandler.handleException(ex, "GetFriendsListOperation");
             }
         }
 
@@ -217,12 +195,11 @@ namespace MindWeaveServer.Services
                 validateSession(username);
                 logger.Info("GetFriendRequests requested for {UserId}", username);
 
-                var requests = await socialLogic.getFriendRequestsAsync(username);
-                return requests ?? new List<FriendRequestInfoDto>();
+                return await socialLogic.getFriendRequestsAsync(username);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, $"GetFriendRequests - User: {username}");
+                throw exceptionHandler.handleException(ex, "GetFriendRequestsOperation");
             }
         }
 
@@ -237,8 +214,6 @@ namespace MindWeaveServer.Services
 
         private async void channelFaultedOrClosed(object sender, EventArgs e)
         {
-            logger.Warn("WCF channel Faulted or Closed for user session: {UserId}. Initiating cleanup.", currentUsername ?? "Unknown");
-
             if (!string.IsNullOrEmpty(currentUsername))
             {
                 await cleanupAndNotifyDisconnect(currentUsername);
@@ -264,45 +239,39 @@ namespace MindWeaveServer.Services
                 }
                 return channel;
             }
-            catch (Exception ex)
+            catch (InvalidCastException castEx)
             {
-                logger.Error(ex, "Connect failed: Exception retrieving callback channel for user {UserId}", username);
+                logger.Error(castEx, "Channel casting failed for user {User}. Interface mismatch.", username);
+                return null;
+            }
+            catch (InvalidOperationException opEx)
+            {
+                logger.Error(opEx, "Invalid operation retrieving callback channel for {User}.", username);
                 return null;
             }
         }
 
         private async Task processDisconnect(string username)
         {
-            string safeUser = username ?? "NULL";
             if (!string.IsNullOrEmpty(currentUsername) &&
-                currentUsername.Equals(safeUser, StringComparison.OrdinalIgnoreCase))
+                currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
             {
-                logger.Info("Disconnect requested by user: {UserId}", safeUser);
                 await cleanupAndNotifyDisconnect(currentUsername);
-            }
-            else
-            {
-                logger.Warn("Disconnect request mismatch. Request: {ReqId}, Session: {SessId}", safeUser, currentUsername ?? "NULL");
             }
         }
 
         private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback, string username)
         {
-            if (previousCallback == null || previousCallback == newCallback)
+            if (previousCallback != null && previousCallback != newCallback)
             {
-                logger.Info("User connected: {UserId}", username);
-                setupCallbackEvents(newCallback as ICommunicationObject);
-                await notifyFriendsStatusChange(currentUsername, true);
-            }
-            else
-            {
-                logger.Warn("User {UserId} replaced an existing active session.", username);
                 if (previousCallback is ICommunicationObject oldComm)
                 {
                     cleanupCallbackEvents(oldComm);
                 }
-                setupCallbackEvents(newCallback as ICommunicationObject);
             }
+
+            setupCallbackEvents(newCallback as ICommunicationObject);
+            await notifyFriendsStatusChange(currentUsername, true);
         }
 
         private async Task cleanupAndNotifyDisconnect(string username)
@@ -313,8 +282,6 @@ namespace MindWeaveServer.Services
             {
                 var callbackToRemove = gameStateManager.getUserCallback(username);
                 gameStateManager.removeConnectedUser(username);
-
-                logger.Info("User {UserId} removed from active sessions.", username);
 
                 if (callbackToRemove is ICommunicationObject comm)
                 {
@@ -338,7 +305,11 @@ namespace MindWeaveServer.Services
             {
                 await notifyFriendsStatusChange(responder, true);
                 bool isRequesterConnected = gameStateManager.isUserConnected(requester);
-                await notifyFriendsStatusChange(requester, isRequesterConnected);
+
+                if (isRequesterConnected)
+                {
+                    sendNotificationToUser(responder, cb => cb.notifyFriendStatusChanged(requester, true));
+                }
             }
         }
 
@@ -352,20 +323,25 @@ namespace MindWeaveServer.Services
 
                 if (friendsToNotify == null || !friendsToNotify.Any()) return;
 
-                var onlineFriends = friendsToNotify
-                    .Where(f => gameStateManager.isUserConnected(f.Username))
-                    .ToList();
-
-                logger.Debug("Notifying {Count} friends of status change for {UserId}", onlineFriends.Count, changedUsername);
-
-                foreach (var friend in onlineFriends)
+                foreach (var friend in friendsToNotify)
                 {
-                    sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
+                    if (gameStateManager.isUserConnected(friend.Username))
+                    {
+                        sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
+                    }
                 }
             }
-            catch (Exception ex)
+            catch (EntityException dbEx)
             {
-                logger.Error(ex, "Failed to notify status change for user {UserId}", changedUsername);
+                logger.Error(dbEx, "Database error retrieving friend list for status notification of {User}", changedUsername);
+            }
+            catch (SqlException sqlEx)
+            {
+                logger.Error(sqlEx, "SQL error retrieving friend list for status notification of {User}", changedUsername);
+            }
+            catch (TimeoutException timeEx)
+            {
+                logger.Warn(timeEx, "Timeout retrieving friend list or notifying friends for {User}", changedUsername);
             }
         }
 
@@ -373,11 +349,11 @@ namespace MindWeaveServer.Services
         {
             if (string.IsNullOrWhiteSpace(targetUsername)) return;
 
+            var callback = gameStateManager.getUserCallback(targetUsername);
+            if (callback == null) return;
+
             try
             {
-                var callback = gameStateManager.getUserCallback(targetUsername);
-                if (callback == null) return;
-
                 if (callback is ICommunicationObject commObject && commObject.State == CommunicationState.Opened)
                 {
                     action(callback);
@@ -388,9 +364,17 @@ namespace MindWeaveServer.Services
                     gameStateManager.removeConnectedUser(targetUsername);
                 }
             }
+            catch (CommunicationException)
+            {
+                gameStateManager.removeConnectedUser(targetUsername);
+            }
+            catch (TimeoutException)
+            {
+                gameStateManager.removeConnectedUser(targetUsername);
+            }
             catch (Exception ex)
             {
-                logger.Error(ex, "Notification failed for target {UserId}", targetUsername);
+                logger.Warn(ex, "Unexpected error sending notification to {User}", targetUsername);
             }
         }
 
@@ -419,7 +403,7 @@ namespace MindWeaveServer.Services
             if (string.IsNullOrEmpty(currentUsername) ||
                 !currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
             {
-                logger.Warn("Session mismatch. Expected: {SessionId}, Actual: {RequestId}", currentUsername ?? "NULL", username);
+                logger.Warn("Session security check failed. Expected: {Expected}, Got: {Actual}", currentUsername, username);
                 throw new FaultException<ServiceFaultDto>(
                     new ServiceFaultDto(ServiceErrorType.SecurityError, Lang.ErrorSessionMismatch, "Session"),
                     new FaultReason("Session Mismatch"));

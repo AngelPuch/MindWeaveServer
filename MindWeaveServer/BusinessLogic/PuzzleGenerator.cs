@@ -28,18 +28,10 @@ namespace MindWeaveServer.BusinessLogic
         {
             validateInputs(imageBytes, difficulty);
 
-            try
-            {
-                byte[] optimizedImageBytes = ImageUtilities.optimizeImage(imageBytes);
-                GridDimensions dimensions = calculateGridDimensions(difficulty.piece_count);
+            var optimizedImageBytes = ImageUtilities.optimizeImage(imageBytes);
+            var dimensions = calculateGridDimensions(difficulty.piece_count);
 
-                return createPuzzleStructure(optimizedImageBytes, dimensions);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error occurred during puzzle generation.");
-                throw;
-            }
+            return createPuzzleStructure(optimizedImageBytes, dimensions);
         }
 
         private static void validateInputs(byte[] imageBytes, DifficultyLevels difficulty)

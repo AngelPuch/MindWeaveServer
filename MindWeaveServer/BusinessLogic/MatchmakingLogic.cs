@@ -27,6 +27,9 @@ namespace MindWeaveServer.BusinessLogic
 
         private const int ID_REASON_HOST_DECISION = 1;
         private const int ID_REASON_PROFANITY = 2;
+        public const int INVALID_PLAYER_ID = 0;
+        public const string PROFANITY_REASON_TEXT = "Profanity";
+
 
         public MatchmakingLogic(
             ILobbyLifecycleService lifecycleService,
@@ -140,9 +143,9 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private (int reasonId, string message) determineExpulsionDetails(string reasonText)
+        private static (int reasonId, string message) determineExpulsionDetails(string reasonText)
         {
-            int reasonId = (reasonText == "Profanity") ? ID_REASON_PROFANITY : ID_REASON_HOST_DECISION;
+            int reasonId = (reasonText == PROFANITY_REASON_TEXT) ? ID_REASON_PROFANITY : ID_REASON_HOST_DECISION;
             string message = (reasonId == ID_REASON_PROFANITY) ? Lang.KickMessageProfanity : Lang.KickedByHost;
             return (reasonId, message);
         }
@@ -154,27 +157,24 @@ namespace MindWeaveServer.BusinessLogic
                 using (var scope = playerFactory())
                 {
                     var hostP = await scope.Value.getPlayerByUsernameAsync(state.HostUsername);
-                    return hostP?.idPlayer ?? 0;
+                    return hostP?.idPlayer ?? INVALID_PLAYER_ID;
                 }
             }
-            return 0;
+            return INVALID_PLAYER_ID;
         }
         private async Task expelFromActiveSessionAsync(GameSession session, string username, int reasonId, int hostId)
         {
-            try
+            using (var scope = playerFactory())
             {
-                using (var scope = playerFactory())
+                var player = await scope.Value.getPlayerByUsernameAsync(username);
+                if (player != null)
                 {
-                    var player = await scope.Value.getPlayerByUsernameAsync(username);
-                    if (player != null)
-                    {
-                        await session.kickPlayerAsync(player.idPlayer, reasonId, hostId);
-                    }
+                    await session.kickPlayerAsync(player.idPlayer, reasonId, hostId);
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error expelling from session");
+                else
+                {
+                    logger.Warn("ExpelFromActiveSession: Player {0} not found in DB, cannot kick from session.", username);
+                }
             }
         }
 
@@ -189,31 +189,30 @@ namespace MindWeaveServer.BusinessLogic
 
         private async Task registerLobbyExpulsionInDbAsync(string lobbyCode, string username, int reasonId, int hostId)
         {
-            try
+            using (var matchScope = matchmakingFactory())
+            using (var playerScope = playerFactory())
             {
-                using (var matchScope = matchmakingFactory())
-                using (var playerScope = playerFactory())
-                {
-                    var match = await matchScope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                    var player = await playerScope.Value.getPlayerByUsernameAsync(username);
+                var match = await matchScope.Value.getMatchByLobbyCodeAsync(lobbyCode);
+                var player = await playerScope.Value.getPlayerByUsernameAsync(username);
 
-                    if (match != null && player != null)
+                if (match != null && player != null)
+                {
+                    var dto = new ExpulsionDto
                     {
-                        var dto = new ExpulsionDto
-                        {
-                            MatchId = match.matches_id,
-                            PlayerId = player.idPlayer,
-                            ReasonId = reasonId,
-                            HostPlayerId = hostId
-                        };
-                        await matchScope.Value.registerExpulsionAsync(dto);
-                    }
+                        MatchId = match.matches_id,
+                        PlayerId = player.idPlayer,
+                        ReasonId = reasonId,
+                        HostPlayerId = hostId
+                    };
+                    await matchScope.Value.registerExpulsionAsync(dto);
+                }
+                else
+                {
+                    logger.Warn("RegisterLobbyExpulsionInDb: Match or player not found. Match: {0}, Player: {1}",
+                        match != null, player != null);
                 }
             }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error saving lobby expulsion");
-            }
+
         }
 
         private void updateLobbyStateAndNotify(string lobbyCode, string username)

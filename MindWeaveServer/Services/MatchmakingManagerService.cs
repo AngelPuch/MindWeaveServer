@@ -1,16 +1,21 @@
-﻿using MindWeaveServer.BusinessLogic;
+﻿using Autofac;
+using MindWeaveServer.AppStart;
+using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.Resources;
+using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
+using System.Data.Entity.Core;
+using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
+using System.IO;
+using System.Net.Sockets;
 using System.ServiceModel;
 using System.Threading.Tasks;
-using Autofac;
-using MindWeaveServer.AppStart;
-using MindWeaveServer.BusinessLogic.Manager;
-using MindWeaveServer.Utilities.Abstractions;
 
 namespace MindWeaveServer.Services
 {
@@ -29,12 +34,14 @@ namespace MindWeaveServer.Services
         private IMatchmakingCallback currentUserCallback;
         private bool isDisconnected;
 
-        public MatchmakingManagerService() : this(
-            Bootstrapper.Container.Resolve<MatchmakingLogic>(),
-            Bootstrapper.Container.Resolve<GameSessionManager>(),
-            Bootstrapper.Container.Resolve<IPlayerRepository>(),
-            Bootstrapper.Container.Resolve<IServiceExceptionHandler>())
+        public MatchmakingManagerService()
         {
+            Bootstrapper.init();
+
+            this.matchmakingLogic = Bootstrapper.Container.Resolve<MatchmakingLogic>();
+            this.gameSessionManager = Bootstrapper.Container.Resolve<GameSessionManager>();
+            this.playerRepository = Bootstrapper.Container.Resolve<IPlayerRepository>();
+            this.exceptionHandler = Bootstrapper.Container.Resolve<IServiceExceptionHandler>();
         }
 
         public MatchmakingManagerService(
@@ -52,15 +59,12 @@ namespace MindWeaveServer.Services
 
         private void initializeService()
         {
-            if (OperationContext.Current != null && OperationContext.Current.Channel != null)
+            if (OperationContext.Current == null || OperationContext.Current.Channel == null)
             {
-                OperationContext.Current.Channel.Faulted += channelFaultedOrClosed;
-                OperationContext.Current.Channel.Closed += channelFaultedOrClosed;
+                return;
             }
-            else
-            {
-                logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
-            }
+            OperationContext.Current.Channel.Faulted += channelFaultedOrClosed;
+            OperationContext.Current.Channel.Closed += channelFaultedOrClosed;
         }
 
         public async Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto)
@@ -79,18 +83,7 @@ namespace MindWeaveServer.Services
 
             try
             {
-                var result = await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
-
-                if (result.Success)
-                {
-                    logger.Info("Lobby created successfully with code: {LobbyCode}", result.LobbyCode);
-                }
-                else
-                {
-                    logger.Warn("Lobby creation failed.");
-                }
-
-                return result;
+                return await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
             }
             catch (Exception ex)
             {
@@ -114,14 +107,26 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.joinLobbyAsync(username, lobbyId, currentUserCallback);
-                    logger.Info("JoinLobby operation completed for lobby: {LobbyId}", lobbyId);
                 }
-                catch (Exception ex)
+                catch (EntityException dbEx)
                 {
-                    logger.Error(ex, "JoinLobby operation failed for lobby: {LobbyId}", lobbyId);
+                    logger.Error(dbEx, "Database error joining lobby: {LobbyId}", lobbyId);
+                    trySendCallback(cb => cb.lobbyCreationFailed(Lang.ErrorJoiningLobbyData));
+                    await handleDisconnect();
+                }
+                catch (SqlException sqlEx)
+                {
+                    logger.Error(sqlEx, "SQL error joining lobby: {LobbyId}", lobbyId);
                     trySendCallback(cb => cb.lobbyCreationFailed(Lang.GenericServerError));
                     await handleDisconnect();
                 }
+                catch (TimeoutException timeEx)
+                {
+                    logger.Error(timeEx, "Timeout joining lobby: {LobbyId}", lobbyId);
+                    trySendCallback(cb => cb.lobbyCreationFailed(Lang.GenericServerError));
+                    await handleDisconnect();
+                }
+
             });
         }
 
@@ -140,11 +145,22 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.leaveLobbyAsync(username, lobbyId);
-                    logger.Info("LeaveLobby operation completed for lobby: {LobbyId}", lobbyId);
                 }
-                catch (Exception ex)
+                catch (EntityException dbEx)
                 {
-                    logger.Error(ex, "LeaveLobby operation failed for lobby: {LobbyId}", lobbyId);
+                    logger.Error(dbEx, "Database error leaving lobby: {LobbyId}", lobbyId);
+                }
+                catch (SqlException sqlEx)
+                {
+                    logger.Error(sqlEx, "SQL error leaving lobby: {LobbyId}", lobbyId);
+                }
+                catch (TimeoutException ex)
+                {
+                    logger.Error(ex, "Timeout leaving lobby: {0}", lobbyId);
+                }
+                catch (CommunicationException commEx)
+                {
+                    logger.Warn(commEx, "Network error notifying users of leave in lobby: {LobbyId}", lobbyId);
                 }
             });
         }
@@ -165,11 +181,31 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.startGameAsync(hostUsername, lobbyId);
-                    logger.Info("StartGame operation completed for lobby: {LobbyId}", lobbyId);
                 }
-                catch (Exception ex)
+                catch (EntityException ex)
                 {
-                    logger.Error(ex, "StartGame operation failed for lobby: {LobbyId}", lobbyId);
+                    logger.Error(ex, "Database error starting game for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.DatabaseErrorStartingMatch));
+                }
+                catch (SqlException ex)
+                {
+                    logger.Error(ex, "SQL error starting game for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                }
+                catch (TimeoutException ex)
+                {
+                    logger.Error(ex, "Timeout starting game for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                }
+                catch (FileNotFoundException ex)
+                {
+                    logger.Error(ex, "Puzzle file not found for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorPuzzleFileNotFound));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    logger.Error(ex, "Invalid operation starting game for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
                 }
             });
         }
@@ -189,12 +225,22 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.kickPlayerAsync(hostUsername, playerToKickUsername, lobbyId);
-                    logger.Info("KickPlayer operation completed for lobby: {LobbyId}", lobbyId);
                 }
-                catch (Exception ex)
+                catch (EntityException ex)
                 {
-                    logger.Error(ex, "KickPlayer operation failed for lobby: {LobbyId}", lobbyId);
+                    logger.Error(ex, "Database error kicking player from lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
                 }
+                catch (SqlException ex)
+                {
+                    logger.Error(ex, "SQL error kicking player from lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                }
+                catch (CommunicationException ex)
+                {
+                    logger.Warn(ex, "Communication error notifying kicked player in lobby: {0}", lobbyId);
+                }
+
             });
         }
 
@@ -214,12 +260,17 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.inviteToLobbyAsync(inviterUsername, invitedUsername, lobbyId);
-                    logger.Info("InviteToLobby operation completed for lobby: {LobbyId}", lobbyId);
                 }
-                catch (Exception ex)
+                catch (CommunicationException ex)
                 {
-                    logger.Error(ex, "InviteToLobby operation failed for lobby: {LobbyId}", lobbyId);
+                    logger.Warn(ex, "Communication error inviting player to lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorCommunicationChannelFailed));
                 }
+                catch (ObjectDisposedException ex)
+                {
+                    logger.Warn(ex, "Channel disposed while inviting player to lobby: {0}", lobbyId);
+                }
+
             });
         }
 
@@ -240,12 +291,23 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.changeDifficultyAsync(hostUsername, lobbyId, newDifficultyId);
-                    logger.Info("ChangeDifficulty operation completed for lobby: {LobbyId}", lobbyId);
                 }
-                catch (Exception ex)
+                catch (EntityException ex)
                 {
-                    logger.Error(ex, "ChangeDifficulty operation failed for lobby: {LobbyId}", lobbyId);
+                    logger.Error(ex, "Database error changing difficulty for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSavingDifficultyChange));
                 }
+                catch (DbUpdateException ex)
+                {
+                    logger.Error(ex, "Database update error changing difficulty for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSavingDifficultyChange));
+                }
+                catch (SqlException ex)
+                {
+                    logger.Error(ex, "SQL error changing difficulty for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                }
+
             });
         }
 
@@ -271,22 +333,53 @@ namespace MindWeaveServer.Services
                 try
                 {
                     await matchmakingLogic.inviteGuestByEmailAsync(invitationData);
-                    logger.Info("InviteGuestByEmail operation completed for lobby: {LobbyId}",
-                        invitationData.LobbyCode);
                 }
-                catch (Exception ex)
+                catch (EntityException ex)
                 {
-                    logger.Error(ex, "InviteGuestByEmail operation failed for lobby: {LobbyId}",
-                        invitationData.LobbyCode);
+                    logger.Error(ex, "Database error sending guest invite for lobby: {0}", invitationData.LobbyCode);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSendingGuestInvitation));
                 }
+                catch (DbUpdateException ex)
+                {
+                    logger.Error(ex, "Database update error sending guest invite for lobby: {0}", invitationData.LobbyCode);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSendingGuestInvitation));
+                }
+                catch (SocketException ex)
+                {
+                    logger.Error(ex, "Email service error for lobby: {0}", invitationData.LobbyCode);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorEmailServiceUnavailable));
+                }
+                catch (TimeoutException ex)
+                {
+                    logger.Error(ex, "Timeout sending guest invite for lobby: {0}", invitationData.LobbyCode);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                }
+
             });
         }
 
         public void leaveGame(string username, string lobbyCode)
         {
+            logger.Info("LeaveGame operation started for lobby: {0}", lobbyCode ?? "NULL");
+
             Task.Run(async () =>
             {
-                await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
+                try
+                {
+                    await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
+                }
+                catch (EntityException ex)
+                {
+                    logger.Error(ex, "Database error during player leave from game: {0}", lobbyCode);
+                }
+                catch (DbUpdateException ex)
+                {
+                    logger.Error(ex, "Database update error during player leave from game: {0}", lobbyCode);
+                }
+                catch (SqlException ex)
+                {
+                    logger.Error(ex, "SQL error during player leave from game: {0}", lobbyCode);
+                }
             });
         }
 
@@ -321,11 +414,6 @@ namespace MindWeaveServer.Services
                     currentUsername = result.AssignedGuestUsername;
                     currentUserCallback = guestCallback;
                     setupCallbackEvents(guestCallback as ICommunicationObject);
-                    logger.Info("JoinLobbyAsGuest operation completed successfully for lobby: {LobbyCode}", lobbyCode);
-                }
-                else
-                {
-                    logger.Warn("JoinLobbyAsGuest operation failed for lobby: {LobbyCode}", lobbyCode);
                 }
 
                 return result;
@@ -347,15 +435,21 @@ namespace MindWeaveServer.Services
             try
             {
                 int playerId = getPlayerIdFromContext();
-                logger.Debug("RequestPieceDrag: PlayerId {PlayerId}, PieceId {PieceId}, Lobby {LobbyCode}",
-                    playerId, pieceId, lobbyCode);
-
                 gameSessionManager.handlePieceDrag(lobbyCode, playerId, pieceId);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "RequestPieceDrag operation failed.");
+                logger.Error(ex, "RequestPieceDrag: Player session invalid.");
             }
+            catch (EntityException ex)
+            {
+                logger.Error(ex, "RequestPieceDrag: Database error.");
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "RequestPieceDrag: Communication error broadcasting.");
+            }
+
         }
 
         public void requestPieceMove(string lobbyCode, int pieceId, double newX, double newY)
@@ -370,10 +464,15 @@ namespace MindWeaveServer.Services
                 int playerId = getPlayerIdFromContext();
                 gameSessionManager.handlePieceMove(lobbyCode, playerId, pieceId, newX, newY);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "RequestPieceMove operation failed.");
+                logger.Error(ex, "RequestPieceMove: Player session invalid.");
             }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "RequestPieceMove: Communication error broadcasting.");
+            }
+
         }
 
 
@@ -388,16 +487,32 @@ namespace MindWeaveServer.Services
             try
             {
                 int playerId = getPlayerIdFromContext();
-                logger.Debug("RequestPieceDrop: PlayerId {PlayerId}, PieceId {PieceId}, Position ({X},{Y}), Lobby {LobbyCode}",
-                    playerId, pieceId, newX, newY, lobbyCode);
-
-                Task.Run(async () => await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, newX, newY));
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, newX, newY);
+                    }
+                    catch (EntityException ex)
+                    {
+                        logger.Error(ex, "RequestPieceDrop: Database error during piece drop.");
+                    }
+                    catch (DbUpdateException ex)
+                    {
+                        logger.Error(ex, "RequestPieceDrop: Database update error during piece drop.");
+                    }
+                    catch (CommunicationException ex)
+                    {
+                        logger.Warn(ex, "RequestPieceDrop: Communication error broadcasting.");
+                    }
+                });
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "RequestPieceDrop operation failed.");
+                logger.Error(ex, "RequestPieceDrop: Player session invalid.");
             }
         }
+
 
         public void requestPieceRelease(string lobbyCode, int pieceId)
         {
@@ -415,9 +530,13 @@ namespace MindWeaveServer.Services
 
                 gameSessionManager.handlePieceRelease(lobbyCode, playerId, pieceId);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "RequestPieceRelease operation failed.");
+                logger.Error(ex, "RequestPieceRelease: Player session invalid.");
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "RequestPieceRelease: Communication error broadcasting.");
             }
         }
 
@@ -469,12 +588,18 @@ namespace MindWeaveServer.Services
                 matchmakingLogic.registerCallback(username, currentUserCallback);
                 setupCallbackEvents(currentUserCallback as ICommunicationObject);
 
-                logger.Info("Session and callback registered successfully.");
                 return true;
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Fatal(ex, "CRITICAL: Exception during callback registration.");
+                logger.Fatal(ex, "CRITICAL: InvalidOperationException during callback registration.");
+                currentUsername = null;
+                currentUserCallback = null;
+                return false;
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Fatal(ex, "CRITICAL: CommunicationException during callback registration.");
                 currentUsername = null;
                 currentUserCallback = null;
                 return false;
@@ -512,7 +637,6 @@ namespace MindWeaveServer.Services
 
         private async void channelFaultedOrClosed(object sender, EventArgs e)
         {
-            logger.Warn("WCF channel Faulted or Closed. Initiating disconnect.");
             await handleDisconnect();
         }
 
@@ -522,7 +646,6 @@ namespace MindWeaveServer.Services
             {
                 commObject.Faulted -= channelFaultedOrClosed;
                 commObject.Closed -= channelFaultedOrClosed;
-                logger.Debug("Callback event handlers removed.");
             }
         }
 
@@ -533,8 +656,6 @@ namespace MindWeaveServer.Services
 
             string userToDisconnect = currentUsername;
             int? idToDisconnect = currentPlayerId;
-
-            logger.Warn("Disconnect triggered for session. PlayerId: {PlayerId}", idToDisconnect);
 
             if (OperationContext.Current?.Channel != null)
             {
@@ -553,16 +674,16 @@ namespace MindWeaveServer.Services
                         gameSessionManager.handlePlayerDisconnect(userToDisconnect, idToDisconnect.Value);
                     }
                     await Task.Run(() => matchmakingLogic.handleUserDisconnect(userToDisconnect));
-                    logger.Info("Disconnect notification sent. PlayerId: {PlayerId}", idToDisconnect);
                 }
-                catch (Exception ex)
+                catch (EntityException ex)
                 {
-                    logger.Error(ex, "Exception during disconnect notification.");
+                    logger.Error(ex, "Database error during disconnect notification for user: {0}", userToDisconnect);
                 }
-            }
-            else
-            {
-                logger.Info("No session associated with this disconnect.");
+                catch (CommunicationException ex)
+                {
+                    logger.Warn(ex, "Communication error during disconnect notification for user: {0}", userToDisconnect);
+                }
+
             }
 
             currentUsername = null;
@@ -578,13 +699,8 @@ namespace MindWeaveServer.Services
                 commObject.Closed -= channelFaultedOrClosed;
                 commObject.Faulted += channelFaultedOrClosed;
                 commObject.Closed += channelFaultedOrClosed;
-
-                logger.Debug("Callback event handlers attached.");
             }
-            else
-            {
-                logger.Warn("Cannot setup callback events - communication object is null.");
-            }
+            
         }
 
         private void trySendCallback(Action<IMatchmakingCallback> action)
@@ -596,10 +712,19 @@ namespace MindWeaveServer.Services
                     action(currentUserCallback);
                 }
             }
-            catch (Exception ex)
+            catch (CommunicationException ex)
             {
-                logger.Warn(ex, "Exception sending callback.");
+                logger.Warn(ex, "CommunicationException sending callback.");
             }
+            catch (TimeoutException ex)
+            {
+                logger.Warn(ex, "TimeoutException sending callback.");
+            }
+            catch (ObjectDisposedException ex)
+            {
+                logger.Warn(ex, "ObjectDisposedException sending callback.");
+            }
+
         }
     }
 }
