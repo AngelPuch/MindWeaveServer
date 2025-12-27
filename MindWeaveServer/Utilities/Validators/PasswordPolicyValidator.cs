@@ -37,7 +37,6 @@ namespace MindWeaveServer.Utilities.Validators
                 return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordComplexity };
             }
 
-            logger.Debug("Password validation successful."); 
             return new OperationResultDto { Success = true };
         }
     }

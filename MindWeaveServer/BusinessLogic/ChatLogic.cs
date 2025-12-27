@@ -132,7 +132,7 @@ namespace MindWeaveServer.BusinessLogic
             string lobbyId,
             string messageContent)
         {
-            if (!ProfanityFilter.ContainsProfanity(messageContent))
+            if (!ProfanityFilter.containsProfanity(messageContent))
             {
                 return false;
             }
