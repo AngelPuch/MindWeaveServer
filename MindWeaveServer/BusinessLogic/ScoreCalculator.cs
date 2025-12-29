@@ -71,12 +71,12 @@ namespace MindWeaveServer.BusinessLogic
             return PENALTY_BASE_MISS * Math.Max(1, negativeStreak);
         }
 
-        private int calculateBasePoints(bool isEdgePiece)
+        private static int calculateBasePoints(bool isEdgePiece)
         {
             return isEdgePiece ? SCORE_EDGE_PIECE : SCORE_CENTER_PIECE;
         }
 
-        private int calculateStreakBonus(PlayerSessionData player, List<string> bonuses)
+        private static int calculateStreakBonus(PlayerSessionData player, List<string> bonuses)
         {
             player.CurrentStreak++;
 
@@ -89,7 +89,7 @@ namespace MindWeaveServer.BusinessLogic
             return 0;
         }
 
-        private int calculateFrenzyBonus(PlayerSessionData player, List<string> bonuses)
+        private static int calculateFrenzyBonus(PlayerSessionData player, List<string> bonuses)
         {
             DateTime now = DateTime.UtcNow;
             player.RecentPlacementTimestamps.Add(now);

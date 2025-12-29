@@ -67,6 +67,25 @@ namespace MindWeaveServer.Services
             OperationContext.Current.Channel.Closed += channelFaultedOrClosed;
         }
 
+        private void preloadPlayerId()
+        {
+            try
+            {
+                if (!currentPlayerId.HasValue && !string.IsNullOrEmpty(currentUsername))
+                {
+                    var player = playerRepository.getPlayerByUsernameAsync(currentUsername).GetAwaiter().GetResult();
+                    if (player != null)
+                    {
+                        currentPlayerId = player.idPlayer;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.Warn(ex, "Could not preload player ID via synchronous call.");
+            }
+        }
+
         public async Task<LobbyCreationResultDto> createLobby(string hostUsername, LobbySettingsDto settingsDto)
         {
             logger.Info("CreateLobby operation started.");
@@ -83,7 +102,12 @@ namespace MindWeaveServer.Services
 
             try
             {
-                return await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
+                var result = await matchmakingLogic.createLobbyAsync(hostUsername, settingsDto);
+                if (result.Success)
+                {
+                    preloadPlayerId();
+                }
+                return result;
             }
             catch (Exception ex)
             {
@@ -101,6 +125,8 @@ namespace MindWeaveServer.Services
                 trySendCallback(cb => cb.lobbyCreationFailed(Lang.ErrorCommunicationChannelFailed));
                 return;
             }
+
+            preloadPlayerId();
 
             Task.Run(async () =>
             {
@@ -126,7 +152,6 @@ namespace MindWeaveServer.Services
                     trySendCallback(cb => cb.lobbyCreationFailed(Lang.GenericServerError));
                     await handleDisconnect();
                 }
-
             });
         }
 
@@ -164,7 +189,6 @@ namespace MindWeaveServer.Services
                 }
             });
         }
-
 
         public void startGame(string hostUsername, string lobbyId)
         {
@@ -240,10 +264,8 @@ namespace MindWeaveServer.Services
                 {
                     logger.Warn(ex, "Communication error notifying kicked player in lobby: {0}", lobbyId);
                 }
-
             });
         }
-
 
         public void inviteToLobby(string inviterUsername, string invitedUsername, string lobbyId)
         {
@@ -270,10 +292,8 @@ namespace MindWeaveServer.Services
                 {
                     logger.Warn(ex, "Channel disposed while inviting player to lobby: {0}", lobbyId);
                 }
-
             });
         }
-
 
         public void changeDifficulty(string hostUsername, string lobbyId, int newDifficultyId)
         {
@@ -307,7 +327,6 @@ namespace MindWeaveServer.Services
                     logger.Error(ex, "SQL error changing difficulty for lobby: {0}", lobbyId);
                     trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
                 }
-
             });
         }
 
@@ -354,7 +373,6 @@ namespace MindWeaveServer.Services
                     logger.Error(ex, "Timeout sending guest invite for lobby: {0}", invitationData.LobbyCode);
                     trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
                 }
-
             });
         }
 
@@ -449,7 +467,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn(ex, "RequestPieceDrag: Communication error broadcasting.");
             }
-
         }
 
         public void requestPieceMove(string lobbyCode, int pieceId, double newX, double newY)
@@ -472,9 +489,7 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn(ex, "RequestPieceMove: Communication error broadcasting.");
             }
-
         }
-
 
         public void requestPieceDrop(string lobbyCode, int pieceId, double newX, double newY)
         {
@@ -513,7 +528,6 @@ namespace MindWeaveServer.Services
             }
         }
 
-
         public void requestPieceRelease(string lobbyCode, int pieceId)
         {
             if (!ensureSessionIsRegistered(currentUsername))
@@ -539,7 +553,6 @@ namespace MindWeaveServer.Services
                 logger.Warn(ex, "RequestPieceRelease: Communication error broadcasting.");
             }
         }
-
 
         private int getPlayerIdFromContext()
         {
@@ -700,7 +713,6 @@ namespace MindWeaveServer.Services
                 commObject.Faulted += channelFaultedOrClosed;
                 commObject.Closed += channelFaultedOrClosed;
             }
-            
         }
 
         private void trySendCallback(Action<IMatchmakingCallback> action)
@@ -724,7 +736,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn(ex, "ObjectDisposedException sending callback.");
             }
-
         }
     }
 }

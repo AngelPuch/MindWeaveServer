@@ -6,12 +6,11 @@ using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
 using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
-using NLog; 
+using NLog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Autofac.Features.OwnedInstances;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -23,7 +22,7 @@ namespace MindWeaveServer.BusinessLogic
 
         private readonly IPlayerRepository playerRepository;
         private readonly IGenderRepository genderRepository;
-        private readonly Func<Owned<IStatsRepository>> statsRepositoryFactory;
+        private readonly IStatsRepository statsRepository;
         private readonly IPasswordService passwordService;
         private readonly IPasswordPolicyValidator passwordPolicyValidator;
         private readonly IValidator<UserProfileForEditDto> profileEditValidator;
@@ -31,14 +30,14 @@ namespace MindWeaveServer.BusinessLogic
         public ProfileLogic(
             IPlayerRepository playerRepository,
             IGenderRepository genderRepository,
+            IStatsRepository statsRepository,
             IPasswordService passwordService,
-            Func<Owned<IStatsRepository>> statsRepositoryFactory,
             IPasswordPolicyValidator passwordPolicyValidator,
             IValidator<UserProfileForEditDto> profileEditValidator)
         {
             this.playerRepository = playerRepository;
             this.genderRepository = genderRepository;
-            this.statsRepositoryFactory = statsRepositoryFactory;
+            this.statsRepository = statsRepository;
             this.passwordService = passwordService;
             this.passwordPolicyValidator = passwordPolicyValidator;
             this.profileEditValidator = profileEditValidator;
@@ -49,7 +48,7 @@ namespace MindWeaveServer.BusinessLogic
             if (string.IsNullOrWhiteSpace(username))
             {
                 logger.Warn("getPlayerProfileViewAsync: Username is null or whitespace.");
-                return null; 
+                return null;
             }
 
             var player = await playerRepository.getPlayerWithProfileViewDataAsync(username);
@@ -57,7 +56,7 @@ namespace MindWeaveServer.BusinessLogic
             if (player == null)
             {
                 logger.Warn("getPlayerProfileViewAsync: Player not found for User: {Username}", username);
-                return null; 
+                return null;
             }
 
             return mapToPlayerProfileViewDto(player);
@@ -71,7 +70,7 @@ namespace MindWeaveServer.BusinessLogic
                 return null;
             }
 
-            var player = await playerRepository.getPlayerByUsernameAsync(username); 
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
 
             if (player == null)
             {
@@ -81,11 +80,10 @@ namespace MindWeaveServer.BusinessLogic
 
             var allGendersData = await genderRepository.getAllGendersAsync();
             var allGendersDto = allGendersData.Select
-                (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList(); 
+                (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList();
 
             return mapToUserProfileForEditDto(player, allGendersDto);
         }
-
 
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
         {
@@ -112,7 +110,8 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             applyProfileUpdates(playerToUpdate, updatedProfileData);
-            await playerRepository.saveChangesAsync();
+
+            await playerRepository.updatePlayerAsync(playerToUpdate);
 
             return new OperationResultDto { Success = true, Message = Lang.ProfileUpdatedSuccessfully };
         }
@@ -133,16 +132,14 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
             }
 
-            playerToUpdate.avatar_path = newAvatarPath; 
+            playerToUpdate.avatar_path = newAvatarPath;
 
-            int changes = await playerRepository.saveChangesAsync();
-
-            bool success = changes > 0;
+            await playerRepository.updatePlayerAsync(playerToUpdate);
 
             return new OperationResultDto
             {
-                Success = success,
-                Message = success ? Lang.SuccessAvatarUpdated : Lang.ErrorAvatarUpdateFailed
+                Success = true,
+                Message = Lang.SuccessAvatarUpdated
             };
         }
 
@@ -179,40 +176,27 @@ namespace MindWeaveServer.BusinessLogic
 
             string newPasswordHash = passwordService.hashPassword(newPassword);
             player.password_hash = newPasswordHash;
-            
-            int changes = await playerRepository.saveChangesAsync();
 
-            if (changes > 0)
-            {
-                return new OperationResultDto { Success = true, Message = Lang.PasswordChangedSuccessfully };
-            }
-            else
-            {
-                logger.Warn("Password change for User {Username} reported 0 changes saved.", username);
-                return new OperationResultDto { Success = false, Message = Lang.PasswordChangedFailed };
-            }
+            await playerRepository.updatePlayerAsync(player);
+
+            return new OperationResultDto { Success = true, Message = Lang.PasswordChangedSuccessfully };
         }
 
         public async Task<List<AchievementDto>> getPlayerAchievementsAsync(int playerId)
         {
-            using (var repoScope = statsRepositoryFactory())
+            var allAchievements = await statsRepository.getAllAchievementsAsync();
+            var unlockedIds = await statsRepository.getPlayerAchievementIdsAsync(playerId);
+
+            var achievementList = allAchievements.Select(a => new AchievementDto
             {
-                var repository = repoScope.Value;
+                Id = a.achievements_id,
+                Name = a.name,
+                Description = a.description,
+                IconPath = a.icon_path,
+                IsUnlocked = unlockedIds.Contains(a.achievements_id)
+            }).ToList();
 
-                var allAchievements = await repository.getAllAchievementsAsync();
-                var unlockedIds = await repository.getPlayerAchievementIdsAsync(playerId);
-
-                var achievementDtos = allAchievements.Select(a => new AchievementDto
-                {
-                    Id = a.achievements_id,
-                    Name = a.name,
-                    Description = a.description,
-                    IconPath = a.icon_path,
-                    IsUnlocked = unlockedIds.Contains(a.achievements_id)
-                }).ToList();
-
-                return achievementDtos;
-            }
+            return achievementList;
         }
 
         private static PlayerProfileViewDto mapToPlayerProfileViewDto(Player player)
@@ -224,8 +208,8 @@ namespace MindWeaveServer.BusinessLogic
                 FirstName = player.first_name,
                 LastName = player.last_name,
                 DateOfBirth = player.date_of_birth,
-                Gender = player.Gender?.gender1, 
-                Stats = new PlayerStatsDto 
+                Gender = player.Gender?.gender1,
+                Stats = new PlayerStatsDto
                 {
                     PuzzlesCompleted = player.PlayerStats?.puzzles_completed ?? 0,
                     PuzzlesWon = player.PlayerStats?.puzzles_won ?? 0,
@@ -237,9 +221,10 @@ namespace MindWeaveServer.BusinessLogic
                     Name = ach.name,
                     Description = ach.description,
                     IconPath = ach.icon_path
-                }).ToList() ?? new List<AchievementDto>() 
+                }).ToList() ?? new List<AchievementDto>()
             };
         }
+
         private static UserProfileForEditDto mapToUserProfileForEditDto(Player player, List<GenderDto> allGendersDto)
         {
             return new UserProfileForEditDto
@@ -247,19 +232,18 @@ namespace MindWeaveServer.BusinessLogic
                 FirstName = player.first_name,
                 LastName = player.last_name,
                 DateOfBirth = player.date_of_birth,
-                IdGender = player.gender_id ?? 0, 
-                AvailableGenders = allGendersDto 
+                IdGender = player.gender_id ?? 0,
+                AvailableGenders = allGendersDto
             };
         }
+
         private static void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
         {
-          
             player.first_name = updatedProfileData.FirstName.Trim();
-            player.last_name = updatedProfileData.LastName?.Trim(); 
+            player.last_name = updatedProfileData.LastName?.Trim();
             player.date_of_birth = updatedProfileData.DateOfBirth;
-            
+
             player.gender_id = updatedProfileData.IdGender > 0 ? updatedProfileData.IdGender : (int?)null;
         }
-
     }
 }

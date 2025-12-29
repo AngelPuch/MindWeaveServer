@@ -42,7 +42,7 @@ namespace MindWeaveServer.BusinessLogic
             IPlayerRepository playerRepository,
             IEmailService emailService,
             IPasswordService passwordService,
-            IPasswordPolicyValidator passwordPolicyValidator, 
+            IPasswordPolicyValidator passwordPolicyValidator,
             IVerificationCodeService verificationCodeService,
             IUserSessionManager userSessionManager,
             IValidator<UserProfileDto> profileValidator,
@@ -76,7 +76,7 @@ namespace MindWeaveServer.BusinessLogic
                 throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER, dbEx);
             }
         }
-        
+
         public async Task<LoginResultDto> loginAsync(LoginDto loginData)
         {
             if (loginData == null)
@@ -173,7 +173,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             markPlayerAsVerified(player);
-            await playerRepository.saveChangesAsync();
+            await playerRepository.updatePlayerAsync(player);
 
             logger.Info("Account verified successfully. PlayerId: {Id}", player.idPlayer);
             return new OperationResultDto { Success = true, Message = Lang.VerificationSuccessful };
@@ -261,7 +261,8 @@ namespace MindWeaveServer.BusinessLogic
             player.password_hash = passwordService.hashPassword(newPassword);
             markPlayerAsVerified(player);
 
-            await playerRepository.saveChangesAsync();
+            await playerRepository.updatePlayerAsync(player);
+
             logger.Info("Password reset successful. PlayerId: {Id}", player.idPlayer);
 
             return new OperationResultDto { Success = true, Message = Lang.InfoPasswordResetSuccess };
@@ -326,7 +327,8 @@ namespace MindWeaveServer.BusinessLogic
             existingPlayer.verification_code = newCode;
             existingPlayer.code_expiry_date = verificationCodeService.getVerificationExpiryTime();
 
-            await playerRepository.saveChangesAsync();
+            await playerRepository.updatePlayerAsync(existingPlayer);
+
             await sendVerificationEmailSafeAsync(existingPlayer.email, existingPlayer.username, newCode, existingPlayer.idPlayer);
 
             return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
@@ -336,12 +338,11 @@ namespace MindWeaveServer.BusinessLogic
         {
             var newPlayer = createNewPlayerEntity(userProfile, password);
 
-            string code = verificationCodeService.generateVerificationCode();
+            var code = verificationCodeService.generateVerificationCode();
             newPlayer.verification_code = code;
             newPlayer.code_expiry_date = verificationCodeService.getVerificationExpiryTime();
 
             playerRepository.addPlayer(newPlayer);
-            await playerRepository.saveChangesAsync();
 
             await sendVerificationEmailSafeAsync(newPlayer.email, newPlayer.username, code, newPlayer.idPlayer);
 
@@ -349,19 +350,19 @@ namespace MindWeaveServer.BusinessLogic
             return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
         }
 
-        private bool isVerificationCodeValidFormat(string code)
+        private static bool isVerificationCodeValidFormat(string code)
         {
             return code != null && code.Length == VERIFICATION_CODE_LENGTH && code.All(char.IsDigit);
         }
 
-        private bool checkCodeValidity(Player player, string inputCode)
+        private static bool checkCodeValidity(Player player, string inputCode)
         {
             bool isMatch = player.verification_code == inputCode;
             bool isNotExpired = player.code_expiry_date.HasValue && player.code_expiry_date.Value >= DateTime.UtcNow;
             return isMatch && isNotExpired;
         }
 
-        private void markPlayerAsVerified(Player player)
+        private static void markPlayerAsVerified(Player player)
         {
             player.is_verified = true;
             player.verification_code = null;
@@ -372,7 +373,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             player.verification_code = verificationCodeService.generateVerificationCode();
             player.code_expiry_date = verificationCodeService.getVerificationExpiryTime();
-            await playerRepository.saveChangesAsync();
+            await playerRepository.updatePlayerAsync(player);
         }
 
         private Player createNewPlayerEntity(UserProfileDto dto, string password)
@@ -418,7 +419,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private bool isDuplicateKeyException(DbUpdateException ex)
+        private static bool isDuplicateKeyException(DbUpdateException ex)
         {
             return ex.InnerException?.InnerException is SqlException sqlEx &&
                    (sqlEx.Number == 2627 || sqlEx.Number == 2601);

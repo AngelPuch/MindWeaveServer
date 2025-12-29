@@ -10,92 +10,108 @@ namespace MindWeaveServer.DataAccess.Repositories
 {
     public class StatsRepository : IStatsRepository
     {
-        private readonly MindWeaveDBEntities1 context;
+        private readonly Func<MindWeaveDBEntities1> contextFactory;
 
         private const int INITIAL_STAT_VALUE = 0;
         private const int STAT_INCREMENT = 1;
         private const string NAVIGATION_ACHIEVEMENTS = "Achievements";
 
-        public StatsRepository(MindWeaveDBEntities1 context)
+        public StatsRepository(Func<MindWeaveDBEntities1> contextFactory)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         }
 
         public async Task updatePlayerStatsAsync(PlayerMatchStatsDto matchStats)
         {
-            if (matchStats == null) throw new ArgumentNullException(nameof(matchStats));
-
-            var stats = await context.PlayerStats.FirstOrDefaultAsync(s => s.player_id == matchStats.PlayerId);
-
-            if (stats == null)
+            if (matchStats == null)
             {
-                stats = new PlayerStats
+                throw new ArgumentNullException(nameof(matchStats));
+            }
+
+            using (var context = contextFactory())
+            {
+                var stats = await context.PlayerStats.FirstOrDefaultAsync(s => s.player_id == matchStats.PlayerId);
+
+                if (stats == null)
                 {
-                    player_id = matchStats.PlayerId,
-                    puzzles_completed = INITIAL_STAT_VALUE,
-                    puzzles_won = INITIAL_STAT_VALUE,
-                    total_playtime_minutes = INITIAL_STAT_VALUE,
-                    highest_score = INITIAL_STAT_VALUE
-                };
-                context.PlayerStats.Add(stats);
-            }
+                    stats = new PlayerStats
+                    {
+                        player_id = matchStats.PlayerId,
+                        puzzles_completed = INITIAL_STAT_VALUE,
+                        puzzles_won = INITIAL_STAT_VALUE,
+                        total_playtime_minutes = INITIAL_STAT_VALUE,
+                        highest_score = INITIAL_STAT_VALUE
+                    };
+                    context.PlayerStats.Add(stats);
+                }
 
-            stats.puzzles_completed = (stats.puzzles_completed ?? INITIAL_STAT_VALUE) + STAT_INCREMENT;
-            stats.total_playtime_minutes = (stats.total_playtime_minutes ?? INITIAL_STAT_VALUE) + matchStats.PlaytimeMinutes;
+                stats.puzzles_completed = (stats.puzzles_completed ?? INITIAL_STAT_VALUE) + STAT_INCREMENT;
+                stats.total_playtime_minutes = (stats.total_playtime_minutes ?? INITIAL_STAT_VALUE) + matchStats.PlaytimeMinutes;
 
-            if (matchStats.IsWin)
-            {
-                stats.puzzles_won = (stats.puzzles_won ?? INITIAL_STAT_VALUE) + STAT_INCREMENT;
-            }
+                if (matchStats.IsWin)
+                {
+                    stats.puzzles_won = (stats.puzzles_won ?? INITIAL_STAT_VALUE) + STAT_INCREMENT;
+                }
 
-            if (matchStats.Score > (stats.highest_score ?? INITIAL_STAT_VALUE))
-            {
-                stats.highest_score = matchStats.Score;
+                if (matchStats.Score > (stats.highest_score ?? INITIAL_STAT_VALUE))
+                {
+                    stats.highest_score = matchStats.Score;
+                }
+
+                await context.SaveChangesAsync();
             }
         }
 
         public async Task<PlayerStats> getPlayerStatsByIdAsync(int playerId)
         {
-            return await context.PlayerStats.AsNoTracking().FirstOrDefaultAsync(s => s.player_id == playerId);
+            using (var context = contextFactory())
+            {
+                return await context.PlayerStats.AsNoTracking().FirstOrDefaultAsync(s => s.player_id == playerId);
+            }
         }
 
         public async Task<List<int>> getPlayerAchievementIdsAsync(int playerId)
         {
-            var player = await context.Player
-                .Include(NAVIGATION_ACHIEVEMENTS)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.idPlayer == playerId);
-
-            if (player != null && player.Achievements != null)
+            using (var context = contextFactory())
             {
-                return player.Achievements.Select(a => a.achievements_id).ToList();
-            }
+                var player = await context.Player
+                    .Include(NAVIGATION_ACHIEVEMENTS)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.idPlayer == playerId);
 
-            return new List<int>();
+                if (player != null && player.Achievements != null)
+                {
+                    return player.Achievements.Select(a => a.achievements_id).ToList();
+                }
+
+                return new List<int>();
+            }
         }
 
         public async Task unlockAchievementAsync(int playerId, int achievementId)
         {
-            var player = await context.Player.FindAsync(playerId);
-            var achievement = await context.Achievements.FindAsync(achievementId);
-
-            if (player != null && achievement != null)
+            using (var context = contextFactory())
             {
-                if (!player.Achievements.Contains(achievement))
+                var player = await context.Player.Include(NAVIGATION_ACHIEVEMENTS).FirstOrDefaultAsync(p => p.idPlayer == playerId);
+                var achievement = await context.Achievements.FindAsync(achievementId);
+
+                if (player != null && achievement != null)
                 {
-                    player.Achievements.Add(achievement);
+                    if (player.Achievements.All(a => a.achievements_id != achievementId))
+                    {
+                        player.Achievements.Add(achievement);
+                        await context.SaveChangesAsync();
+                    }
                 }
             }
         }
 
         public async Task<List<Achievements>> getAllAchievementsAsync()
         {
-            return await context.Achievements.AsNoTracking().ToListAsync();
-        }
-
-        public async Task<int> saveChangesAsync()
-        {
-            return await context.SaveChangesAsync();
+            using (var context = contextFactory())
+            {
+                return await context.Achievements.AsNoTracking().ToListAsync();
+            }
         }
 
         public async Task<List<int>> unlockAchievementsAsync(int playerId, List<int> potentialAchievementIds)
@@ -107,43 +123,53 @@ namespace MindWeaveServer.DataAccess.Repositories
                 return newlyUnlocked;
             }
 
-            var player = await context.Player
-                .Include(NAVIGATION_ACHIEVEMENTS)
-                .FirstOrDefaultAsync(p => p.idPlayer == playerId);
-
-            if (player == null) return newlyUnlocked;
-
-            var existingIds = player.Achievements.Select(a => a.achievements_id).ToList();
-            var idsToAdd = potentialAchievementIds.Except(existingIds).ToList();
-
-            if (idsToAdd.Any())
+            using (var context = contextFactory())
             {
-                var achievementsToAddEntities = await context.Achievements
-                    .Where(a => idsToAdd.Contains(a.achievements_id))
-                    .ToListAsync();
+                var player = await context.Player
+                    .Include(NAVIGATION_ACHIEVEMENTS)
+                    .FirstOrDefaultAsync(p => p.idPlayer == playerId);
 
-                foreach (var achievement in achievementsToAddEntities)
+                if (player == null) return newlyUnlocked;
+
+                var existingIds = player.Achievements.Select(a => a.achievements_id).ToList();
+                var idsToAdd = potentialAchievementIds.Except(existingIds).ToList();
+
+                if (idsToAdd.Any())
                 {
-                    player.Achievements.Add(achievement);
-                    newlyUnlocked.Add(achievement.achievements_id);
+                    var achievementsToAddEntities = await context.Achievements
+                        .Where(a => idsToAdd.Contains(a.achievements_id))
+                        .ToListAsync();
+
+                    foreach (var achievement in achievementsToAddEntities)
+                    {
+                        player.Achievements.Add(achievement);
+                        newlyUnlocked.Add(achievement.achievements_id);
+                    }
+
+                    await context.SaveChangesAsync();
                 }
 
-                await context.SaveChangesAsync();
+                return newlyUnlocked;
             }
-
-            return newlyUnlocked;
         }
 
-        public void addPlaytimeToPlayer(int playerId, int minutes)
-        { 
-            var stats = context.PlayerStats.FirstOrDefault(s => s.player_id == playerId);
-            
-            if (stats != null) 
-            { 
-                stats.total_playtime_minutes += minutes; 
-                context.SaveChanges();
+        public async Task addPlaytimeToPlayerAsync(int playerId, int minutes)
+        {
+            using (var context = contextFactory())
+            {
+                var stats = await context.PlayerStats.FirstOrDefaultAsync(s => s.player_id == playerId);
+
+                if (stats != null)
+                {
+                    stats.total_playtime_minutes = (stats.total_playtime_minutes ?? 0) + minutes;
+                    await context.SaveChangesAsync();
+                }
             }
-         
+        }
+
+        public async Task<int> saveChangesAsync()
+        {
+            return await Task.FromResult(0);
         }
     }
 }

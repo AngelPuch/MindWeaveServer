@@ -20,6 +20,6 @@ namespace MindWeaveServer.DataAccess.Abstractions
 
         Task<List<int>> unlockAchievementsAsync(int playerId, List<int> potentialAchievementIds);
 
-        void addPlaytimeToPlayer(int playerId, int minutes);
+        Task addPlaytimeToPlayerAsync(int playerId, int minutes);
     }
 }

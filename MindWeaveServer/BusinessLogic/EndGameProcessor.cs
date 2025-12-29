@@ -1,4 +1,4 @@
-﻿using Autofac.Features.OwnedInstances;
+﻿using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Game;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Stats;
@@ -9,26 +9,25 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MindWeaveServer.BusinessLogic.Models;
 
 namespace MindWeaveServer.BusinessLogic
 {
     public class EndGameProcessor
     {
-        private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
-        private readonly Func<Owned<StatsLogic>> statsLogicFactory;
-        private readonly Func<Owned<IPuzzleRepository>> puzzleFactory;
+        private readonly IMatchmakingRepository matchmakingRepository;
+        private readonly StatsLogic statsLogic;
+        private readonly IPuzzleRepository puzzleRepository;
         private readonly Logger logger;
 
         public EndGameProcessor(
-            Func<Owned<IMatchmakingRepository>> matchmakingFactory,
-            Func<Owned<StatsLogic>> statsLogicFactory,
-            Func<Owned<IPuzzleRepository>> puzzleFactory,
+            IMatchmakingRepository matchmakingRepository,
+            StatsLogic statsLogic,
+            IPuzzleRepository puzzleRepository,
             Logger logger)
         {
-            this.matchmakingFactory = matchmakingFactory;
-            this.statsLogicFactory = statsLogicFactory;
-            this.puzzleFactory = puzzleFactory;
+            this.matchmakingRepository = matchmakingRepository;
+            this.statsLogic = statsLogic;
+            this.puzzleRepository = puzzleRepository;
             this.logger = logger;
         }
 
@@ -56,32 +55,24 @@ namespace MindWeaveServer.BusinessLogic
             List<PlayerSessionData> rankedPlayers,
             int minutesPlayed)
         {
-            using (var matchScope = matchmakingFactory())
-            using (var puzzleScope = puzzleFactory())
-            using (var statsScope = statsLogicFactory())
+
+            var entities = await fetchGameEntitiesAsync(matchmakingRepository, puzzleRepository, session.MatchId, session.PuzzleId);
+
+            var context = new EndGameProcessingContext
             {
-                var matchRepo = matchScope.Value;
-                var puzzleRepo = puzzleScope.Value;
-                var statsService = statsScope.Value;
+                MatchRepo = matchmakingRepository,
+                StatsService = statsLogic,
+                MatchEntity = entities.match,
+                PuzzleEntity = entities.puzzle,
+                MatchId = session.MatchId,
+                MinutesPlayed = minutesPlayed,
+                TotalParticipants = rankedPlayers.Count
+            };
 
-                var entities = await fetchGameEntitiesAsync(matchRepo, puzzleRepo, session.MatchId, session.PuzzleId);
+            var results = await processAllPlayersAsync(rankedPlayers, context);
+            await matchmakingRepository.finishMatchAsync(session.MatchId);
 
-                var context = new EndGameProcessingContext
-                {
-                    MatchRepo = matchRepo,
-                    StatsService = statsService,
-                    MatchEntity = entities.match,
-                    PuzzleEntity = entities.puzzle,
-                    MatchId = session.MatchId,
-                    MinutesPlayed = minutesPlayed,
-                    TotalParticipants = rankedPlayers.Count
-                };
-
-                var results = await processAllPlayersAsync(rankedPlayers, context);
-                await matchRepo.finishMatchAsync(session.MatchId);
-
-                return results;
-            }
+            return results;
         }
 
         private async Task<(Matches match, Puzzles puzzle)> fetchGameEntitiesAsync(
@@ -199,7 +190,7 @@ namespace MindWeaveServer.BusinessLogic
             return newUnlockedIds;
         }
 
-        private AchievementContext buildAchievementContext(
+        private static AchievementContext buildAchievementContext(
             PlayerSessionData player,
             int rank,
             EndGameProcessingContext context,
@@ -238,14 +229,14 @@ namespace MindWeaveServer.BusinessLogic
             await context.MatchRepo.updateMatchParticipantStatsAsync(updateDto);
         }
 
-        private (int minutes, double totalSeconds) calculateDuration(DateTime startTime)
+        private static (int minutes, double totalSeconds) calculateDuration(DateTime startTime)
         {
             var duration = DateTime.UtcNow - startTime;
             int minutes = Math.Max(1, (int)duration.TotalMinutes);
             return (minutes, duration.TotalSeconds);
         }
 
-        private List<PlayerSessionData> getRankedPlayers(IEnumerable<PlayerSessionData> players)
+        private static List<PlayerSessionData> getRankedPlayers(IEnumerable<PlayerSessionData> players)
         {
             return players
                 .OrderByDescending(p => p.Score)
@@ -253,7 +244,7 @@ namespace MindWeaveServer.BusinessLogic
                 .ToList();
         }
 
-        private MatchEndResultDto buildMatchEndResult(
+        private static MatchEndResultDto buildMatchEndResult(
             int matchId,
             string reason,
             double totalSeconds,

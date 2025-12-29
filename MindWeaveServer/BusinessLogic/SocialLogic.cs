@@ -19,7 +19,6 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IPlayerRepository playerRepository;
         private readonly IFriendshipRepository friendshipRepository;
 
-        private const int SEARCH_RESULT_LIMIT = 10;
         private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
 
         public SocialLogic(IPlayerRepository playerRepo, IFriendshipRepository friendshipRepo)
@@ -43,9 +42,8 @@ namespace MindWeaveServer.BusinessLogic
                 return new List<PlayerSearchResultDto>();
             }
 
-            var results = await playerRepository.searchPlayersAsync(requester.idPlayer, query, SEARCH_RESULT_LIMIT);
+            var results = await playerRepository.searchPlayersAsync(requester.idPlayer, query);
             return results ?? new List<PlayerSearchResultDto>();
-
         }
 
         public async Task<OperationResultDto> sendFriendRequestAsync(string requesterUsername, string targetUsername)
@@ -83,7 +81,6 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-
         public async Task<OperationResultDto> respondToFriendRequestAsync(string responderUsername, string requesterUsername, bool accepted)
         {
             if (string.IsNullOrWhiteSpace(responderUsername) || string.IsNullOrWhiteSpace(requesterUsername))
@@ -111,11 +108,10 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             friendship.status_id = accepted ? FriendshipStatusConstants.ACCEPTED : FriendshipStatusConstants.REJECTED;
+
             friendshipRepository.updateFriendship(friendship);
 
-            await friendshipRepository.saveChangesAsync();
             return new OperationResultDto { Success = true, Message = accepted ? Lang.FriendRequestAccepted : Lang.FriendRequestRejected };
-
         }
 
         public async Task<List<FriendDto>> getFriendsListAsync(string username, ICollection<string> connectedUsernames)
@@ -132,7 +128,7 @@ namespace MindWeaveServer.BusinessLogic
             var onlineUsersSet = connectedUsernames != null
                 ? new HashSet<string>(connectedUsernames, StringComparer.OrdinalIgnoreCase)
                 : new HashSet<string>();
-            var friendDtos = new List<FriendDto>();
+            var friendsList = new List<FriendDto>();
 
             if (friendships != null)
                 foreach (var f in friendships)
@@ -140,17 +136,17 @@ namespace MindWeaveServer.BusinessLogic
                     var friendDto = mapFriendshipToDto(f, player.idPlayer, onlineUsersSet);
                     if (friendDto != null)
                     {
-                        friendDtos.Add(friendDto);
+                        friendsList.Add(friendDto);
                     }
                 }
 
-            return friendDtos;
+            return friendsList;
         }
 
         public async Task<List<FriendRequestInfoDto>> getFriendRequestsAsync(string username)
         {
             var player = await playerRepository.getPlayerByUsernameAsync(username);
-            
+
             if (player == null)
             {
                 logger.Warn("Get friend requests failed: Player {Username} not found.", username ?? "NULL");
@@ -158,7 +154,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             var pendingRequests = await friendshipRepository.getPendingFriendRequestsAsync(player.idPlayer);
-            var requestInfoDtos = pendingRequests
+            var requestPlayerList = pendingRequests
                 .Where(req => req.Player1 != null)
                 .Select(req => new FriendRequestInfoDto
                 {
@@ -169,7 +165,7 @@ namespace MindWeaveServer.BusinessLogic
                 .OrderByDescending(r => r.RequestDate)
                 .ToList();
 
-            return requestInfoDtos;
+            return requestPlayerList;
         }
 
         public async Task<OperationResultDto> removeFriendAsync(string username, string friendToRemoveUsername)
@@ -203,7 +199,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             friendshipRepository.removeFriendship(friendship);
-            await friendshipRepository.saveChangesAsync();
+
             return new OperationResultDto { Success = true, Message = Lang.FriendRemovedSuccessfully };
         }
 
@@ -232,16 +228,15 @@ namespace MindWeaveServer.BusinessLogic
                     existingFriendship.addressee_id = target.idPlayer;
                     existingFriendship.status_id = FriendshipStatusConstants.PENDING;
                     existingFriendship.request_date = DateTime.UtcNow;
+
                     friendshipRepository.updateFriendship(existingFriendship);
 
-                    await friendshipRepository.saveChangesAsync();
                     return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
 
                 default:
                     logger.Error("Send request failed: Unknown or unhandled friendship status ({StatusId}) between {RequesterUsername} and {TargetUsername}.", existingFriendship.status_id, requester.username, target.username);
                     return new OperationResultDto { Success = false, Message = Lang.FriendshipStatusPreventsRequest };
             }
-
         }
 
         private async Task<OperationResultDto> createNewFriendshipAsync(Player requester, Player target)
@@ -255,7 +250,6 @@ namespace MindWeaveServer.BusinessLogic
             };
 
             friendshipRepository.addFriendship(newFriendship);
-            await friendshipRepository.saveChangesAsync();
 
             return new OperationResultDto { Success = true, Message = Lang.FriendRequestSent };
         }

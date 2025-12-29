@@ -17,11 +17,6 @@ namespace MindWeaveServer.BusinessLogic.Manager
             lobbies.TryAdd(lobbyCode, new LobbyModerationState());
         }
 
-        public void removeLobby(string lobbyCode)
-        {
-            lobbies.TryRemove(lobbyCode, out _);
-        }
-
         public bool isBanned(string lobbyCode, string username)
         {
             if (lobbies.TryGetValue(lobbyCode, out var state))

@@ -1,5 +1,4 @@
-﻿using Autofac.Features.OwnedInstances;
-using MindWeaveServer.BusinessLogic.Abstractions;
+﻿using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
@@ -25,9 +24,10 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly ILobbyValidationService validationService;
         private readonly INotificationService notificationService;
         private readonly GameSessionManager gameSessionManager;
-        private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
-        private readonly Func<Owned<IPlayerRepository>> playerFactory;
-        private readonly Func<Owned<IGuestInvitationRepository>> invitationFactory;
+
+        private readonly IMatchmakingRepository matchmakingRepository;
+        private readonly IPlayerRepository playerRepository;
+        private readonly IGuestInvitationRepository invitationRepository;
         private readonly IEmailService emailService;
 
         private const int MATCH_STATUS_IN_PROGRESS = 3;
@@ -43,18 +43,18 @@ namespace MindWeaveServer.BusinessLogic.Services
             ILobbyValidationService validationService,
             INotificationService notificationService,
             GameSessionManager gameSessionManager,
-            Func<Owned<IMatchmakingRepository>> matchmakingFactory,
-            Func<Owned<IPlayerRepository>> playerFactory,
-            Func<Owned<IGuestInvitationRepository>> invitationFactory,
+            IMatchmakingRepository matchmakingRepository,
+            IPlayerRepository playerRepository,
+            IGuestInvitationRepository invitationRepository,
             IEmailService emailService)
         {
             this.gameStateManager = gameStateManager;
             this.validationService = validationService;
             this.notificationService = notificationService;
             this.gameSessionManager = gameSessionManager;
-            this.matchmakingFactory = matchmakingFactory;
-            this.playerFactory = playerFactory;
-            this.invitationFactory = invitationFactory;
+            this.matchmakingRepository = matchmakingRepository;
+            this.playerRepository = playerRepository;
+            this.invitationRepository = invitationRepository;
             this.emailService = emailService;
         }
 
@@ -127,7 +127,7 @@ namespace MindWeaveServer.BusinessLogic.Services
         public async Task changeDifficultyAsync(LobbyActionContext context, int newDifficultyId)
         {
             var lobby = getLobby(context.LobbyCode);
-           
+
             if (lobby == null || !lobby.HostUsername.Equals(context.RequesterUsername, StringComparison.OrdinalIgnoreCase))
             {
                 notificationService.notifyActionFailed(context.RequesterUsername, Lang.notHost);
@@ -192,19 +192,16 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task kickFromLobbyStateAsync(LobbyStateDto lobby, int targetId, int hostId, string targetUsername)
         {
-            using (var scope = matchmakingFactory())
+            var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobby.LobbyId);
+            if (match != null)
             {
-                var match = await scope.Value.getMatchByLobbyCodeAsync(lobby.LobbyId);
-                if (match != null)
+                await matchmakingRepository.registerExpulsionAsync(new ExpulsionDto
                 {
-                    await scope.Value.registerExpulsionAsync(new ExpulsionDto
-                    {
-                        MatchId = match.matches_id,
-                        PlayerId = targetId,
-                        HostPlayerId = hostId,
-                        ReasonId = ID_REASON_HOST_DECISION
-                    });
-                }
+                    MatchId = match.matches_id,
+                    PlayerId = targetId,
+                    HostPlayerId = hostId,
+                    ReasonId = ID_REASON_HOST_DECISION
+                });
             }
 
             notificationService.notifyKicked(targetUsername, Lang.KickedByHost);
@@ -226,17 +223,13 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task<Matches> updateMatchStatusAsync(string lobbyCode, int statusId)
         {
-            using (var scope = matchmakingFactory())
+            var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+            if (match != null)
             {
-                var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                if (match != null)
-                {
-                    scope.Value.updateMatchStatus(match, statusId);
-                    scope.Value.updateMatchStartTime(match);
-                    await scope.Value.saveChangesAsync();
-                }
-                return match;
+                matchmakingRepository.updateMatchStatus(match, statusId);
+                matchmakingRepository.updateMatchStartTime(match);
             }
+            return match;
         }
 
         private async Task createAndNotifySessionAsync(LobbyStateDto lobby, Matches match)
@@ -288,53 +281,39 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task<bool> persistDifficultyChangeAsync(string lobbyCode, int difficultyId)
         {
-            using (var scope = matchmakingFactory())
+            var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+            if (match != null)
             {
-                var match = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                if (match != null)
-                {
-                    scope.Value.updateMatchDifficulty(match, difficultyId);
-                    await scope.Value.saveChangesAsync();
-                    return true;
-                }
+                matchmakingRepository.updateMatchDifficulty(match, difficultyId);
+                return true;
             }
             return false;
         }
 
         private async Task<bool> saveGuestInvitationAsync(int matchId, int inviterId, string email)
         {
-            using (var scope = invitationFactory())
+            await invitationRepository.addInvitationAsync(new GuestInvitations
             {
-                await scope.Value.addInvitationAsync(new GuestInvitations
-                {
-                    match_id = matchId,
-                    inviter_player_id = inviterId,
-                    guest_email = email,
-                    sent_timestamp = DateTime.UtcNow,
-                    expiry_timestamp = DateTime.UtcNow.AddMinutes(GUEST_EXPIRY_MINUTES)
-                });
-                await scope.Value.saveChangesAsync();
-                return true;
-            }
+                match_id = matchId,
+                inviter_player_id = inviterId,
+                guest_email = email,
+                sent_timestamp = DateTime.UtcNow,
+                expiry_timestamp = DateTime.UtcNow.AddMinutes(GUEST_EXPIRY_MINUTES)
+            });
+            return true;
         }
 
         private async Task<int> getPlayerIdAsync(string username)
         {
             if (string.IsNullOrEmpty(username)) return INVALID_ID;
-            using (var scope = playerFactory())
-            {
-                var p = await scope.Value.getPlayerByUsernameAsync(username);
-                return p?.idPlayer ?? INVALID_ID;
-            }
+            var p = await playerRepository.getPlayerByUsernameAsync(username);
+            return p?.idPlayer ?? INVALID_ID;
         }
 
         private async Task<int> getMatchIdAsync(string lobbyCode)
         {
-            using (var scope = matchmakingFactory())
-            {
-                var m = await scope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                return m?.matches_id ?? INVALID_ID;
-            }
+            var m = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+            return m?.matches_id ?? INVALID_ID;
         }
     }
 }

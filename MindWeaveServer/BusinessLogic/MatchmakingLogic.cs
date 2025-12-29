@@ -8,7 +8,6 @@ using MindWeaveServer.Resources;
 using NLog;
 using System;
 using System.Threading.Tasks;
-using Autofac.Features.OwnedInstances;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -22,8 +21,9 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IGameStateManager gameStateManager;
 
         private readonly GameSessionManager gameSessionManager;
-        private readonly Func<Owned<IPlayerRepository>> playerFactory;
-        private readonly Func<Owned<IMatchmakingRepository>> matchmakingFactory;
+
+        private readonly IPlayerRepository playerRepository;
+        private readonly IMatchmakingRepository matchmakingRepository;
 
         private const int ID_REASON_HOST_DECISION = 1;
         private const int ID_REASON_PROFANITY = 2;
@@ -37,16 +37,17 @@ namespace MindWeaveServer.BusinessLogic
             INotificationService notificationService,
             IGameStateManager gameStateManager,
             GameSessionManager gameSessionManager,
-            Func<Owned<IPlayerRepository>> playerFactory,
-            Func<Owned<IMatchmakingRepository>> matchmakingFactory)
+            IPlayerRepository playerRepository,
+            IMatchmakingRepository matchmakingRepository
+            )
         {
             this.lifecycleService = lifecycleService;
             this.interactionService = interactionService;
             this.notificationService = notificationService;
             this.gameStateManager = gameStateManager;
             this.gameSessionManager = gameSessionManager;
-            this.playerFactory = playerFactory;
-            this.matchmakingFactory = matchmakingFactory;
+            this.playerRepository = playerRepository;
+            this.matchmakingRepository = matchmakingRepository;
 
             logger.Info("MatchmakingLogic Facade initialized.");
         }
@@ -154,27 +155,22 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var state))
             {
-                using (var scope = playerFactory())
-                {
-                    var hostP = await scope.Value.getPlayerByUsernameAsync(state.HostUsername);
-                    return hostP?.idPlayer ?? INVALID_PLAYER_ID;
-                }
+                var hostP = await playerRepository.getPlayerByUsernameAsync(state.HostUsername);
+                return hostP?.idPlayer ?? INVALID_PLAYER_ID;
             }
             return INVALID_PLAYER_ID;
         }
+
         private async Task expelFromActiveSessionAsync(GameSession session, string username, int reasonId, int hostId)
         {
-            using (var scope = playerFactory())
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
+            if (player != null)
             {
-                var player = await scope.Value.getPlayerByUsernameAsync(username);
-                if (player != null)
-                {
-                    await session.kickPlayerAsync(player.idPlayer, reasonId, hostId);
-                }
-                else
-                {
-                    logger.Warn("ExpelFromActiveSession: Player {0} not found in DB, cannot kick from session.", username);
-                }
+                await session.kickPlayerAsync(player.idPlayer, reasonId, hostId);
+            }
+            else
+            {
+                logger.Warn("ExpelFromActiveSession: Player {0} not found in DB, cannot kick from session.", username);
             }
         }
 
@@ -189,30 +185,25 @@ namespace MindWeaveServer.BusinessLogic
 
         private async Task registerLobbyExpulsionInDbAsync(string lobbyCode, string username, int reasonId, int hostId)
         {
-            using (var matchScope = matchmakingFactory())
-            using (var playerScope = playerFactory())
+            var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
+
+            if (match != null && player != null)
             {
-                var match = await matchScope.Value.getMatchByLobbyCodeAsync(lobbyCode);
-                var player = await playerScope.Value.getPlayerByUsernameAsync(username);
-
-                if (match != null && player != null)
+                var dto = new ExpulsionDto
                 {
-                    var dto = new ExpulsionDto
-                    {
-                        MatchId = match.matches_id,
-                        PlayerId = player.idPlayer,
-                        ReasonId = reasonId,
-                        HostPlayerId = hostId
-                    };
-                    await matchScope.Value.registerExpulsionAsync(dto);
-                }
-                else
-                {
-                    logger.Warn("RegisterLobbyExpulsionInDb: Match or player not found. Match: {0}, Player: {1}",
-                        match != null, player != null);
-                }
+                    MatchId = match.matches_id,
+                    PlayerId = player.idPlayer,
+                    ReasonId = reasonId,
+                    HostPlayerId = hostId
+                };
+                await matchmakingRepository.registerExpulsionAsync(dto);
             }
-
+            else
+            {
+                logger.Warn("RegisterLobbyExpulsionInDb: Match or player not found. Match: {0}, Player: {1}",
+                    match != null, player != null);
+            }
         }
 
         private void updateLobbyStateAndNotify(string lobbyCode, string username)

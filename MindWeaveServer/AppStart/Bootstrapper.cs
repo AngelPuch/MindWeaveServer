@@ -62,28 +62,35 @@ namespace MindWeaveServer.AppStart
         {
             builder.RegisterType<MindWeaveDBEntities1>()
                 .AsSelf()
-                .InstancePerLifetimeScope();
+                .InstancePerDependency();
 
             builder.RegisterType<PlayerRepository>()
-                .As<IPlayerRepository>();
+                .As<IPlayerRepository>()
+                .SingleInstance();
 
             builder.RegisterType<MatchmakingRepository>()
-                .As<IMatchmakingRepository>();
+                .As<IMatchmakingRepository>()
+                .SingleInstance();
 
             builder.RegisterType<PuzzleRepository>()
-                .As<IPuzzleRepository>();
+                .As<IPuzzleRepository>()
+                .SingleInstance();
 
-            builder.RegisterType<StatsRepository>().
-                As<IStatsRepository>().InstancePerDependency();
+            builder.RegisterType<StatsRepository>()
+                .As<IStatsRepository>()
+                .SingleInstance();
 
             builder.RegisterType<GuestInvitationRepository>()
-                .As<IGuestInvitationRepository>();
+                .As<IGuestInvitationRepository>()
+                .SingleInstance();
 
             builder.RegisterType<FriendshipRepository>()
-                .As<IFriendshipRepository>();
+                .As<IFriendshipRepository>()
+                .SingleInstance();
 
             builder.RegisterType<GenderRepository>()
-                .As<IGenderRepository>();
+                .As<IGenderRepository>()
+                .SingleInstance();
         }
 
         private static void registerUtilities(ContainerBuilder builder)

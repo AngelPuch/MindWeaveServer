@@ -9,48 +9,56 @@ namespace MindWeaveServer.DataAccess.Repositories
 {
     public class PuzzleRepository : IPuzzleRepository
     {
-        private readonly MindWeaveDBEntities1 context;
+        private readonly Func<MindWeaveDBEntities1> contextFactory;
 
-        public PuzzleRepository(MindWeaveDBEntities1 context)
+        public PuzzleRepository(Func<MindWeaveDBEntities1> contextFactory)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         }
 
         public async Task<List<Puzzles>> getAvailablePuzzlesAsync()
         {
-            return await context.Puzzles
-                .OrderBy(p => p.puzzle_id)
-                .AsNoTracking()
-                .ToListAsync();
+            using (var context = contextFactory())
+            {
+                return await context.Puzzles
+                    .OrderBy(p => p.puzzle_id)
+                    .AsNoTracking()
+                    .ToListAsync();
+            }
         }
 
         public void addPuzzle(Puzzles puzzle)
         {
-            if (puzzle == null)
-            {
-                throw new ArgumentNullException(nameof(puzzle));
-            }
-            context.Puzzles.Add(puzzle);
-        }
+            if (puzzle == null) throw new ArgumentNullException(nameof(puzzle));
 
-        public async Task<int> saveChangesAsync()
-        {
-            return await context.SaveChangesAsync();
+            using (var context = contextFactory())
+            {
+                context.Puzzles.Add(puzzle);
+                context.SaveChanges();
+            }
         }
 
         public async Task<Puzzles> getPuzzleByIdAsync(int puzzleId)
         {
-            return await context.Puzzles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.puzzle_id == puzzleId);
+            using (var context = contextFactory())
+            {
+                return await context.Puzzles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.puzzle_id == puzzleId);
+            }
         }
-    
 
         public async Task<DifficultyLevels> getDifficultyByIdAsync(int difficultyId)
         {
-            return await context.DifficultyLevels.FindAsync(difficultyId);
+            using (var context = contextFactory())
+            {
+                return await context.DifficultyLevels.FindAsync(difficultyId);
+            }
         }
-       
+
+        public async Task<int> saveChangesAsync()
+        {
+            return await Task.FromResult(0);
+        }
     }
 }
-

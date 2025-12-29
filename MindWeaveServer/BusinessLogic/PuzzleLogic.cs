@@ -113,7 +113,6 @@ namespace MindWeaveServer.BusinessLogic
             };
 
             puzzleRepository.addPuzzle(newPuzzle);
-            await puzzleRepository.saveChangesAsync();
 
             return new UploadResultDto
             {
@@ -178,17 +177,9 @@ namespace MindWeaveServer.BusinessLogic
 
         private static byte[] loadPuzzleImageBytes(Puzzles puzzleData)
         {
-            string filePath;
             bool isDefaultPuzzle = puzzleData.image_path.StartsWith(DEFAULT_PUZZLE_PREFIX, StringComparison.OrdinalIgnoreCase);
 
-            if (isDefaultPuzzle)
-            {
-                filePath = Path.Combine(getDefaultPuzzlesPath(), puzzleData.image_path);
-            }
-            else
-            {
-                filePath = Path.Combine(getUploadFolderPath(), puzzleData.image_path);
-            }
+            var filePath = Path.Combine(isDefaultPuzzle ? getDefaultPuzzlesPath() : getUploadFolderPath(), puzzleData.image_path);
 
             if (!File.Exists(filePath))
             {

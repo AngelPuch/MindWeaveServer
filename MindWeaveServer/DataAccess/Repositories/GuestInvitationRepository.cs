@@ -7,46 +7,60 @@ namespace MindWeaveServer.DataAccess.Repositories
 {
     public class GuestInvitationRepository : IGuestInvitationRepository
     {
-        private readonly MindWeaveDBEntities1 context;
+        private readonly Func<MindWeaveDBEntities1> contextFactory;
 
-        public GuestInvitationRepository(MindWeaveDBEntities1 context)
+        public GuestInvitationRepository(Func<MindWeaveDBEntities1> contextFactory)
         {
-            this.context = context ?? throw new ArgumentNullException(nameof(context));
+            this.contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         }
 
-        public Task addInvitationAsync(GuestInvitations invitation)
+        public async Task addInvitationAsync(GuestInvitations invitation)
         {
             if (invitation == null)
             {
                 throw new ArgumentNullException(nameof(invitation));
             }
-            context.GuestInvitations.Add(invitation);
-            return Task.CompletedTask;
+
+            using (var context = contextFactory())
+            {
+                context.GuestInvitations.Add(invitation);
+                await context.SaveChangesAsync();
+            }
         }
 
         public async Task<GuestInvitations> findValidInvitationAsync(int matchId, string guestEmail)
         {
             DateTime now = DateTime.UtcNow;
-            return await context.GuestInvitations
-                .FirstOrDefaultAsync(inv => inv.match_id == matchId
-                                         && inv.guest_email.Equals(guestEmail, StringComparison.OrdinalIgnoreCase)
-                                         && inv.used_timestamp == null
-                                         && inv.expiry_timestamp > now);
+
+            using (var context = contextFactory())
+            {
+                return await context.GuestInvitations
+                    .FirstOrDefaultAsync(inv => inv.match_id == matchId
+                                             && inv.guest_email.Equals(guestEmail, StringComparison.OrdinalIgnoreCase)
+                                             && inv.used_timestamp == null
+                                             && inv.expiry_timestamp > now);
+            }
         }
 
-        public Task markInvitationAsUsedAsync(GuestInvitations invitation)
+        public async Task markInvitationAsUsedAsync(GuestInvitations invitation)
         {
-            if (invitation != null)
+            if (invitation == null)
+            {
+                return;
+            }
+
+            using (var context = contextFactory())
             {
                 invitation.used_timestamp = DateTime.UtcNow;
+
                 context.Entry(invitation).State = EntityState.Modified;
+                await context.SaveChangesAsync();
             }
-            return Task.CompletedTask;
         }
 
         public async Task<int> saveChangesAsync()
         {
-            return await context.SaveChangesAsync();
+            return await Task.FromResult(0);
         }
     }
 }

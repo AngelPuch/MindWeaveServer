@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Autofac.Features.OwnedInstances;
 using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
@@ -19,22 +18,22 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
         private readonly ConcurrentDictionary<string, GameSession> activeSessions = new ConcurrentDictionary<string, GameSession>();
 
-        private readonly Func<Owned<IMatchmakingRepository>> matchmakingRepositoryFactory;
-        private readonly Func<Owned<IPuzzleRepository>> puzzleRepositoryFactory;
-        private readonly Func<Owned<StatsLogic>> statsLogicFactory;
+        private readonly IMatchmakingRepository matchmakingRepository;
+        private readonly IPuzzleRepository puzzleRepository;
+        private readonly StatsLogic statsLogic;
         private readonly PuzzleGenerator puzzleGenerator;
         private readonly IScoreCalculator scoreCalculator;
 
         public GameSessionManager(
-            Func<Owned<IPuzzleRepository>> puzzleRepositoryFactory,
-            Func<Owned<IMatchmakingRepository>> matchmakingRepositoryFactory,
-            Func<Owned<StatsLogic>> statsLogicFactory,
+            IPuzzleRepository puzzleRepository,
+            IMatchmakingRepository matchmakingRepository,
+            StatsLogic statsLogic,
             PuzzleGenerator puzzleGenerator,
             IScoreCalculator scoreCalculator)
         {
-            this.puzzleRepositoryFactory = puzzleRepositoryFactory;
-            this.matchmakingRepositoryFactory = matchmakingRepositoryFactory;
-            this.statsLogicFactory = statsLogicFactory;
+            this.puzzleRepository = puzzleRepository;
+            this.matchmakingRepository = matchmakingRepository;
+            this.statsLogic = statsLogic;
             this.puzzleGenerator = puzzleGenerator;
             this.scoreCalculator = scoreCalculator;
         }
@@ -61,9 +60,9 @@ namespace MindWeaveServer.BusinessLogic.Manager
                 matchId,
                 puzzleId,
                 puzzleDto,
-                matchmakingRepositoryFactory,
-                statsLogicFactory,
-                puzzleRepositoryFactory,
+                matchmakingRepository,
+                statsLogic,
+                puzzleRepository,
                 removeSession,
                 scoreCalculator);
 
@@ -87,6 +86,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             return activeSessions.Values.Any(session =>
                 session.Players.Values.Any(p => p.Username.Equals(username, StringComparison.OrdinalIgnoreCase)));
         }
+
         public GameSession getSession(string lobbyCode)
         {
             if (string.IsNullOrWhiteSpace(lobbyCode))
@@ -190,19 +190,15 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
         private async Task<string> getImagePathAsync(int puzzleId)
         {
-            using (var puzzleScope = puzzleRepositoryFactory())
+            var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
+
+            if (puzzleData == null)
             {
-                var puzzleRepo = puzzleScope.Value;
-                var puzzleData = await puzzleRepo.getPuzzleByIdAsync(puzzleId);
-
-                if (puzzleData == null)
-                {
-                    logger.Error("Failed to create game: PuzzleId {PuzzleId} not found.", puzzleId);
-                    throw new InvalidOperationException($"Puzzle with ID {puzzleId} was not found.");
-                }
-
-                return puzzleData.image_path;
+                logger.Error("Failed to create game: PuzzleId {PuzzleId} not found.", puzzleId);
+                throw new InvalidOperationException($"Puzzle with ID {puzzleId} was not found.");
             }
+
+            return puzzleData.image_path;
         }
 
         private byte[] getPuzzleBytes(string imagePath)
@@ -218,7 +214,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             return File.ReadAllBytes(fullPath);
         }
 
-        private string resolvePuzzlePath(string imagePath)
+        private static string resolvePuzzlePath(string imagePath)
         {
             string basePath = AppDomain.CurrentDomain.BaseDirectory;
 

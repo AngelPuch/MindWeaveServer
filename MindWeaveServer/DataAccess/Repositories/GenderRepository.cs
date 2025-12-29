@@ -1,4 +1,5 @@
 ﻿using MindWeaveServer.DataAccess.Abstractions;
+using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Threading.Tasks;
@@ -6,17 +7,20 @@ using System.Threading.Tasks;
 namespace MindWeaveServer.DataAccess.Repositories
 {
     public class GenderRepository : IGenderRepository
-    {
-        private readonly MindWeaveDBEntities1 context;
+    { 
+        private readonly Func<MindWeaveDBEntities1> contextFactory;
 
-        public GenderRepository(MindWeaveDBEntities1 context)
+        public GenderRepository(Func<MindWeaveDBEntities1> contextFactory)
         {
-            this.context = context;
+            this.contextFactory = contextFactory;
         }
 
         public async Task<List<Gender>> getAllGendersAsync()
         {
-            return await context.Gender.AsNoTracking().ToListAsync();
+            using (var context = contextFactory())
+            {
+                return await context.Gender.AsNoTracking().ToListAsync();
+            }
         }
     }
 }
