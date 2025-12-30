@@ -178,7 +178,7 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             var achievementContext = buildAchievementContext(player, rank, context, historicalStats);
-            var qualifiedAchievements = AchievementEvaluator.Evaluate(achievementContext);
+            var qualifiedAchievements = AchievementEvaluator.evaluate(achievementContext);
             newUnlockedIds = await context.StatsService.unlockAchievementsAsync(player.PlayerId, qualifiedAchievements);
 
             if (newUnlockedIds.Any())

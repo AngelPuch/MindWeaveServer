@@ -752,7 +752,7 @@ namespace MindWeaveServer.BusinessLogic
                 TotalParticipants = context.TotalParticipants
             };
 
-            var qualifiedAchievements = AchievementEvaluator.Evaluate(achievementContext);
+            var qualifiedAchievements = AchievementEvaluator.evaluate(achievementContext);
             newUnlockedIds = await context.StatsService.unlockAchievementsAsync(player.PlayerId, qualifiedAchievements);
 
             return newUnlockedIds;
@@ -769,11 +769,6 @@ namespace MindWeaveServer.BusinessLogic
             };
 
             broadcast(callback => callback.onGameEnded(matchEndResult));
-        }
-
-        ~GameSession()
-        {
-            dispose(false);
         }
     }
 

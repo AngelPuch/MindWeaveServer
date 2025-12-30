@@ -72,7 +72,6 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (DbUpdateException dbEx) when (isDuplicateKeyException(dbEx))
             {
-                logger.Warn("Duplicate record detected in DB layer during registration.");
                 throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER, dbEx);
             }
         }

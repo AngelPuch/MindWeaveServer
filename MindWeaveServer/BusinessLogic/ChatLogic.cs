@@ -175,8 +175,14 @@ namespace MindWeaveServer.BusinessLogic
             {
                 senderCallback.receiveSystemMessage($"{STRIKE_WARNING_PREFIX}{strikes}");
             }
-            catch (CommunicationException) { }
-            catch (TimeoutException) { }
+            catch (CommunicationException)
+            {
+                //ignore
+            }
+            catch (TimeoutException)
+            {
+                //ignore
+            }
         }
 
         private IChatCallback findUserCallback(string username, string lobbyId)
@@ -285,12 +291,9 @@ namespace MindWeaveServer.BusinessLogic
                 historySnapshot = history.ToList();
             }
 
-            foreach (var message in historySnapshot)
+            foreach (var message in historySnapshot.Where(message => !trySendHistoryMessage(userCallback, message, lobbyId)))
             {
-                if (!trySendHistoryMessage(userCallback, message, lobbyId))
-                {
-                    break;
-                }
+                break;
             }
         }
 
@@ -355,17 +358,8 @@ namespace MindWeaveServer.BusinessLogic
 
         private static List<string> sendMessageToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto)
         {
-            var failedUsers = new List<string>();
-
-            foreach (var userEntry in usersSnapshot)
-            {
-                if (!trySendMessageToUser(userEntry.Value, messageDto))
-                {
-                    failedUsers.Add(userEntry.Key);
-                }
-            }
-
-            return failedUsers;
+            return (from userEntry in usersSnapshot where !trySendMessageToUser(userEntry.Value, messageDto) 
+                select userEntry.Key).ToList();
         }
 
         private static bool trySendMessageToUser(IChatCallback callback, ChatMessageDto messageDto)

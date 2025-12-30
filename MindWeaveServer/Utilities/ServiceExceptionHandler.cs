@@ -311,7 +311,7 @@ namespace MindWeaveServer.Utilities
                 "Out of Memory");
         }
 
-        private FaultException<ServiceFaultDto> createFault(
+        private static FaultException<ServiceFaultDto> createFault(
             ServiceErrorType errorType,
             string userMessage,
             string source,

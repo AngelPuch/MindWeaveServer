@@ -24,7 +24,7 @@ namespace MindWeaveServer.BusinessLogic
         private const int GRID_SIZE_SMALL = 5;
         private const int GRID_SIZE_LARGE = 10;
 
-        public PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
+        public static PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
         {
             validateInputs(imageBytes, difficulty);
 
@@ -166,13 +166,13 @@ namespace MindWeaveServer.BusinessLogic
             piece.RightNeighborId = (c < dim.Columns - 1) ? grid[r, c + 1].PieceId : (int?)null;
         }
 
-        private class GridDimensions
+        private sealed class GridDimensions
         {
             public int Columns { get; set; }
             public int Rows { get; set; }
         }
 
-        private class PieceContext
+        private sealed class PieceContext
         {
             public int PieceWidth { get; set; }
             public int PieceHeight { get; set; }

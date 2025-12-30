@@ -67,6 +67,7 @@ namespace MindWeaveServer.DataAccess.Repositories
             using (var context = contextFactory())
             {
                 return await context.Player
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
             }
         }

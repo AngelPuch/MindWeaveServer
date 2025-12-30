@@ -53,7 +53,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             string imagePath = await getImagePathAsync(puzzleId);
             byte[] puzzleBytes = getPuzzleBytes(imagePath);
 
-            PuzzleDefinitionDto puzzleDto = puzzleGenerator.generatePuzzle(puzzleBytes, difficulty);
+            PuzzleDefinitionDto puzzleDto = PuzzleGenerator.generatePuzzle(puzzleBytes, difficulty);
 
             var gameSession = new GameSession(
                 lobbyId,
@@ -166,13 +166,10 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
                 session.releaseHeldPieces(playerId);
 
-                if (!session.Players.Any())
+                if (!session.Players.Any() && activeSessions.TryRemove(session.LobbyCode, out var removedSession))
                 {
-                    if (activeSessions.TryRemove(session.LobbyCode, out var removedSession))
-                    {
-                        removedSession.Dispose();
-                        logger.Info("Removed AND DISPOSED empty GameSession {LobbyId} from session manager.", session.LobbyCode);
-                    }
+                    removedSession.Dispose();
+                    logger.Info("Removed AND DISPOSED empty GameSession {LobbyId} from session manager.", session.LobbyCode);
                 }
 
                 break;
@@ -201,7 +198,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             return puzzleData.image_path;
         }
 
-        private byte[] getPuzzleBytes(string imagePath)
+        private static byte[] getPuzzleBytes(string imagePath)
         {
             string fullPath = resolvePuzzlePath(imagePath);
 

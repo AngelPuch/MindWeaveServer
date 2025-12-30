@@ -33,7 +33,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (context.Player == null)
             {
-                throw new ArgumentNullException(nameof(context.Player));
+                throw new ArgumentNullException(nameof(context));
             }
 
             int points = calculateBasePoints(context.IsEdgePiece);

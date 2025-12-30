@@ -73,11 +73,11 @@ namespace MindWeaveServer.BusinessLogic
 
             if (existingFriendship != null)
             {
-                return await handleExistingFriendshipAsync(existingFriendship, requester, target);
+                return handleExistingFriendshipAsync(existingFriendship, requester, target);
             }
             else
             {
-                return await createNewFriendshipAsync(requester, target);
+                return createNewFriendshipAsync(requester, target);
             }
         }
 
@@ -203,7 +203,7 @@ namespace MindWeaveServer.BusinessLogic
             return new OperationResultDto { Success = true, Message = Lang.FriendRemovedSuccessfully };
         }
 
-        private async Task<OperationResultDto> handleExistingFriendshipAsync(Friendships existingFriendship, Player requester, Player target)
+        private OperationResultDto handleExistingFriendshipAsync(Friendships existingFriendship, Player requester, Player target)
         {
             switch (existingFriendship.status_id)
             {
@@ -239,7 +239,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private async Task<OperationResultDto> createNewFriendshipAsync(Player requester, Player target)
+        private OperationResultDto createNewFriendshipAsync(Player requester, Player target)
         {
             var newFriendship = new Friendships
             {

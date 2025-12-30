@@ -17,7 +17,6 @@ namespace MindWeaveServer.BusinessLogic
 
         private readonly IPuzzleRepository puzzleRepository;
         private readonly IPlayerRepository playerRepository;
-        private readonly PuzzleGenerator puzzleGenerator;
 
         private const string UPLOAD_FOLDER_NAME = "UploadedPuzzles";
         private const string DEFAULT_PUZZLES_FOLDER = "DefaultPuzzles";
@@ -28,12 +27,10 @@ namespace MindWeaveServer.BusinessLogic
 
         public PuzzleLogic(
             IPuzzleRepository puzzleRepository,
-            IPlayerRepository playerRepository,
-            PuzzleGenerator puzzleGenerator)
+            IPlayerRepository playerRepository)
         {
             this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
             this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
-            this.puzzleGenerator = puzzleGenerator ?? throw new ArgumentNullException(nameof(puzzleGenerator));
         }
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()
@@ -150,7 +147,7 @@ namespace MindWeaveServer.BusinessLogic
                 return null;
             }
 
-            return puzzleGenerator.generatePuzzle(imageBytes, difficulty);
+            return PuzzleGenerator.generatePuzzle(imageBytes, difficulty);
         }
 
         private static string getUploadFolderPath()
@@ -184,7 +181,7 @@ namespace MindWeaveServer.BusinessLogic
             if (!File.Exists(filePath))
             {
                 logger.Error("Puzzle file not found at path: {0}", filePath);
-                return null;
+                return Array.Empty<byte>();
             }
 
             return File.ReadAllBytes(filePath);

@@ -13,6 +13,7 @@ using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Validators;
 using NLog;
 using System;
+using Autofac.Core;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Services;
 
@@ -50,10 +51,13 @@ namespace MindWeaveServer.AppStart
 
                     logger.Info("Bootstrapper initialized successfully.");
                 }
-                catch (Exception ex)
+                catch (DependencyResolutionException ex)
                 {
-                    logger.Fatal(ex, "Failed to initialize Bootstrapper.");
-                    throw;
+                    throw new InvalidOperationException("Autofac failed to resolve dependencies during Bootstrapper init.", ex);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new InvalidOperationException("Invalid configuration detected during Bootstrapper init.", ex);
                 }
             }
         }

@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity.Core;
 using System.Data.SqlClient;
+using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -172,12 +173,12 @@ namespace MindWeaveServer.Services
 
                 if (friends != null)
                 {
-                    foreach (var friend in friends)
+                    foreach (var friendUsername in friends.Select(friend => friend.Username))
                     {
-                        var friendCallback = gameStateManager.getUserCallback(friend.Username);
+                        var friendCallback = gameStateManager.getUserCallback(friendUsername);
                         if (friendCallback != null)
                         {
-                            notifySingleFriend(friendCallback, username, friend.Username, gameStateManager);
+                            notifySingleFriend(friendCallback, username, friendUsername, gameStateManager);
                         }
                     }
                 }
@@ -188,10 +189,7 @@ namespace MindWeaveServer.Services
             }
             catch (AggregateException aggEx)
             {
-                foreach (var innerEx in aggEx.InnerExceptions)
-                {
-                    logger.Warn(innerEx, "Error retrieving friend list for logout notification for {Username}", username);
-                }
+                logger.Warn(aggEx, "Error retrieving friend list for logout notification for {Username}", username);
             }
         }
 

@@ -8,8 +8,7 @@ namespace MindWeaveServer.Utilities
 {
     public static class ProfanityFilter
     {
-        private static readonly Regex profanityRegex;
-
+        private static readonly Regex profanityRegex = buildProfanityRegex();
 
         private static readonly string[] rawDeniedWords = new string[]
         {
@@ -33,7 +32,7 @@ namespace MindWeaveServer.Utilities
             {'4','a'}, {'@','a'}, {'3','e'}, {'1','i'}, {'!','i'}, {'0','o'}, {'5','s'}, {'$','s'}, {'7','t'}, {'+','t'}
         };
 
-        static ProfanityFilter()
+        private static Regex buildProfanityRegex()
         {
             var deniedWordsSet1 = new HashSet<string>();
             foreach (var word in rawDeniedWords)
@@ -42,7 +41,8 @@ namespace MindWeaveServer.Utilities
             }
             var escapedWords = deniedWordsSet1.Select(Regex.Escape);
             string pattern = @"\b(" + string.Join("|", escapedWords) + @")[a-z]*\b";
-            profanityRegex = new Regex(
+
+            return new Regex(
                 pattern,
                 RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
             );
@@ -68,12 +68,9 @@ namespace MindWeaveServer.Utilities
             string formD = input.ToLowerInvariant().Normalize(NormalizationForm.FormD);
             var sb = new StringBuilder();
 
-            foreach (char ch in formD)
+            foreach (var ch in formD.Where(ch => CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark))
             {
-                if (CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark)
-                {
-                    sb.Append(ch);
-                }
+                sb.Append(ch);
             }
             return sb.ToString().Normalize(NormalizationForm.FormC);
         }
@@ -93,12 +90,10 @@ namespace MindWeaveServer.Utilities
             char[] removableSymbols = { '.', '_', '-', '*', '~', ',', ';', ':', '|', '/', '\\', ' ' };
            
             var sb = new StringBuilder(word.Length);
-            foreach (char c in word)
+
+            foreach (var c in word.Where(c => !removableSymbols.Contains(c)))
             {
-                if (!removableSymbols.Contains(c))
-                {
-                    sb.Append(c);
-                }
+                sb.Append(c);
             }
         }
 

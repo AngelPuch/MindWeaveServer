@@ -95,13 +95,11 @@ namespace MindWeaveServer.DataAccess.Repositories
                 var player = await context.Player.Include(NAVIGATION_ACHIEVEMENTS).FirstOrDefaultAsync(p => p.idPlayer == playerId);
                 var achievement = await context.Achievements.FindAsync(achievementId);
 
-                if (player != null && achievement != null)
+                if (player != null && achievement != null &&player.Achievements.All(a => a.achievements_id != achievementId)))
                 {
-                    if (player.Achievements.All(a => a.achievements_id != achievementId))
-                    {
-                        player.Achievements.Add(achievement);
-                        await context.SaveChangesAsync();
-                    }
+                    player.Achievements.Add(achievement);
+                    await context.SaveChangesAsync();
+                    
                 }
             }
         }
