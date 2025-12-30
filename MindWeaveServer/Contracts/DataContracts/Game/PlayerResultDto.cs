@@ -13,6 +13,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Game
         public string Username { get; set; }
 
         [DataMember]
+        public string AvatarPath { get; set; }
+
+        [DataMember]
         public int Score { get; set; }
 
         [DataMember]

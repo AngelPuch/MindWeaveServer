@@ -17,8 +17,8 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly ThreadLocal<Random> threadSafeRandom = new ThreadLocal<Random>(() =>
             new Random(Guid.NewGuid().GetHashCode()));
 
-        private const int SIDEBAR_OFFSET = 20;
-        private const int SIDEBAR_WIDTH = 150;
+        private const int SIDEBAR_OFFSET = 30;
+        private const int SIDEBAR_WIDTH = 80;
         private const int EASY_PUZZLE_PIECES = 25;
         private const int MEDIUM_PUZZLE_PIECES = 50;
         private const int GRID_SIZE_SMALL = 5;

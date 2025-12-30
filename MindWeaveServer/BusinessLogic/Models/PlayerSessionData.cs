@@ -8,6 +8,7 @@ namespace MindWeaveServer.BusinessLogic.Models
     {
         public int PlayerId { get; set; }
         public string Username { get; set; }
+        public string AvatarPath { get; set; }
         public IMatchmakingCallback Callback { get; set; }
         public int Score { get; set; }
         public int PiecesPlaced { get; set; }

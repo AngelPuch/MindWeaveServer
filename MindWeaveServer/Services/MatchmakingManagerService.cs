@@ -211,6 +211,11 @@ namespace MindWeaveServer.Services
                     logger.Error(ex, "Database error starting game for lobby: {0}", lobbyId);
                     trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.DatabaseErrorStartingMatch));
                 }
+                catch (DbUpdateException ex)
+                {
+                    logger.Error(ex, "Database update error starting game for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.DatabaseErrorStartingMatch));
+                }
                 catch (SqlException ex)
                 {
                     logger.Error(ex, "SQL error starting game for lobby: {0}", lobbyId);
@@ -230,6 +235,11 @@ namespace MindWeaveServer.Services
                 {
                     logger.Error(ex, "Invalid operation starting game for lobby: {0}", lobbyId);
                     trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                }
+                catch (Exception ex)
+                {
+                    logger.Fatal(ex, "UNHANDLED EXCEPTION starting game for lobby: {0}", lobbyId);
+                    trySendCallback(cb => cb.notifyLobbyActionFailed("Internal Server Error"));
                 }
             });
         }

@@ -239,9 +239,19 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             foreach (var user in lobby.Players)
             {
-                int pid = guests.Contains(user)
-                    ? -Math.Abs(user.GetHashCode())
-                    : await getPlayerIdAsync(user);
+                int pid;
+                string avatarPath = null;
+
+                if (guests.Contains(user))
+                {
+                    pid = -Math.Abs(user.GetHashCode());
+                }
+                else
+                {
+                    var playerEntity = await playerRepository.getPlayerByUsernameAsync(user);
+                    pid = playerEntity?.idPlayer ?? INVALID_ID;
+                    avatarPath = playerEntity?.avatar_path;
+                }
 
                 if (gameStateManager.MatchmakingCallbacks.TryGetValue(user, out IMatchmakingCallback mmCallback))
                 {
@@ -249,6 +259,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                     {
                         PlayerId = pid,
                         Username = user,
+                        AvatarPath = avatarPath,
                         Callback = mmCallback
                     });
                 }

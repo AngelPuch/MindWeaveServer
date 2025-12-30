@@ -103,12 +103,13 @@ namespace MindWeaveServer.BusinessLogic
             gameDurationTimer.Enabled = true;
         }
 
-        public void addPlayer(int playerId, string username, IMatchmakingCallback callback)
+        public void addPlayer(int playerId, string username, string avatarPath, IMatchmakingCallback callback)
         {
             var playerData = new PlayerSessionData
             {
                 PlayerId = playerId,
                 Username = username,
+                AvatarPath = avatarPath,
                 Callback = callback,
                 Score = 0,
                 PiecesPlaced = 0,
@@ -702,6 +703,7 @@ namespace MindWeaveServer.BusinessLogic
             {
                 PlayerId = player.PlayerId,
                 Username = player.Username,
+                AvatarPath = player.AvatarPath,
                 Score = player.Score,
                 PiecesPlaced = player.PiecesPlaced,
                 Rank = rank,

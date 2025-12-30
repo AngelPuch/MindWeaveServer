@@ -2,6 +2,7 @@
 using MindWeaveServer.DataAccess.Abstractions;
 using System;
 using System.Data.Entity;
+using System.Data.Entity.Validation;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -86,10 +87,26 @@ namespace MindWeaveServer.DataAccess.Repositories
 
             using (var context = contextFactory())
             {
-                var entity = new Matches { matches_id = match.matches_id, match_status_id = newStatusId };
-                context.Matches.Attach(entity);
-                context.Entry(entity).Property(x => x.match_status_id).IsModified = true;
-                context.SaveChanges();
+                var entity = context.Matches.Find(match.matches_id);
+                if (entity != null)
+                {
+                    entity.match_status_id = newStatusId;
+                    try
+                    {
+                        context.SaveChanges();
+                    }
+                    catch (DbEntityValidationException ex)
+                    {
+                        foreach (var err in ex.EntityValidationErrors)
+                        {
+                            foreach (var detail in err.ValidationErrors)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Error: {detail.PropertyName} - {detail.ErrorMessage}");
+                            }
+                        }
+                        throw;
+                    }
+                }
 
                 match.match_status_id = newStatusId;
             }
@@ -104,13 +121,15 @@ namespace MindWeaveServer.DataAccess.Repositories
 
             using (var context = contextFactory())
             {
-                var now = DateTime.UtcNow;
-                var entity = new Matches { matches_id = match.matches_id, start_time = now };
-                context.Matches.Attach(entity);
-                context.Entry(entity).Property(x => x.start_time).IsModified = true;
-                context.SaveChanges();
+                var entity = context.Matches.Find(match.matches_id);
+                if (entity != null)
+                {
+                    var now = DateTime.UtcNow;
+                    entity.start_time = now;
+                    context.SaveChanges();
 
-                match.start_time = now;
+                    match.start_time = now;
+                }
             }
         }
 
@@ -123,12 +142,14 @@ namespace MindWeaveServer.DataAccess.Repositories
 
             using (var context = contextFactory())
             {
-                var entity = new Matches { matches_id = match.matches_id, difficulty_id = newDifficultyId };
-                context.Matches.Attach(entity);
-                context.Entry(entity).Property(x => x.difficulty_id).IsModified = true;
-                context.SaveChanges();
+                var entity = context.Matches.Find(match.matches_id);
+                if (entity != null)
+                {
+                    entity.difficulty_id = newDifficultyId;
+                    context.SaveChanges();
 
-                match.difficulty_id = newDifficultyId;
+                    match.difficulty_id = newDifficultyId;
+                }
             }
         }
 

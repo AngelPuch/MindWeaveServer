@@ -68,7 +68,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
             foreach (var player in players.Values)
             {
-                gameSession.addPlayer(player.PlayerId, player.Username, player.Callback);
+                gameSession.addPlayer(player.PlayerId, player.Username, player.AvatarPath, player.Callback);
             }
 
             activeSessions[lobbyId] = gameSession;
