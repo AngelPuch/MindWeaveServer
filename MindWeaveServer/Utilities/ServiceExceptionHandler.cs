@@ -95,7 +95,7 @@ namespace MindWeaveServer.Utilities
                 return handleOutOfMemoryException(oomEx, safeContext);
             }
 
-            
+
             logger.Fatal(exception, "UNEXPECTED exception type [{0}] in operation: {1}. Add specific handler!",
                 exception.GetType().Name, safeContext);
 
@@ -108,13 +108,19 @@ namespace MindWeaveServer.Utilities
 
         private FaultException<ServiceFaultDto> handleEntityException(EntityException ex, string context)
         {
-            logger.Fatal(ex, "Database unavailable. Operation: {0}", context);
+            var baseException = ex.GetBaseException();
+            if (baseException is SqlException sqlEx)
+            {
+                return handleSqlException(sqlEx, context);
+            }
+
+            logger.Fatal(ex, "Database unavailable (EntityException). Operation: {0}", context);
 
             return createFault(
                 ServiceErrorType.DatabaseError,
-                Lang.ErrorMsgServerOffline,
+                Lang.GenericServerError,
                 "Database",
-                "Database Unavailable");
+                "Database Error");
         }
 
         private FaultException<ServiceFaultDto> handleDbUpdateException(DbUpdateException ex, string context)
@@ -153,12 +159,12 @@ namespace MindWeaveServer.Utilities
 
         private FaultException<ServiceFaultDto> handleSqlException(SqlException ex, string context)
         {
-            if (ex.Number == -2 || ex.Number == 53 || ex.Number == -1)
+            if (ex.Number == -2 || ex.Number == 53 || ex.Number == -1 || ex.Number == 2 || ex.Number == 0)
             {
                 logger.Fatal(ex, "SQL Server connection failed. Operation: {0}", context);
                 return createFault(
                     ServiceErrorType.DatabaseError,
-                    Lang.ErrorMsgServerOffline,
+                    Lang.GenericServerError,
                     "Database",
                     "Database Connection Failed");
             }

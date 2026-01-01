@@ -358,8 +358,9 @@ namespace MindWeaveServer.BusinessLogic
 
         private static List<string> sendMessageToUsers(List<KeyValuePair<string, IChatCallback>> usersSnapshot, ChatMessageDto messageDto)
         {
-            return (from userEntry in usersSnapshot where !trySendMessageToUser(userEntry.Value, messageDto) 
-                select userEntry.Key).ToList();
+            return (from userEntry in usersSnapshot
+                    where !trySendMessageToUser(userEntry.Value, messageDto)
+                    select userEntry.Key).ToList();
         }
 
         private static bool trySendMessageToUser(IChatCallback callback, ChatMessageDto messageDto)
