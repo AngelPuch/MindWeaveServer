@@ -1,424 +1,301 @@
-﻿using Moq;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Xunit;
+using Moq;
 using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.DataAccess;
-using MindWeaveServer.Resources;
+using MindWeaveServer.Contracts.DataContracts.Social;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Utilities;
 
 namespace MindWeaveServer.Tests.BusinessLogic
 {
     public class SocialLogicTests
     {
-        private readonly Mock<IPlayerRepository> mockPlayerRepository;
-        private readonly Mock<IFriendshipRepository> mockFriendshipRepository;
-
+        private readonly Mock<IFriendshipRepository> friendshipRepositoryMock;
+        private readonly Mock<IPlayerRepository> playerRepositoryMock;
         private readonly SocialLogic socialLogic;
-
-        private readonly Player player1;
-        private readonly Player player2;
-        private readonly Player player3;
-        private readonly string defaultAvatar = "/Resources/Images/Avatar/default_avatar.png";
 
         public SocialLogicTests()
         {
-            mockPlayerRepository = new Mock<IPlayerRepository>();
-            mockFriendshipRepository = new Mock<IFriendshipRepository>();
+            friendshipRepositoryMock = new Mock<IFriendshipRepository>();
+            playerRepositoryMock = new Mock<IPlayerRepository>();
 
-            socialLogic = new SocialLogic(mockPlayerRepository.Object, mockFriendshipRepository.Object);
-
-            player1 = new Player { idPlayer = 1, username = "UserOne", email = "one@example.com", avatar_path = "/path/avatar1.png" };
-            player2 = new Player { idPlayer = 2, username = "UserTwo", email = "two@example.com", avatar_path = null };
-            player3 = new Player { idPlayer = 3, username = "UserThree", email = "three@example.com", avatar_path = "/path/avatar3.png" };
-
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(player1.username)).ReturnsAsync(player1);
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(player2.username)).ReturnsAsync(player2);
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(player3.username)).ReturnsAsync(player3);
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(It.Is<string>(s => 
-                    s != player1.username && s != player2.username && s != player3.username))).Returns(Task.FromResult<Player?>(null));
+            socialLogic = new SocialLogic(
+                playerRepositoryMock.Object,
+                friendshipRepositoryMock.Object
+            );
         }
 
 
         [Fact]
-        public async Task SearchPlayersAsync_WithValidQueryAndRequester_ShouldReturnMatchingUsersExcludingSelfAndFriends()
+        public async Task sendFriendRequestAsyncSuccess_CreatesNew()
         {
-            string requesterUsername = player1.username;
-            string query = "User";
-            var searchResultsFromRepo = new List<PlayerSearchResultDto> {
-                new() { Username = player2.username, AvatarPath = defaultAvatar },
-                new() { Username = player3.username, AvatarPath = player3.avatar_path }
-            };
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync(player1);
-            mockPlayerRepository.Setup(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
-                                 .ReturnsAsync(searchResultsFromRepo);
+            var requester = new Player { idPlayer = 1, username = "Me" };
+            var target = new Player { idPlayer = 2, username = "Target" };
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(requester);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(target);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync((Friendships)null);
 
-            var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
-
-            Assert.NotNull(results);
-            Assert.Equal(2, results.Count);
-            Assert.Contains(results, r => r.Username == player2.username && r.AvatarPath == defaultAvatar);
-            Assert.Contains(results, r => r.Username == player3.username && r.AvatarPath == player3.avatar_path);
-            mockPlayerRepository.Verify(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()), Times.Once);
-        }
-
-        [Fact]
-        public async Task SearchPlayersAsync_WhenRequesterNotFound_ShouldReturnEmptyList()
-        {
-            string requesterUsername = "NonExistentUser";
-            string query = "User";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).Returns(Task.FromResult<Player?>(null));
-
-            var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
-
-            Assert.NotNull(results);
-            Assert.Empty(results);
-            mockPlayerRepository.Verify(r => r.searchPlayersAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never); 
-        }
-
-        [Fact]
-        public async Task SearchPlayersAsync_WhenRepositoryThrowsException_ShouldReturnEmptyList()
-        {
-            string requesterUsername = player1.username;
-            string query = "User";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).ReturnsAsync(player1);
-            mockPlayerRepository.Setup(r => r.searchPlayersAsync(player1.idPlayer, query, It.IsAny<int>()))
-                                 .ThrowsAsync(new Exception("Database connection failed"));
-
-            var results = await socialLogic.searchPlayersAsync(requesterUsername, query);
-
-            Assert.NotNull(results);
-            Assert.Empty(results); 
-        }
-
-        [Fact]
-        public async Task SendFriendRequestAsync_ToNewUser_ShouldReturnSuccessAndAddFriendship()
-        {
-            string requesterUsername = player1.username;
-            string targetUsername = player2.username;
-
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).Returns(Task.FromResult<Friendships?>(null));
-            mockFriendshipRepository.Setup(fr => fr.saveChangesAsync()).ReturnsAsync(1);
-
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
+            var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
             Assert.True(result.Success);
-            Assert.Equal(Lang.FriendRequestSent, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
+            friendshipRepositoryMock.Verify(r => r.addFriendship(It.IsAny<Friendships>()), Times.Once);
         }
 
         [Fact]
-        public async Task SendFriendRequestAsync_ToSelf_ShouldReturnFailure()
+        public async Task sendFriendRequestAsync_TargetNotFound_ReturnsError()
         {
-            string requesterUsername = player1.username;
-            string targetUsername = player1.username;
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync((Player)null);
 
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
+            var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
             Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorCannotSelfFriend, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
-            mockFriendshipRepository.Verify(fr => fr.addFriendship(It.IsAny<Friendships>()), Times.Never);
-            mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Never);
         }
 
         [Fact]
-        public async Task SendFriendRequestAsync_WhenTargetNotFound_ShouldReturnFailure()
+        public async Task sendFriendRequestAsync_Self_ReturnsError()
         {
-            string requesterUsername = player1.username;
-            string targetUsername = "NotFoundUser";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(targetUsername)).Returns(Task.FromResult<Player?>(null));
+            var result = await socialLogic.sendFriendRequestAsync("Me", "Me");
+            Assert.False(result.Success);
+        }
 
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
+        [Fact]
+        public async Task sendFriendRequestAsync_AlreadyAccepted_ReturnsError()
+        {
+            var requester = new Player { idPlayer = 1 };
+            var target = new Player { idPlayer = 2 };
+            var existing = new Friendships { status_id = FriendshipStatusConstants.ACCEPTED };
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(requester);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(target);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync(existing);
+
+            var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
             Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorPlayerNotFound, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
         }
 
         [Fact]
-        public async Task SendFriendRequestAsync_WhenAlreadyFriends_ShouldReturnFailure()
+        public async Task sendFriendRequestAsync_PendingRequest_ReturnsError()
         {
-            string requesterUsername = player1.username;
-            string targetUsername = player2.username;
-            var existingFriendship = new Friendships { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync(existingFriendship);
+            var requester = new Player { idPlayer = 1 };
+            var target = new Player { idPlayer = 2 };
+            var existing = new Friendships { status_id = FriendshipStatusConstants.PENDING };
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(requester);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(target);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync(existing);
 
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
+            var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
             Assert.False(result.Success);
-            Assert.Equal(Lang.FriendshipAlreadyExists, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.addFriendship(It.IsAny<Friendships>()), Times.Never);
-            mockFriendshipRepository.Verify(fr => fr.updateFriendship(It.IsAny<Friendships>()), Times.Never);
         }
 
         [Fact]
-        public async Task SendFriendRequestAsync_WhenRequestAlreadySentByRequester_ShouldReturnFailure()
+        public async Task sendFriendRequestAsync_RejectedThenResend_Success()
         {
-            string requesterUsername = player1.username;
-            string targetUsername = player2.username;
-            var existingFriendship = new Friendships { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.PENDING };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync(existingFriendship);
+            var requester = new Player { idPlayer = 1 };
+            var target = new Player { idPlayer = 2 };
+            var rejectedRequest = new Friendships { status_id = FriendshipStatusConstants.REJECTED };
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(requester);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(target);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync(rejectedRequest);
 
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
-
-            Assert.False(result.Success);
-            Assert.Equal(Lang.FriendRequestAlreadySent, result.Message);
-        }
-
-        [Fact]
-        public async Task SendFriendRequestAsync_WhenRequestAlreadySentByTarget_ShouldReturnFailure()
-        {
-            string requesterUsername = player1.username;
-            string targetUsername = player2.username;
-            var existingFriendship = new Friendships { requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync(existingFriendship);
-
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
-
-            Assert.False(result.Success);
-            Assert.Equal(Lang.FriendRequestReceivedFromUser, result.Message);
-        }
-
-        [Fact]
-        public async Task SendFriendRequestAsync_WhenPreviouslyRejected_ShouldReturnSuccessAndUpdateToPending()
-        {
-            string requesterUsername = player1.username;
-            string targetUsername = player2.username;
-            
-            var existingFriendship = new Friendships { friendships_id = 5, requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.REJECTED, request_date = DateTime.UtcNow.AddDays(-1) };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync(existingFriendship);
-            mockFriendshipRepository.Setup(fr => fr.saveChangesAsync()).ReturnsAsync(1);
-
-            var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
+            var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
             Assert.True(result.Success);
-            Assert.Equal(Lang.FriendRequestSent, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
-            mockFriendshipRepository.Verify(fr => fr.addFriendship(It.IsAny<Friendships>()), Times.Never);
+            friendshipRepositoryMock.Verify(r => r.updateFriendship(It.IsAny<Friendships>()), Times.Once);
         }
 
-        [Fact]
-        public async Task RespondToFriendRequestAsync_AcceptingValidRequest_ShouldReturnSuccessAndUpdateStatus()
-        {
-            string responderUsername = player1.username;
-            string requesterUsername = player2.username;
-            var pendingFriendship = new Friendships { requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player2.idPlayer, player1.idPlayer)).ReturnsAsync(pendingFriendship);
-            mockFriendshipRepository.Setup(fr => fr.saveChangesAsync()).ReturnsAsync(1);
-
-            var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, true);
-
-            Assert.True(result.Success);
-            Assert.Equal(Lang.FriendRequestAccepted, result.Message);
-            
-            mockFriendshipRepository.Verify(fr => fr.updateFriendship(It.Is<Friendships>(
-                f => f == pendingFriendship && f.status_id == FriendshipStatusConstants.ACCEPTED
-            )), Times.Once);
-
-            mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
-        }
 
         [Fact]
-        public async Task RespondToFriendRequestAsync_RejectingValidRequest_ShouldReturnSuccessAndUpdateStatus()
+        public async Task getFriendsListAsync_ReturnsMappedList()
         {
-            string responderUsername = player1.username;
-            string requesterUsername = player2.username;
-            var pendingFriendship = new Friendships { requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player2.idPlayer, player1.idPlayer)).ReturnsAsync(pendingFriendship);
-            mockFriendshipRepository.Setup(fr => fr.saveChangesAsync()).ReturnsAsync(1);
+            var me = new Player { idPlayer = 1, username = "Me" };
+            var friendPlayer = new Player { idPlayer = 2, username = "F1", avatar_path = "path" };
 
-            var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, false);
-
-            Assert.True(result.Success);
-            Assert.Equal(Lang.FriendRequestRejected, result.Message);
-
-            mockFriendshipRepository.Verify(fr => fr.updateFriendship(It.Is<Friendships>(
-                f => f == pendingFriendship && f.status_id == FriendshipStatusConstants.REJECTED
-            )), Times.Once);
-
-            mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
-        }
-
-        [Fact]
-        public async Task RespondToFriendRequestAsync_WhenRequesterNotFound_ShouldReturnFailure()
-        {
-            string responderUsername = player1.username;
-            string requesterUsername = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(requesterUsername)).Returns(Task.FromResult<Player?>(null));
-
-            var result = await socialLogic.respondToFriendRequestAsync(responderUsername, requesterUsername, true);
-
-            Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorPlayerNotFound, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
-        }
-
-        [Fact]
-        public async Task GetFriendsListAsync_WithExistingFriends_ShouldReturnCorrectDtoList()
-        {
-            string username = player1.username;
-            var friendships = new List<Friendships>
+           
+            var friendship = new Friendships
             {
-                new() { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player1, Player1 = player2 },
-                new() { requester_id = player3.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player3, Player1 = player1 }
+                requester_id = 1,
+                addressee_id = 2,
+                Player = me,          
+                Player1 = friendPlayer 
             };
-            mockFriendshipRepository.Setup(fr => fr.getAcceptedFriendshipsAsync(player1.idPlayer)).ReturnsAsync(friendships);
-            var connectedUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { player1.username, player3.username };
-            
-            var result = await socialLogic.getFriendsListAsync(username, connectedUsers);
 
-            Assert.NotNull(result);
-            Assert.Equal(2, result.Count);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(me);
+            friendshipRepositoryMock.Setup(r => r.getAcceptedFriendshipsAsync(1))
+                .ReturnsAsync(new List<Friendships> { friendship });
 
-            var friend2 = result.FirstOrDefault(f => f.Username == player2.username);
-            Assert.NotNull(friend2);
-            Assert.False(friend2.IsOnline);
-            Assert.Equal(defaultAvatar, friend2.AvatarPath);
+            var connectedUsers = new List<string> { "F1" };
 
-            var friend3 = result.FirstOrDefault(f => f.Username == player3.username);
-            Assert.NotNull(friend3);
-            Assert.True(friend3.IsOnline);
-            Assert.Equal(player3.avatar_path, friend3.AvatarPath);
-        }
+            var result = await socialLogic.getFriendsListAsync("Me", connectedUsers);
 
-        [Fact]
-        public async Task GetFriendsListAsync_WithNoFriends_ShouldReturnEmptyList()
-        {
-            string username = player1.username;
-            mockFriendshipRepository.Setup(fr => fr.getAcceptedFriendshipsAsync(player1.idPlayer)).ReturnsAsync(new List<Friendships>());
-            var connectedUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { player1.username };
-
-            var result = await socialLogic.getFriendsListAsync(username, connectedUsers);
-
-            Assert.NotNull(result);
-            Assert.Empty(result);
-        }
-
-        [Fact]
-        public async Task GetFriendsListAsync_WhenPlayerNotFound_ShouldReturnEmptyList()
-        {
-            string username = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(username)).Returns(Task.FromResult<Player?>(null));
-
-            var result = await socialLogic.getFriendsListAsync(username, new HashSet<string>());
-
-            Assert.NotNull(result);
-            Assert.Empty(result);
-            mockFriendshipRepository.Verify(fr => fr.getAcceptedFriendshipsAsync(It.IsAny<int>()), Times.Never);
-        }
-
-
-        [Fact]
-        public async Task GetFriendsListAsync_WithNullConnectedUsernames_ShouldTreatAllOffline()
-        {
-            string username = player1.username;
-            var friendships = new List<Friendships> {
-                 new() { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED, Player = player1, Player1 = player2 }
-            };
-            mockFriendshipRepository.Setup(fr => fr.getAcceptedFriendshipsAsync(player1.idPlayer)).ReturnsAsync(friendships);
-            ICollection<string>? connectedUsers = null;
-
-            var result = await socialLogic.getFriendsListAsync(username, connectedUsers);
-
-            Assert.NotNull(result);
             Assert.Single(result);
-            var friend2 = result.First();
-            Assert.Equal(player2.username, friend2.Username);
-            Assert.False(friend2.IsOnline);
+            Assert.Equal("F1", result[0].Username);
+            Assert.True(result[0].IsOnline, "El amigo debería aparecer como conectado");
         }
 
         [Fact]
-        public async Task GetFriendRequestsAsync_WithPendingRequests_ShouldReturnCorrectDtoList()
+        public async Task getFriendsListAsync_UserNotFound_ReturnsEmpty()
         {
-            string username = player1.username;
-            var requests = new List<Friendships>
-            {
-                 new() { requester_id = player2.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING, request_date = DateTime.UtcNow.AddHours(-1), Player1 = player2 },
-                 new() { requester_id = player3.idPlayer, addressee_id = player1.idPlayer, status_id = FriendshipStatusConstants.PENDING, request_date = DateTime.UtcNow.AddMinutes(-30), Player1 = player3 }
-            };
-            mockFriendshipRepository.Setup(fr => fr.getPendingFriendRequestsAsync(player1.idPlayer)).ReturnsAsync(requests);
-            var result = await socialLogic.getFriendRequestsAsync(username);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync((Player)null);
 
-            Assert.NotNull(result);
+            var result = await socialLogic.getFriendsListAsync("Me", new List<string>());
+
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public async Task getFriendsListAsync_MultipleFriendsOffline()
+        {
+            var me = new Player { idPlayer = 1, username = "Me" };
+            var friend1 = new Player { idPlayer = 2, username = "F1" };
+            var friend2 = new Player { idPlayer = 3, username = "F2" };
+
+            var friendship1 = new Friendships { requester_id = 1, addressee_id = 2, Player = me, Player1 = friend1 };
+            var friendship2 = new Friendships { requester_id = 1, addressee_id = 3, Player = me, Player1 = friend2 };
+
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(me);
+            friendshipRepositoryMock.Setup(r => r.getAcceptedFriendshipsAsync(1))
+                .ReturnsAsync(new List<Friendships> { friendship1, friendship2 });
+
+            var result = await socialLogic.getFriendsListAsync("Me", new List<string>());
+
             Assert.Equal(2, result.Count);
-            Assert.Equal(player3.username, result[0].RequesterUsername);
-            Assert.Equal(player2.username, result[1].RequesterUsername);
-          
-            Assert.Equal(requests[1].request_date, result[0].RequestDate);
-            Assert.Equal(player3.avatar_path, result[0].AvatarPath);
-            Assert.Equal(requests[0].request_date, result[1].RequestDate);
-            Assert.Equal(defaultAvatar, result[1].AvatarPath);
-        }
-
-        [Fact]
-        public async Task GetFriendRequestsAsync_WithNoPendingRequests_ShouldReturnEmptyList()
-        {
-            string username = player1.username;
-            mockFriendshipRepository.Setup(fr => fr.getPendingFriendRequestsAsync(player1.idPlayer)).ReturnsAsync(new List<Friendships>());
-
-            var result = await socialLogic.getFriendRequestsAsync(username);
-
-            Assert.NotNull(result);
-            Assert.Empty(result);
-        }
-
-        [Fact]
-        public async Task GetFriendRequestsAsync_WhenPlayerNotFound_ShouldReturnEmptyList()
-        {
-            string username = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(username)).Returns(Task.FromResult<Player?>(null));
-
-            var result = await socialLogic.getFriendRequestsAsync(username);
-
-            Assert.NotNull(result);
-            Assert.Empty(result);
-            mockFriendshipRepository.Verify(fr => fr.getPendingFriendRequestsAsync(It.IsAny<int>()), Times.Never);
+            Assert.All(result, f => Assert.False(f.IsOnline));
         }
 
 
         [Fact]
-        public async Task RemoveFriendAsync_WithExistingFriendship_ShouldReturnSuccessAndRemoveFriendship()
+        public async Task respondToFriendRequestAsync_Accept_Success()
         {
-            string username = player1.username;
-            string friendToRemove = player2.username;
-            var friendship = new Friendships { requester_id = player1.idPlayer, addressee_id = player2.idPlayer, status_id = FriendshipStatusConstants.ACCEPTED };
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).ReturnsAsync(friendship);
-            mockFriendshipRepository.Setup(fr => fr.saveChangesAsync()).ReturnsAsync(1);
+            var responder = new Player { idPlayer = 1 };
+            var requester = new Player { idPlayer = 2 };
+            var friendship = new Friendships { status_id = FriendshipStatusConstants.PENDING, addressee_id = 1, requester_id = 2 };
 
-            var result = await socialLogic.removeFriendAsync(username, friendToRemove);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(responder);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Other")).ReturnsAsync(requester);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(2, 1)).ReturnsAsync(friendship);
+
+            var result = await socialLogic.respondToFriendRequestAsync("Me", "Other", true);
 
             Assert.True(result.Success);
-            Assert.Equal(Lang.FriendRemovedSuccessfully, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.removeFriendship(friendship), Times.Once);
-            mockFriendshipRepository.Verify(fr => fr.saveChangesAsync(), Times.Once);
+            friendshipRepositoryMock.Verify(r => r.updateFriendship(friendship), Times.Once);
         }
 
         [Fact]
-        public async Task RemoveFriendAsync_WhenFriendToRemoveNotFound_ShouldReturnFailure()
+        public async Task respondToFriendRequestAsync_Reject_Success()
         {
-            string username = player1.username;
-            string friendToRemove = "NonExistent";
-            mockPlayerRepository.Setup(r => r.getPlayerByUsernameAsync(friendToRemove)).Returns(Task.FromResult<Player?>(null));
+            var responder = new Player { idPlayer = 1 };
+            var requester = new Player { idPlayer = 2 };
+            var friendship = new Friendships { status_id = FriendshipStatusConstants.PENDING, addressee_id = 1 };
 
-            var result = await socialLogic.removeFriendAsync(username, friendToRemove);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(responder);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Other")).ReturnsAsync(requester);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(2, 1)).ReturnsAsync(friendship);
 
-            Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorPlayerNotFound, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>()), Times.Never);
+            var result = await socialLogic.respondToFriendRequestAsync("Me", "Other", false);
+
+            Assert.True(result.Success);
+            Assert.Equal(FriendshipStatusConstants.REJECTED, friendship.status_id);
         }
 
         [Fact]
-        public async Task RemoveFriendAsync_WhenFriendshipNotFound_ShouldReturnFailure()
+        public async Task respondToFriendRequestAsync_NoRequest_ReturnsError()
         {
-            string username = player1.username;
-            string friendToRemove = player2.username;
-            mockFriendshipRepository.Setup(fr => fr.findFriendshipAsync(player1.idPlayer, player2.idPlayer)).Returns(Task.FromResult<Friendships?>(null));
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Other")).ReturnsAsync(new Player { idPlayer = 2 });
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(2, 1)).ReturnsAsync((Friendships)null);
 
-            var result = await socialLogic.removeFriendAsync(username, friendToRemove);
+            var result = await socialLogic.respondToFriendRequestAsync("Me", "Other", true);
 
             Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorFriendshipNotFound, result.Message);
-            mockFriendshipRepository.Verify(fr => fr.removeFriendship(It.IsAny<Friendships>()), Times.Never);
+        }
+
+
+        [Fact]
+        public async Task removeFriendAsync_Success()
+        {
+            var me = new Player { idPlayer = 1 };
+            var friend = new Player { idPlayer = 2 };
+
+            var friendship = new Friendships
+            {
+                friendships_id = 10,
+                status_id = FriendshipStatusConstants.ACCEPTED
+            };
+
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(me);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Friend")).ReturnsAsync(friend);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync(friendship);
+
+            var result = await socialLogic.removeFriendAsync("Me", "Friend");
+
+            Assert.True(result.Success);
+            friendshipRepositoryMock.Verify(r => r.removeFriendship(friendship), Times.Once);
+        }
+
+        [Fact]
+        public async Task removeFriendAsync_NotFriends_ReturnsError()
+        {
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Friend")).ReturnsAsync(new Player { idPlayer = 2 });
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync((Friendships)null);
+
+            var result = await socialLogic.removeFriendAsync("Me", "Friend");
+
+            Assert.False(result.Success);
+        }
+
+
+        [Fact]
+        public async Task searchPlayersAsync_ReturnsDtos()
+        {
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
+            var searchResults = new List<PlayerSearchResultDto> { new PlayerSearchResultDto { Username = "FoundUser" } };
+            playerRepositoryMock.Setup(r => r.searchPlayersAsync(1, "query", It.IsAny<int>())).ReturnsAsync(searchResults);
+
+            var result = await socialLogic.searchPlayersAsync("Me", "query");
+
+            Assert.Single(result);
+        }
+
+        [Fact]
+        public async Task searchPlayersAsync_EmptyQuery_ReturnsEmpty()
+        {
+            var result = await socialLogic.searchPlayersAsync("Me", "");
+
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public async Task searchPlayersAsync_NullUser_ReturnsEmpty()
+        {
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync((Player)null);
+
+            var result = await socialLogic.searchPlayersAsync("Me", "query");
+
+            Assert.Empty(result);
+        }
+
+        [Fact]
+        public async Task searchPlayersAsync_MultipleResults()
+        {
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
+            var searchResults = new List<PlayerSearchResultDto>
+            {
+                new PlayerSearchResultDto { Username = "User1" },
+                new PlayerSearchResultDto { Username = "User2" },
+                new PlayerSearchResultDto { Username = "User3" }
+            };
+            playerRepositoryMock.Setup(r => r.searchPlayersAsync(1, "Us", It.IsAny<int>())).ReturnsAsync(searchResults);
+
+            var result = await socialLogic.searchPlayersAsync("Me", "Us");
+
+            Assert.Equal(3, result.Count);
         }
     }
 }

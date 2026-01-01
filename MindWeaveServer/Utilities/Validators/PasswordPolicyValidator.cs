@@ -30,10 +30,11 @@ namespace MindWeaveServer.Utilities.Validators
             bool hasUpper = password.Any(char.IsUpper);
             bool hasLower = password.Any(char.IsLower);
             bool hasDigit = password.Any(char.IsDigit);
+            bool hasSpecialChar = password.Any(ch => !char.IsLetterOrDigit(ch) && !char.IsWhiteSpace(ch));
 
-            if (!hasUpper || !hasLower || !hasDigit)
+            if (!hasUpper || !hasLower || !hasDigit || !hasSpecialChar)
             {
-                logger.Warn("Password validation failed: Complexity requirement not met (Upper={HasUpper}, Lower={HasLower}, Digit={HasDigit}).", hasUpper, hasLower, hasDigit);
+                logger.Warn("Password validation failed: Complexity requirement not met.");
                 return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordComplexity };
             }
 
