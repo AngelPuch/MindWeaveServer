@@ -26,14 +26,12 @@ namespace MindWeaveServer.Tests.DataAccess
                 new Player { idPlayer = 2, username = "UserB", email = "b@test.com", password_hash = "hash2" }
             };
 
-            // Usamos el Helper mejorado
             var dbSetMock = SetupMockDbSet(data);
             dbSetMock.Setup(m => m.Add(It.IsAny<Player>())).Callback<Player>(p => data.Add(p));
 
             contextMock = new Mock<MindWeaveDBEntities1>();
             contextMock.Setup(c => c.Player).Returns(dbSetMock.Object);
 
-            // Fix para searchPlayersAsync que usa Friendships
             var friendsMock = SetupMockDbSet(new List<Friendships>());
             contextMock.Setup(c => c.Friendships).Returns(friendsMock.Object);
 
@@ -151,22 +149,17 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.Equal(0, res);
         }
 
-        // --- HELPER CRÍTICO CORREGIDO ---
         private Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
         {
             var mock = new Mock<DbSet<T>>();
             var queryable = sourceList.AsQueryable();
 
-            // Configuración Standard de EF6 Async
             mock.As<IDbAsyncEnumerable<T>>().Setup(m => m.GetAsyncEnumerator()).Returns(new TestDbAsyncEnumerator<T>(sourceList.GetEnumerator()));
             mock.As<IQueryable<T>>().Setup(m => m.Provider).Returns(new TestDbAsyncQueryProvider<T>(queryable.Provider));
             mock.As<IQueryable<T>>().Setup(m => m.Expression).Returns(queryable.Expression);
             mock.As<IQueryable<T>>().Setup(m => m.ElementType).Returns(queryable.ElementType);
             mock.As<IQueryable<T>>().Setup(m => m.GetEnumerator()).Returns(sourceList.GetEnumerator());
 
-            // --- CORRECCIÓN CLAVE ---
-            // Configuramos los métodos virtuales que EF llama para Includes y AsNoTracking
-            // para que devuelvan el propio Mock en lugar de null.
             mock.Setup(m => m.AsNoTracking()).Returns(mock.Object);
             mock.Setup(m => m.Include(It.IsAny<string>())).Returns(mock.Object);
 

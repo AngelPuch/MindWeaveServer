@@ -183,7 +183,7 @@ namespace MindWeaveServer.Tests.DataAccess
             mock.As<IQueryable<T>>().Setup(m => m.ElementType).Returns(queryable.ElementType);
             mock.As<IQueryable<T>>().Setup(m => m.GetEnumerator()).Returns(sourceList.GetEnumerator());
 
-            // BLINDAJE
+            
             mock.Setup(m => m.AsNoTracking()).Returns(mock.Object);
             mock.Setup(m => m.Include(It.IsAny<string>())).Returns(mock.Object);
 
