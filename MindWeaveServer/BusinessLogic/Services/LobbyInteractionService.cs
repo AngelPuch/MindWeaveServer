@@ -2,6 +2,7 @@
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
@@ -65,8 +66,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (!validation.IsSuccess)
             {
-                logger.Warn("Invite blocked: {0}", validation.ErrorMessage);
-                notificationService.notifyActionFailed(context.RequesterUsername, validation.ErrorMessage);
+                notificationService.notifyActionFailed(context.RequesterUsername, validation.MessageCode);
                 return;
             }
 
@@ -83,7 +83,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (!validation.IsSuccess)
             {
-                notificationService.notifyActionFailed(context.RequesterUsername, validation.ErrorMessage);
+                notificationService.notifyKicked(context.TargetUsername, MessageCodes.NOTIFY_KICKED_BY_HOST);
                 return;
             }
 
@@ -108,16 +108,16 @@ namespace MindWeaveServer.BusinessLogic.Services
             var lobby = getLobby(context.LobbyCode);
             var validation = validationService.canStartGame(lobby, context.RequesterUsername);
 
-            if (!validation.IsSuccess)
+            if (!validation.IsSuccess )
             {
-                notificationService.notifyActionFailed(context.RequesterUsername, validation.ErrorMessage);
+                notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_START_DB_ERROR);
                 return;
             }
 
             Matches match = await updateMatchStatusAsync(context.LobbyCode, MATCH_STATUS_IN_PROGRESS);
             if (match == null)
             {
-                notificationService.notifyActionFailed(context.RequesterUsername, Lang.DatabaseErrorStartingMatch);
+                notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_START_DB_ERROR);
                 return;
             }
 
@@ -130,7 +130,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (lobby == null || !lobby.HostUsername.Equals(context.RequesterUsername, StringComparison.OrdinalIgnoreCase))
             {
-                notificationService.notifyActionFailed(context.RequesterUsername, Lang.notHost);
+                notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_NOT_HOST);
                 return;
             }
 
@@ -141,7 +141,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
-                notificationService.notifyActionFailed(context.RequesterUsername, Lang.ErrorSavingDifficultyChange);
+                notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_DIFFICULTY_CHANGE_ERROR);
             }
         }
 
@@ -151,14 +151,13 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (lobby == null)
             {
-                notificationService.notifyActionFailed(inviterUsername, Lang.LobbyDataNotFound);
+                notificationService.notifyActionFailed(inviterUsername, MessageCodes.MATCH_LOBBY_NOT_FOUND);
                 return;
             }
 
             if (lobby.Players.Count >= MAX_PLAYERS_PER_LOBBY)
             {
-                notificationService.notifyActionFailed(inviterUsername, Lang.LobbyIsFull);
-                return;
+                notificationService.notifyActionFailed(inviterUsername,MessageCodes.MATCH_LOBBY_FULL);
             }
 
             int inviterId = await getPlayerIdAsync(inviterUsername);
@@ -171,7 +170,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
-                notificationService.notifyActionFailed(inviterUsername, Lang.ErrorSendingGuestInvitation);
+                notificationService.notifyActionFailed(inviterUsername, MessageCodes.MATCH_GUEST_INVITE_SEND_ERROR);
             }
         }
 

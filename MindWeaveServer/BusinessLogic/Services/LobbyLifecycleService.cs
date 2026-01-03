@@ -2,6 +2,7 @@
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
@@ -64,20 +65,20 @@ namespace MindWeaveServer.BusinessLogic.Services
             var validation = validationService.canCreateLobby(hostUsername);
             if (!validation.IsSuccess)
             {
-                return new LobbyCreationResultDto { Success = false, Message = validation.ErrorMessage };
+                return new LobbyCreationResultDto { Success = false, MessageCode = validation.MessageCode };
             }
 
             var hostPlayer = await playerRepository.getPlayerByUsernameAsync(hostUsername);
 
             if (hostPlayer == null)
             {
-                return new LobbyCreationResultDto { Success = false, Message = Lang.ErrorPlayerNotFound };
+                return new LobbyCreationResultDto { Success = false, MessageCode = MessageCodes.AUTH_USER_NOT_FOUND };
             }
 
             Matches newMatch = await tryCreateUniqueMatchRecordAsync(hostPlayer, settings);
             if (newMatch == null)
             {
-                return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyCodeGenerationFailed };
+                return new LobbyCreationResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_CREATION_FAILED };
             }
 
             moderationManager.initializeLobby(newMatch.lobby_code);
@@ -99,15 +100,15 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return new LobbyCreationResultDto
                 {
                     Success = true,
-                    Message = Lang.lobbyCreatedSuccessfully,
+                    MessageCode = MessageCodes.MATCH_LOBBY_CREATED,
                     LobbyCode = newMatch.lobby_code,
                     InitialLobbyState = lobbyState
                 };
             }
 
-            return new LobbyCreationResultDto { Success = false, Message = Lang.lobbyRegistrationFailed };
+            return new LobbyCreationResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_CREATION_FAILED };
         }
-
+        
         public async Task joinLobbyAsync(LobbyActionContext context, IMatchmakingCallback callback)
         {
             registerMatchmakingCallback(context.RequesterUsername, callback);
@@ -117,7 +118,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             var validation = validationService.canJoinLobby(lobby, context.RequesterUsername, context.LobbyCode);
             if (!validation.IsSuccess)
             {
-                notificationService.notifyLobbyCreationFailed(context.RequesterUsername, validation.ErrorMessage);
+                notificationService.notifyLobbyCreationFailed(context.RequesterUsername, validation.MessageCode);
                 return;
             }
 
@@ -162,13 +163,13 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 if (lobby.Players.Count >= 4)
                 {
-                    return new GuestJoinResultDto { Success = false, Message = string.Format(Lang.LobbyIsFull, request.LobbyCode) };
+                    return new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_FULL};
                 }
 
                 finalGuestUsername = generateUniqueGuestName(request.LobbyCode, request.DesiredGuestUsername);
                 if (finalGuestUsername == null)
                 {
-                    return new GuestJoinResultDto { Success = false, Message = Lang.ErrorGuestUsernameGenerationFailed };
+                    return new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_GUEST_NAME_GENERATION_FAILED };
                 }
 
                 lobby.Players.Add(finalGuestUsername);
@@ -185,7 +186,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             return new GuestJoinResultDto
             {
                 Success = true,
-                Message = Lang.SuccessGuestJoinedLobby,
+                MessageCode = MessageCodes.MATCH_GUEST_JOIN_SUCCESS,
                 AssignedGuestUsername = finalGuestUsername,
                 InitialLobbyState = lobby,
                 PlayerId = -Math.Abs(finalGuestUsername.GetHashCode())
@@ -290,7 +291,7 @@ namespace MindWeaveServer.BusinessLogic.Services
         private void handleJoinFailure(LobbyStateDto lobby, string username)
         {
             revertPlayerFromMemory(lobby, username);
-            notificationService.notifyLobbyCreationFailed(username, Lang.ErrorJoiningLobbyData);
+            notificationService.notifyLobbyCreationFailed(username, MessageCodes.VALIDATION_FIELDS_REQUIRED);
         }
 
         private async Task<(byte[] bytes, string path)> resolvePuzzleResourcesAsync(int puzzleId, byte[] customBytes)
@@ -382,19 +383,29 @@ namespace MindWeaveServer.BusinessLogic.Services
         private async Task<(bool valid, GuestInvitations inv, LobbyStateDto lobby, GuestJoinResultDto error)> validateGuestJoinAsync(GuestJoinRequestDto req)
         {
             if (req == null || string.IsNullOrWhiteSpace(req.LobbyCode) || string.IsNullOrWhiteSpace(req.GuestEmail))
-                return (false, null, null, new GuestJoinResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired });
+            {
+                return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED });
+            }
 
-            if (!gameStateManager.ActiveLobbies.TryGetValue(req.LobbyCode, out var lobby))
-                return (false, null, null, new GuestJoinResultDto { Success = false, Message = string.Format(Lang.lobbyNotFoundOrInactive, req.LobbyCode) });
+            if (!gameStateManager.ActiveLobbies.TryGetValue(req.LobbyCode, out var lobby)) 
+            { 
+                return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND });
+            }
 
             var match = await matchmakingRepository.getMatchByLobbyCodeAsync(req.LobbyCode);
-            if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
-                return (false, null, null, new GuestJoinResultDto { Success = false, Message = string.Format(Lang.lobbyNotFoundOrInactive, req.LobbyCode) });
 
+            if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
+                return (false, null, null, new GuestJoinResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND,
+                    MessageParams = new[] { req.LobbyCode }
+                });
             var invitation = await invitationRepository.findValidInvitationAsync(match.matches_id, req.GuestEmail.Trim().ToLowerInvariant());
             if (invitation == null)
-                return (false, null, null, new GuestJoinResultDto { Success = false, Message = Lang.ErrorInvalidOrExpiredGuestInvite });
-
+            {
+                return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_GUEST_INVITE_INVALID });
+            }
             return (true, invitation, lobby, null);
         }
 

@@ -4,7 +4,7 @@ using MindWeaveServer.Contracts.DataContracts.Shared;
 namespace MindWeaveServer.Contracts.DataContracts.Authentication
 {
     [DataContract]
-    public class LoginResultDto
+    public class LoginResultDto 
     {
         [DataMember]
         public OperationResultDto OperationResult { get; set; }

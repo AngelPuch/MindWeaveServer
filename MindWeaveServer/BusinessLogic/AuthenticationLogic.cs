@@ -5,7 +5,6 @@ using MindWeaveServer.Contracts.DataContracts.Authentication;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Email.Templates;
@@ -23,9 +22,6 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        private const string RESULT_CODE_ALREADY_LOGGED_IN = "ALREADY_LOGGED_IN";
-        private const string RESULT_CODE_ACCOUNT_NOT_VERIFIED = "ACCOUNT_NOT_VERIFIED";
-        private const string EXCEPTION_MSG_DUPLICATE_USER = "DuplicateUser";
         private const int VERIFICATION_CODE_LENGTH = 6;
         private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
 
@@ -72,7 +68,12 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (DbUpdateException dbEx) when (isDuplicateKeyException(dbEx))
             {
-                throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER, dbEx);
+                logger.Warn(dbEx, "Duplicate user registration attempt.");
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_ALREADY_EXISTS
+                };
             }
         }
 
@@ -82,7 +83,11 @@ namespace MindWeaveServer.BusinessLogic
             {
                 return new LoginResultDto
                 {
-                    OperationResult = new OperationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired }
+                    OperationResult = new OperationResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED
+                    }
                 };
             }
 
@@ -92,7 +97,12 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Login validation failed.");
                 return new LoginResultDto
                 {
-                    OperationResult = new OperationResultDto { Success = false, Message = validationResult.Errors[0].ErrorMessage }
+                    OperationResult = new OperationResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR,
+                        Message = validationResult.Errors[0].ErrorMessage
+                    }
                 };
             }
 
@@ -103,7 +113,11 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Invalid login credentials provided.");
                 return new LoginResultDto
                 {
-                    OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginPasswordNotEmpty }
+                    OperationResult = new OperationResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.AUTH_INVALID_CREDENTIALS
+                    }
                 };
             }
 
@@ -112,8 +126,12 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Duplicate login attempt blocked for user: {Username}", player.username);
                 return new LoginResultDto
                 {
-                    OperationResult = new OperationResultDto { Success = false, Message = Lang.ErrorUserAlreadyLoggedIn },
-                    ResultCode = RESULT_CODE_ALREADY_LOGGED_IN
+                    OperationResult = new OperationResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.AUTH_USER_ALREADY_LOGGED_IN
+                    },
+                    ResultCode = MessageCodes.AUTH_USER_ALREADY_LOGGED_IN 
                 };
             }
 
@@ -122,8 +140,12 @@ namespace MindWeaveServer.BusinessLogic
                 logger.Warn("Login attempt on unverified account. PlayerId: {Id}", player.idPlayer);
                 return new LoginResultDto
                 {
-                    OperationResult = new OperationResultDto { Success = false, Message = Lang.LoginAccountNotVerified },
-                    ResultCode = RESULT_CODE_ACCOUNT_NOT_VERIFIED
+                    OperationResult = new OperationResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.AUTH_ACCOUNT_NOT_VERIFIED
+                    },
+                    ResultCode = MessageCodes.AUTH_ACCOUNT_NOT_VERIFIED
                 };
             }
 
@@ -132,7 +154,11 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("Login successful. PlayerId: {Id}", player.idPlayer);
             return new LoginResultDto
             {
-                OperationResult = new OperationResultDto { Success = true, Message = Lang.LoginSuccessful },
+                OperationResult = new OperationResultDto
+                {
+                    Success = true,
+                    MessageCode = MessageCodes.AUTH_LOGIN_SUCCESS
+                },
                 Username = player.username,
                 AvatarPath = player.avatar_path,
                 PlayerId = player.idPlayer
@@ -143,78 +169,126 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
             {
-                return new OperationResultDto { Success = false, Message = Lang.VerificationEmailAndCodeRequired };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_EMAIL_CODE_REQUIRED
+                };
             }
 
             if (!isVerificationCodeValidFormat(code))
             {
                 logger.Warn("Verification code format invalid.");
-                return new OperationResultDto { Success = false, Message = Lang.VerificationCodeInvalidFormat };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_CODE_INVALID_FORMAT
+                };
             }
 
             var player = await playerRepository.getPlayerByEmailAsync(email);
             if (player == null)
             {
                 logger.Warn("Verification failed: Player not found.");
-                return new OperationResultDto { Success = false, Message = Lang.VerificationEmailNotFound };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
+                };
             }
 
             if (player.is_verified)
             {
                 logger.Warn("Account already verified. PlayerId: {Id}", player.idPlayer);
-                return new OperationResultDto { Success = false, Message = Lang.VerificationAccountAlreadyVerified };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_ACCOUNT_ALREADY_VERIFIED
+                };
             }
 
             if (!checkCodeValidity(player, code))
             {
                 logger.Warn("Invalid or expired verification code. PlayerId: {Id}", player.idPlayer);
-                return new OperationResultDto { Success = false, Message = Lang.VerificationInvalidOrExpiredCode };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_CODE_INVALID_OR_EXPIRED
+                };
             }
 
             markPlayerAsVerified(player);
             await playerRepository.updatePlayerAsync(player);
 
             logger.Info("Account verified successfully. PlayerId: {Id}", player.idPlayer);
-            return new OperationResultDto { Success = true, Message = Lang.VerificationSuccessful };
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_VERIFICATION_SUCCESS
+            };
         }
 
         public async Task<OperationResultDto> resendVerificationCodeAsync(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
             {
-                return new OperationResultDto { Success = false, Message = Lang.ValidationEmailRequired };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_EMAIL_REQUIRED
+                };
             }
 
             var player = await playerRepository.getPlayerByEmailAsync(email);
             if (player == null)
             {
                 logger.Warn("Resend code failed: Player not found.");
-                return new OperationResultDto { Success = false, Message = Lang.VerificationEmailNotFound };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
+                };
             }
 
             if (player.is_verified)
             {
-                return new OperationResultDto { Success = false, Message = Lang.VerificationAccountAlreadyVerified };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_ACCOUNT_ALREADY_VERIFIED
+                };
             }
 
             await generateAndSaveNewCodeAsync(player);
             await sendVerificationEmailSafeAsync(player.email, player.username, player.verification_code, player.idPlayer);
 
-            return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_VERIFICATION_CODE_RESENT
+            };
         }
 
         public async Task<OperationResultDto> sendPasswordRecoveryCodeAsync(string email)
         {
             if (string.IsNullOrWhiteSpace(email))
             {
-                return new OperationResultDto { Success = false, Message = Lang.ValidationEmailRequired };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_EMAIL_REQUIRED
+                };
             }
 
             var player = await playerRepository.getPlayerByEmailAsync(email);
             if (player == null)
             {
                 logger.Warn("Recovery code failed: Player not found.");
-                return new OperationResultDto { Success = false, Message = Lang.ErrorAccountNotFound };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
+                };
             }
 
             await generateAndSaveNewCodeAsync(player);
@@ -224,37 +298,62 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Info("Recovery code sent. PlayerId: {Id}", player.idPlayer);
 
-            return new OperationResultDto { Success = true, Message = Lang.InfoRecoveryCodeSent };
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_RECOVERY_CODE_SENT
+            };
         }
 
         public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
         {
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(newPassword))
             {
-                return new OperationResultDto { Success = false, Message = Lang.ErrorAllFieldsRequired };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED
+                };
             }
 
             if (!isVerificationCodeValidFormat(code))
             {
-                return new OperationResultDto { Success = false, Message = Lang.VerificationCodeInvalidFormat };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_CODE_INVALID_FORMAT
+                };
             }
 
             var passwordValidation = passwordPolicyValidator.validate(newPassword);
             if (!passwordValidation.Success)
             {
+               
+                if (string.IsNullOrEmpty(passwordValidation.MessageCode))
+                {
+                    passwordValidation.MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR;
+                }
                 return passwordValidation;
             }
 
             var player = await playerRepository.getPlayerByEmailAsync(email);
             if (player == null)
             {
-                return new OperationResultDto { Success = false, Message = Lang.ErrorAccountNotFound };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
+                };
             }
 
             if (!checkCodeValidity(player, code))
             {
                 logger.Warn("Reset password failed: Invalid code. PlayerId: {Id}", player.idPlayer);
-                return new OperationResultDto { Success = false, Message = Lang.VerificationInvalidOrExpiredCode };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_CODE_INVALID_OR_EXPIRED
+                };
             }
 
             player.password_hash = passwordService.hashPassword(newPassword);
@@ -264,7 +363,11 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Info("Password reset successful. PlayerId: {Id}", player.idPlayer);
 
-            return new OperationResultDto { Success = true, Message = Lang.InfoPasswordResetSuccess };
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_PASSWORD_RESET_SUCCESS
+            };
         }
 
         public void logout(string username)
@@ -279,20 +382,33 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (userProfile == null)
             {
-                return new OperationResultDto { Success = false, Message = Lang.ValidationProfileOrPasswordRequired };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_PROFILE_PASSWORD_REQUIRED
+                };
             }
 
             ValidationResult profileResult = await profileValidator.ValidateAsync(userProfile);
             if (!profileResult.IsValid)
             {
                 logger.Warn("Profile validation failed. ErrorCode: {Error}", profileResult.Errors[0].ErrorCode);
-                return new OperationResultDto { Success = false, Message = profileResult.Errors[0].ErrorMessage };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR,
+                    Message = profileResult.Errors[0].ErrorMessage
+                };
             }
 
             var passwordResult = passwordPolicyValidator.validate(password);
             if (!passwordResult.Success)
             {
                 logger.Warn("Password validation failed.");
+                if (string.IsNullOrEmpty(passwordResult.MessageCode))
+                {
+                    passwordResult.MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR;
+                }
                 return passwordResult;
             }
 
@@ -302,7 +418,7 @@ namespace MindWeaveServer.BusinessLogic
         private async Task<OperationResultDto> processPlayerRegistrationAsync(UserProfileDto userProfile, string password)
         {
             var existingPlayer = await playerRepository.getPlayerByUsernameAsync(userProfile.Username)
-                              ?? await playerRepository.getPlayerByEmailAsync(userProfile.Email);
+                             ?? await playerRepository.getPlayerByEmailAsync(userProfile.Email);
 
             if (existingPlayer != null)
             {
@@ -317,7 +433,12 @@ namespace MindWeaveServer.BusinessLogic
             if (existingPlayer.is_verified)
             {
                 logger.Warn("Registration attempt on already verified account. PlayerId: {Id}", existingPlayer.idPlayer);
-                throw new InvalidOperationException(EXCEPTION_MSG_DUPLICATE_USER);
+                // Retornamos DTO con error en lugar de lanzar excepcion lógica
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_ALREADY_EXISTS
+                };
             }
 
             updatePlayerEntity(existingPlayer, userProfile, password);
@@ -330,7 +451,11 @@ namespace MindWeaveServer.BusinessLogic
 
             await sendVerificationEmailSafeAsync(existingPlayer.email, existingPlayer.username, newCode, existingPlayer.idPlayer);
 
-            return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_REGISTRATION_SUCCESS
+            };
         }
 
         private async Task<OperationResultDto> handleNewPlayerRegistrationAsync(UserProfileDto userProfile, string password)
@@ -346,9 +471,14 @@ namespace MindWeaveServer.BusinessLogic
             await sendVerificationEmailSafeAsync(newPlayer.email, newPlayer.username, code, newPlayer.idPlayer);
 
             logger.Info("New player registered successfully. PlayerId: {Id}", newPlayer.idPlayer);
-            return new OperationResultDto { Success = true, Message = Lang.RegistrationSuccessful };
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_REGISTRATION_SUCCESS
+            };
         }
 
+        // ... [Los métodos privados auxiliares (isVerificationCodeValidFormat, createNewPlayerEntity, etc) se mantienen igual] ...
         private static bool isVerificationCodeValidFormat(string code)
         {
             return code != null && code.Length == VERIFICATION_CODE_LENGTH && code.All(char.IsDigit);

@@ -3,22 +3,24 @@
     public class ValidationResult
     {
         public bool IsSuccess { get; private set; }
-        public string ErrorMessage { get; private set; }
+        public string MessageCode { get; private set; } 
+        public string[] MessageParams { get; private set; }
 
-        private ValidationResult(bool success, string message)
+        private ValidationResult(bool isSuccess, string messageCode, string[] parameters)
         {
-            IsSuccess = success;
-            ErrorMessage = message;
+            IsSuccess = isSuccess;
+            MessageCode = messageCode;
+            MessageParams = parameters;
         }
 
         public static ValidationResult success()
         {
-            return new ValidationResult(true, string.Empty);
+            return new ValidationResult(true, null, null);
         }
 
-        public static ValidationResult failure(string message)
+        public static ValidationResult failure(string messageCode, params string[] parameters)
         {
-            return new ValidationResult(false, message);
+            return new ValidationResult(false, messageCode, parameters);
         }
     }
 }

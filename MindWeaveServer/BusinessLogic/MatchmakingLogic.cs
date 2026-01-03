@@ -4,7 +4,7 @@ using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
+using MindWeaveServer.Contracts.DataContracts.Shared; // Importante para MessageCodes
 using NLog;
 using System;
 using System.Threading.Tasks;
@@ -19,9 +19,7 @@ namespace MindWeaveServer.BusinessLogic
         private readonly ILobbyInteractionService interactionService;
         private readonly INotificationService notificationService;
         private readonly IGameStateManager gameStateManager;
-
         private readonly GameSessionManager gameSessionManager;
-
         private readonly IPlayerRepository playerRepository;
         private readonly IMatchmakingRepository matchmakingRepository;
 
@@ -30,7 +28,6 @@ namespace MindWeaveServer.BusinessLogic
         public const int INVALID_PLAYER_ID = 0;
         public const string PROFANITY_REASON_TEXT = "Profanity";
 
-
         public MatchmakingLogic(
             ILobbyLifecycleService lifecycleService,
             ILobbyInteractionService interactionService,
@@ -38,8 +35,7 @@ namespace MindWeaveServer.BusinessLogic
             IGameStateManager gameStateManager,
             GameSessionManager gameSessionManager,
             IPlayerRepository playerRepository,
-            IMatchmakingRepository matchmakingRepository
-            )
+            IMatchmakingRepository matchmakingRepository)
         {
             this.lifecycleService = lifecycleService;
             this.interactionService = interactionService;
@@ -51,6 +47,8 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Info("MatchmakingLogic Facade initialized.");
         }
+
+        // ... [Los métodos de delegación (createLobbyAsync, joinLobbyAsync, etc.) se mantienen igual] ...
 
         public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
         {
@@ -125,11 +123,13 @@ namespace MindWeaveServer.BusinessLogic
             gameStateManager.MatchmakingCallbacks.AddOrUpdate(username, callback, (k, v) => callback);
         }
 
+        // --- Lógica Corregida ---
+
         public async Task expelPlayerAsync(string lobbyCode, string username, string reasonText)
         {
             logger.Info("ExpelPlayerAsync (System) for {0} in {1}. Reason: {2}", username, lobbyCode, reasonText);
 
-            var (reasonId, kickMessage) = determineExpulsionDetails(reasonText);
+            var (reasonId, messageCode) = determineExpulsionDetails(reasonText);
             int hostId = await getHostIdAsync(lobbyCode);
 
             var session = gameSessionManager.getSession(lobbyCode);
@@ -140,15 +140,20 @@ namespace MindWeaveServer.BusinessLogic
             }
             else
             {
-                await expelFromLobbyStateAsync(lobbyCode, username, reasonId, hostId, kickMessage);
+                await expelFromLobbyStateAsync(lobbyCode, username, reasonId, hostId, messageCode);
             }
         }
 
-        private static (int reasonId, string message) determineExpulsionDetails(string reasonText)
+        private static (int reasonId, string messageCode) determineExpulsionDetails(string reasonText)
         {
             int reasonId = (reasonText == PROFANITY_REASON_TEXT) ? ID_REASON_PROFANITY : ID_REASON_HOST_DECISION;
-            string message = (reasonId == ID_REASON_PROFANITY) ? Lang.KickMessageProfanity : Lang.KickedByHost;
-            return (reasonId, message);
+
+            // CAMBIO: Retornar MessageCode en lugar de Lang string
+            string messageCode = (reasonId == ID_REASON_PROFANITY)
+                ? MessageCodes.NOTIFY_KICKED_PROFANITY
+                : MessageCodes.NOTIFY_KICKED_BY_HOST;
+
+            return (reasonId, messageCode);
         }
 
         private async Task<int> getHostIdAsync(string lobbyCode)
@@ -174,11 +179,12 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private async Task expelFromLobbyStateAsync(string lobbyCode, string username, int reasonId, int hostId, string kickMessage)
+        private async Task expelFromLobbyStateAsync(string lobbyCode, string username, int reasonId, int hostId, string messageCode)
         {
             await registerLobbyExpulsionInDbAsync(lobbyCode, username, reasonId, hostId);
 
-            notificationService.notifyKicked(username, kickMessage);
+            // CAMBIO: Se envía el messageCode
+            notificationService.notifyKicked(username, messageCode);
 
             updateLobbyStateAndNotify(lobbyCode, username);
         }
@@ -201,8 +207,7 @@ namespace MindWeaveServer.BusinessLogic
             }
             else
             {
-                logger.Warn("RegisterLobbyExpulsionInDb: Match or player not found. Match: {0}, Player: {1}",
-                    match != null, player != null);
+                logger.Warn("RegisterLobbyExpulsionInDb: Match or player not found.");
             }
         }
 
