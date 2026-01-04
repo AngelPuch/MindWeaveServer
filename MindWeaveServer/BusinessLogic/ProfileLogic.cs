@@ -99,11 +99,13 @@ namespace MindWeaveServer.BusinessLogic
             var validationResult = await profileEditValidator.ValidateAsync(updatedProfileData);
             if (!validationResult.IsValid)
             {
+                var firstError = validationResult.Errors[0];
+
                 logger.Warn("Update profile failed for {Username}: Validation failed.", username ?? "NULL");
                 return new OperationResultDto
                 {
                     Success = false,
-                    MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR
+                    MessageCode = firstError.ErrorCode
                 };
             }
 
