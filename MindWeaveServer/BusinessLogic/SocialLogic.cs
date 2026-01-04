@@ -8,6 +8,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.Concurrent; 
+using System.Threading; 
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -19,11 +21,20 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IFriendshipRepository friendshipRepository;
 
         private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
+        private static readonly ConcurrentDictionary<string, SemaphoreSlim> locks = new ConcurrentDictionary<string, SemaphoreSlim>();
 
         public SocialLogic(IPlayerRepository playerRepo, IFriendshipRepository friendshipRepo)
         {
             this.playerRepository = playerRepo;
             this.friendshipRepository = friendshipRepo;
+        }
+        private SemaphoreSlim getLockForUsers(string user1, string user2)
+        {
+            string key = string.Compare(user1, user2, StringComparison.OrdinalIgnoreCase) < 0
+                ? $"{user1.ToLower()}_{user2.ToLower()}"
+                : $"{user2.ToLower()}_{user1.ToLower()}";
+
+            return locks.GetOrAdd(key, k => new SemaphoreSlim(1, 1));
         }
 
         public async Task<List<PlayerSearchResultDto>> searchPlayersAsync(string requesterUsername, string query)
@@ -67,28 +78,42 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
-            var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
-            var target = await playerRepository.getPlayerByUsernameAsync(targetUsername);
+            var userLock = getLockForUsers(requesterUsername, targetUsername);
+            await userLock.WaitAsync();
 
-            if (requester == null || target == null)
+            try
             {
-                logger.Warn("Send friend request failed: Requester (Found={RequesterFound}) or Target (Found={TargetFound}) player not found.",
-                    requester != null, target != null);
-                return new OperationResultDto
+                var requester = await playerRepository.getPlayerByUsernameAsync(requesterUsername);
+                var target = await playerRepository.getPlayerByUsernameAsync(targetUsername);
+
+                if (requester == null || target == null)
                 {
-                    Success = false,
-                    MessageCode = MessageCodes.SOCIAL_USER_NOT_FOUND
-                };
+                    return new OperationResultDto { Success = false, MessageCode = MessageCodes.SOCIAL_USER_NOT_FOUND };
+                }
+
+                var existingFriendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, target.idPlayer);
+
+                if (existingFriendship != null)
+                {
+                    if (existingFriendship.status_id == FriendshipStatusConstants.PENDING &&
+                        existingFriendship.requester_id == target.idPlayer)
+                    {
+                        existingFriendship.status_id = FriendshipStatusConstants.ACCEPTED;
+                        friendshipRepository.updateFriendship(existingFriendship);
+
+              
+                        return new OperationResultDto { Success = true, MessageCode = MessageCodes.SOCIAL_FRIEND_REQUEST_ACCEPTED };
+                    }
+
+                    return handleExistingFriendship(existingFriendship, requester, target);
+                }
+
+                return createNewFriendship(requester, target);
             }
-
-            var existingFriendship = await friendshipRepository.findFriendshipAsync(requester.idPlayer, target.idPlayer);
-
-            if (existingFriendship != null)
+            finally
             {
-                return handleExistingFriendship(existingFriendship, requester, target);
+                userLock.Release();
             }
-
-            return createNewFriendship(requester, target);
         }
 
         public async Task<OperationResultDto> respondToFriendRequestAsync(string responderUsername, string requesterUsername, bool accepted)

@@ -113,7 +113,15 @@ namespace MindWeaveServer.Services
 
                 if (result.Success)
                 {
-                    sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
+                    if (result.MessageCode == MessageCodes.SOCIAL_FRIEND_REQUEST_ACCEPTED)
+                    {
+                        sendNotificationToUser(targetUsername, cb => cb.notifyFriendResponse(requesterUsername, true));
+                        sendNotificationToUser(targetUsername, cb => cb.notifyFriendStatusChanged(requesterUsername, true));
+                    }
+                    else
+                    {
+                        sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
+                    }
                 }
 
                 return result;
@@ -134,7 +142,7 @@ namespace MindWeaveServer.Services
 
                 if (result.Success)
                 {
-                    await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted);
+                    Task.Run(async () => await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted));
                 }
 
                 return result;
