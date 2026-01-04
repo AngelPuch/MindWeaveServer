@@ -167,21 +167,25 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            if (pieceState.IsPlaced)
+            lock (pieceState)
             {
-                logger.Warn("Player {PlayerId} tried to drag placed piece {PieceId}", playerId, pieceId);
-                return;
+                if (pieceState.IsPlaced)
+                {
+                    logger.Warn("Player {PlayerId} tried to drag placed piece {PieceId}", playerId, pieceId);
+                    return;
+                }
+
+                if (pieceState.HeldByPlayerId.HasValue && pieceState.HeldByPlayerId.Value != playerId)
+                {
+                    logger.Warn("Player {PlayerId} tried to drag piece {PieceId} already held by {OtherPlayerId}",
+                        playerId, pieceId, pieceState.HeldByPlayerId.Value);
+                    return;
+                }
+
+                pieceState.HeldByPlayerId = playerId;
+                pieceState.GrabTime = DateTime.UtcNow;
             }
 
-            if (pieceState.HeldByPlayerId.HasValue && pieceState.HeldByPlayerId.Value != playerId)
-            {
-                logger.Warn("Player {PlayerId} tried to drag piece {PieceId} already held by {OtherPlayerId}",
-                    playerId, pieceId, pieceState.HeldByPlayerId.Value);
-                return;
-            }
-
-            pieceState.HeldByPlayerId = playerId;
-            pieceState.GrabTime = DateTime.UtcNow;
             broadcast(callback => callback.onPieceDragStarted(pieceId, player.Username));
         }
 
