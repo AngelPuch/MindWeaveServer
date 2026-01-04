@@ -23,11 +23,13 @@ namespace MindWeaveServer.Utilities.Email
         {
             logger.Info("SmtpEmailService (MailKit) instance created.");
 
-            host = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_HOST");
-            string portStr = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PORT");
-            user = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_USER");
-            pass = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PASS");
+            host = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_HOST")?.Trim();
+            string portStr = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PORT")?.Trim();
+            user = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_USER")?.Trim();
+            pass = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PASS")?.Trim();
             senderName = "Mind Weave Team";
+
+            logger.Info($"SMTP Config Read - Host: '{host}', Port: '{portStr}', User: '{user}'");
 
             try
             {
