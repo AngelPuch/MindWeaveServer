@@ -117,7 +117,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "Pass" });
 
             Assert.False(result.OperationResult.Success);
-            Assert.Equal("ALREADY_LOGGED_IN", result.ResultCode);
+            Assert.Equal("AUTH_USER_ALREADY_LOGGED_IN", result.ResultCode);
         }
 
         [Fact]
@@ -129,7 +129,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "Pass" });
 
-            Assert.Equal("ACCOUNT_NOT_VERIFIED", result.ResultCode);
+            Assert.Equal("AUTH_ACCOUNT_NOT_VERIFIED", result.ResultCode);
         }
 
         [Fact]
@@ -220,14 +220,19 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task registerPlayerAsyncExistingVerifiedUserThrowsException()
+        public async Task registerPlayerAsyncExistingVerifiedUserReturnsFailure()
         {
             var existing = new Player { is_verified = true };
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Exist")).ReturnsAsync(existing);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Exist"))
+                .ReturnsAsync(existing);
 
-            await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                authenticationLogic.registerPlayerAsync(new UserProfileDto { Username = "Exist" }, "Pass"));
+            var result = await authenticationLogic.registerPlayerAsync(
+                new UserProfileDto { Username = "Exist" }, "Pass");
+
+            Assert.False(result.Success);
+            Assert.Equal(MessageCodes.AUTH_USER_ALREADY_EXISTS, result.MessageCode);
         }
+
 
         [Fact]
         public async Task registerPlayerAsyncExistingUnverifiedUserUpdatesPlayer()

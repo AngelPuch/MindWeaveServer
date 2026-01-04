@@ -3,9 +3,9 @@ using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
@@ -13,7 +13,6 @@ using System.Data.Entity.Core;
 using System.Data.Entity.Infrastructure;
 using System.Data.SqlClient;
 using System.IO;
-using System.Net.Sockets;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -96,7 +95,7 @@ namespace MindWeaveServer.Services
                 return new LobbyCreationResultDto
                 {
                     Success = false,
-                    Message = Lang.ErrorCommunicationChannelFailed
+                    MessageCode = MessageCodes.ERROR_COMMUNICATION_CHANNEL
                 };
             }
 
@@ -122,7 +121,7 @@ namespace MindWeaveServer.Services
             if (!ensureSessionIsRegistered(username))
             {
                 logger.Warn("JoinLobby failed: Session could not be registered.");
-                trySendCallback(cb => cb.lobbyCreationFailed(Lang.ErrorCommunicationChannelFailed));
+                trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.ERROR_COMMUNICATION_CHANNEL));
                 return;
             }
 
@@ -137,19 +136,19 @@ namespace MindWeaveServer.Services
                 catch (EntityException dbEx)
                 {
                     logger.Error(dbEx, "Database error joining lobby: {LobbyId}", lobbyId);
-                    trySendCallback(cb => cb.lobbyCreationFailed(Lang.ErrorJoiningLobbyData));
+                    trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.MATCH_JOIN_ERROR_DATA));
                     await handleDisconnect();
                 }
                 catch (SqlException sqlEx)
                 {
                     logger.Error(sqlEx, "SQL error joining lobby: {LobbyId}", lobbyId);
-                    trySendCallback(cb => cb.lobbyCreationFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.ERROR_SERVER_GENERIC));
                     await handleDisconnect();
                 }
                 catch (TimeoutException timeEx)
                 {
                     logger.Error(timeEx, "Timeout joining lobby: {LobbyId}", lobbyId);
-                    trySendCallback(cb => cb.lobbyCreationFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.ERROR_SERVER_GENERIC));
                     await handleDisconnect();
                 }
             });
@@ -209,37 +208,37 @@ namespace MindWeaveServer.Services
                 catch (EntityException ex)
                 {
                     logger.Error(ex, "Database error starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.DatabaseErrorStartingMatch));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_START_DB_ERROR));
                 }
                 catch (DbUpdateException ex)
                 {
                     logger.Error(ex, "Database update error starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.DatabaseErrorStartingMatch));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_START_DB_ERROR));
                 }
                 catch (SqlException ex)
                 {
                     logger.Error(ex, "SQL error starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
                 catch (TimeoutException ex)
                 {
                     logger.Error(ex, "Timeout starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
                 catch (FileNotFoundException ex)
                 {
                     logger.Error(ex, "Puzzle file not found for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorPuzzleFileNotFound));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_PUZZLE_FILE_NOT_FOUND));
                 }
                 catch (InvalidOperationException ex)
                 {
                     logger.Error(ex, "Invalid operation starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
                 catch (Exception ex)
                 {
                     logger.Fatal(ex, "UNHANDLED EXCEPTION starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed("Internal Server Error"));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
             });
         }
@@ -263,12 +262,12 @@ namespace MindWeaveServer.Services
                 catch (EntityException ex)
                 {
                     logger.Error(ex, "Database error kicking player from lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
                 catch (SqlException ex)
                 {
                     logger.Error(ex, "SQL error kicking player from lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
                 catch (CommunicationException ex)
                 {
@@ -296,7 +295,7 @@ namespace MindWeaveServer.Services
                 catch (CommunicationException ex)
                 {
                     logger.Warn(ex, "Communication error inviting player to lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorCommunicationChannelFailed));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_COMMUNICATION_ERROR));
                 }
                 catch (ObjectDisposedException ex)
                 {
@@ -325,17 +324,17 @@ namespace MindWeaveServer.Services
                 catch (EntityException ex)
                 {
                     logger.Error(ex, "Database error changing difficulty for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSavingDifficultyChange));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_DIFFICULTY_CHANGE_ERROR));
                 }
                 catch (DbUpdateException ex)
                 {
                     logger.Error(ex, "Database update error changing difficulty for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSavingDifficultyChange));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_DIFFICULTY_CHANGE_ERROR));
                 }
                 catch (SqlException ex)
                 {
                     logger.Error(ex, "SQL error changing difficulty for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
             });
         }
@@ -366,22 +365,22 @@ namespace MindWeaveServer.Services
                 catch (EntityException ex)
                 {
                     logger.Error(ex, "Database error sending guest invite for lobby: {0}", invitationData.LobbyCode);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSendingGuestInvitation));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_GUEST_INVITE_SEND_ERROR));
                 }
                 catch (DbUpdateException ex)
                 {
                     logger.Error(ex, "Database update error sending guest invite for lobby: {0}", invitationData.LobbyCode);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorSendingGuestInvitation));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_GUEST_INVITE_SEND_ERROR));
                 }
-                catch (SocketException ex)
+                catch (System.Net.Sockets.SocketException ex)
                 {
                     logger.Error(ex, "Email service error for lobby: {0}", invitationData.LobbyCode);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.ErrorEmailServiceUnavailable));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_COMMUNICATION_CHANNEL));
                 }
                 catch (TimeoutException ex)
                 {
                     logger.Error(ex, "Timeout sending guest invite for lobby: {0}", invitationData.LobbyCode);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(Lang.GenericServerError));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                 }
             });
         }
@@ -422,7 +421,7 @@ namespace MindWeaveServer.Services
                 return new GuestJoinResultDto
                 {
                     Success = false,
-                    Message = Lang.ErrorServiceConnectionClosing
+                    MessageCode = MessageCodes.ERROR_SERVICE_CLOSING
                 };
             }
 
@@ -563,6 +562,8 @@ namespace MindWeaveServer.Services
                 logger.Warn(ex, "RequestPieceRelease: Communication error broadcasting.");
             }
         }
+
+        #region Private Methods
 
         private int getPlayerIdFromContext()
         {
@@ -706,7 +707,6 @@ namespace MindWeaveServer.Services
                 {
                     logger.Warn(ex, "Communication error during disconnect notification for user: {0}", userToDisconnect);
                 }
-
             }
 
             currentUsername = null;
@@ -747,5 +747,7 @@ namespace MindWeaveServer.Services
                 logger.Warn(ex, "ObjectDisposedException sending callback.");
             }
         }
+
+        #endregion
     }
 }

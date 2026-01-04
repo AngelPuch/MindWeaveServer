@@ -3,11 +3,11 @@ using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Game;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Stats;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
 using NLog;
 using System;
 using System.Collections.Concurrent;
@@ -68,9 +68,9 @@ namespace MindWeaveServer.BusinessLogic
             int matchId,
             int puzzleId,
             PuzzleDefinitionDto puzzleDefinition,
-            IMatchmakingRepository matchmakingRepository, 
-            StatsLogic statsLogic,                        
-            IPuzzleRepository puzzleRepository,           
+            IMatchmakingRepository matchmakingRepository,
+            StatsLogic statsLogic,
+            IPuzzleRepository puzzleRepository,
             Action<string> onSessionEndedCleanup,
             IScoreCalculator scoreCalculator)
         {
@@ -281,8 +281,11 @@ namespace MindWeaveServer.BusinessLogic
             {
                 try
                 {
-                    string kickMessage = reasonId == KICK_REASON_PROFANITY_ID ? Lang.KickMessageProfanity : Lang.KickedByHost;
-                    playerSession.Callback?.kickedFromLobby(kickMessage);
+                    string kickMessageCode = reasonId == KICK_REASON_PROFANITY_ID
+                        ? MessageCodes.NOTIFY_KICKED_PROFANITY
+                        : MessageCodes.NOTIFY_KICKED_BY_HOST;
+
+                    playerSession.Callback?.kickedFromLobby(kickMessageCode);
                 }
                 catch (CommunicationException ex)
                 {
@@ -348,7 +351,6 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     logger.Warn(ex, "Timeout broadcasting to {0}", player.Username);
                 }
-
             }
         }
 

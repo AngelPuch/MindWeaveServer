@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 using MindWeaveServer.Contracts.DataContracts.Profile;
-using MindWeaveServer.Resources;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using System;
 
 namespace MindWeaveServer.Utilities.Validators
@@ -15,21 +15,21 @@ namespace MindWeaveServer.Utilities.Validators
         public UserProfileForEditDtoValidator()
         {
             RuleFor(x => x.FirstName)
-                .NotEmpty().WithMessage(Lang.ValidationFirstNameRequired)
-                .MaximumLength(NAME_MAX_LENGTH).WithMessage(Lang.ValidationFirstNameLength)
-                .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
-                .Matches(REGEX_LETTERS_AND_SPACES).WithMessage(Lang.ValidationOnlyLetters);
+                .NotEmpty().WithMessage(MessageCodes.VALIDATION_FIELDS_REQUIRED)
+                .MaximumLength(NAME_MAX_LENGTH).WithMessage(MessageCodes.VALIDATION_NAME_LENGTH)
+                .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(MessageCodes.VALIDATION_NO_WHITESPACE)
+                .Matches(REGEX_LETTERS_AND_SPACES).WithMessage(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
 
             RuleFor(x => x.LastName)
-                .NotEmpty().WithMessage(Lang.ValidationLastNameRequired)
-                .MaximumLength(NAME_MAX_LENGTH).WithMessage(Lang.ValidationLastNameLength)
-                .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(Lang.ValidationNoLeadingOrTrailingWhitespace)
-                .Matches(REGEX_LETTERS_AND_SPACES).WithMessage(Lang.ValidationOnlyLetters);
+                .NotEmpty().WithMessage(MessageCodes.VALIDATION_FIELDS_REQUIRED)
+                .MaximumLength(NAME_MAX_LENGTH).WithMessage(MessageCodes.VALIDATION_NAME_LENGTH)
+                .Must(notHaveLeadingOrTrailingWhitespace).WithMessage(MessageCodes.VALIDATION_NO_WHITESPACE)
+                .Matches(REGEX_LETTERS_AND_SPACES).WithMessage(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
 
             RuleFor(x => x.DateOfBirth)
-                .NotNull().WithMessage(Lang.ValidationDateOfBirthRequired)
-                .Must(beAValidAge).WithMessage(Lang.ValidationDateOfBirthMinimumAge)
-                .Must(beARealisticAge).WithMessage(Lang.ValidationDateOfBirthRealistic);
+                .NotNull().WithMessage(MessageCodes.VALIDATION_DATE_REQUIRED)
+                .Must(beAValidAge).WithMessage(MessageCodes.VALIDATION_AGE_MINIMUM)
+                .Must(beARealisticAge).WithMessage(MessageCodes.VALIDATION_AGE_REALISTIC);
         }
 
         private static bool notHaveLeadingOrTrailingWhitespace(string value)

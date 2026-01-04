@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
-using MindWeaveServer.Resources;
+using MindWeaveServer.Contracts.DataContracts.Shared; // Importante
 
 namespace MindWeaveServer.Utilities.Validators
 {
@@ -9,10 +9,10 @@ namespace MindWeaveServer.Utilities.Validators
         public LoginDtoValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage(x => Lang.ValidationEmailRequired);
+                .NotEmpty().WithMessage(MessageCodes.VALIDATION_EMAIL_REQUIRED);
 
             RuleFor(x => x.Password)
-                .NotEmpty().WithMessage(x => Lang.ValidationPasswordRequired);
+                .NotEmpty().WithMessage(MessageCodes.VALIDATION_PASSWORD_REQUIRED);
         }
     }
 }

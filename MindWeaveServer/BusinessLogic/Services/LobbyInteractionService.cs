@@ -6,7 +6,6 @@ using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Email;
 using MindWeaveServer.Utilities.Email.Templates;
 using NLog;
@@ -37,7 +36,6 @@ namespace MindWeaveServer.BusinessLogic.Services
         private const int GUEST_EXPIRY_MINUTES = 10;
         private const int INVALID_ID = 0;
         private const int MAX_PLAYERS_PER_LOBBY = 4;
-
 
         public LobbyInteractionService(
             IGameStateManager gameStateManager,
@@ -83,7 +81,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (!validation.IsSuccess)
             {
-                notificationService.notifyKicked(context.TargetUsername, MessageCodes.NOTIFY_KICKED_BY_HOST);
+                notificationService.notifyActionFailed(context.RequesterUsername, validation.MessageCode);
                 return;
             }
 
@@ -108,9 +106,9 @@ namespace MindWeaveServer.BusinessLogic.Services
             var lobby = getLobby(context.LobbyCode);
             var validation = validationService.canStartGame(lobby, context.RequesterUsername);
 
-            if (!validation.IsSuccess )
+            if (!validation.IsSuccess)
             {
-                notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_START_DB_ERROR);
+                notificationService.notifyActionFailed(context.RequesterUsername, validation.MessageCode);
                 return;
             }
 
@@ -157,7 +155,8 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (lobby.Players.Count >= MAX_PLAYERS_PER_LOBBY)
             {
-                notificationService.notifyActionFailed(inviterUsername,MessageCodes.MATCH_LOBBY_FULL);
+                notificationService.notifyActionFailed(inviterUsername, MessageCodes.MATCH_LOBBY_FULL);
+                return;
             }
 
             int inviterId = await getPlayerIdAsync(inviterUsername);
@@ -203,7 +202,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 });
             }
 
-            notificationService.notifyKicked(targetUsername, Lang.KickedByHost);
+            notificationService.notifyKicked(targetUsername, MessageCodes.NOTIFY_KICKED_BY_HOST);
         }
 
         private void removePlayerFromMemory(LobbyStateDto lobby, string username)
@@ -272,7 +271,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Warn("CreateSession: Player map is empty (callbacks missing?). Canceling match {0}.", match.matches_id);
                 await updateMatchStatusAsync(lobby.LobbyId, MATCH_STATUS_CANCELED);
-                notificationService.notifyActionFailed(lobby.HostUsername, "Error: No players found with active connections.");
+                notificationService.notifyActionFailed(lobby.HostUsername, MessageCodes.MATCH_NO_ACTIVE_CONNECTIONS);
                 return;
             }
 

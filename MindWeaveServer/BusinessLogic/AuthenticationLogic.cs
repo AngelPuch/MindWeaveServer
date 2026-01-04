@@ -16,6 +16,7 @@ using System.Linq;
 using System.Net.Mail;
 using System.Threading.Tasks;
 
+
 namespace MindWeaveServer.BusinessLogic
 {
     public class AuthenticationLogic
@@ -100,8 +101,7 @@ namespace MindWeaveServer.BusinessLogic
                     OperationResult = new OperationResultDto
                     {
                         Success = false,
-                        MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR,
-                        Message = validationResult.Errors[0].ErrorMessage
+                        MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR
                     }
                 };
             }
@@ -131,7 +131,7 @@ namespace MindWeaveServer.BusinessLogic
                         Success = false,
                         MessageCode = MessageCodes.AUTH_USER_ALREADY_LOGGED_IN
                     },
-                    ResultCode = MessageCodes.AUTH_USER_ALREADY_LOGGED_IN 
+                    ResultCode = MessageCodes.AUTH_USER_ALREADY_LOGGED_IN
                 };
             }
 
@@ -328,7 +328,6 @@ namespace MindWeaveServer.BusinessLogic
             var passwordValidation = passwordPolicyValidator.validate(newPassword);
             if (!passwordValidation.Success)
             {
-               
                 if (string.IsNullOrEmpty(passwordValidation.MessageCode))
                 {
                     passwordValidation.MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR;
@@ -396,8 +395,7 @@ namespace MindWeaveServer.BusinessLogic
                 return new OperationResultDto
                 {
                     Success = false,
-                    MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR,
-                    Message = profileResult.Errors[0].ErrorMessage
+                    MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR
                 };
             }
 
@@ -433,7 +431,6 @@ namespace MindWeaveServer.BusinessLogic
             if (existingPlayer.is_verified)
             {
                 logger.Warn("Registration attempt on already verified account. PlayerId: {Id}", existingPlayer.idPlayer);
-                // Retornamos DTO con error en lugar de lanzar excepcion lógica
                 return new OperationResultDto
                 {
                     Success = false,
@@ -448,7 +445,6 @@ namespace MindWeaveServer.BusinessLogic
             existingPlayer.code_expiry_date = verificationCodeService.getVerificationExpiryTime();
 
             await playerRepository.updatePlayerAsync(existingPlayer);
-
             await sendVerificationEmailSafeAsync(existingPlayer.email, existingPlayer.username, newCode, existingPlayer.idPlayer);
 
             return new OperationResultDto
@@ -478,7 +474,6 @@ namespace MindWeaveServer.BusinessLogic
             };
         }
 
-        // ... [Los métodos privados auxiliares (isVerificationCodeValidFormat, createNewPlayerEntity, etc) se mantienen igual] ...
         private static bool isVerificationCodeValidFormat(string code)
         {
             return code != null && code.Length == VERIFICATION_CODE_LENGTH && code.All(char.IsDigit);

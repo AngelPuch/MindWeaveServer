@@ -88,7 +88,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             await chatLogic.processAndBroadcastMessageAsync(username, lobbyCode, profaneContent);
 
             userCallbackMock.Verify(c => c.receiveLobbyMessage(It.IsAny<ChatMessageDto>()), Times.Never);
-            userCallbackMock.Verify(c => c.receiveSystemMessage(It.Is<string>(s => s.Contains("WARN_STRIKE"))), Times.Once);
+            userCallbackMock.Verify(c => c.receiveSystemMessage(It.Is<string>(s => s.StartsWith("CHAT_PROFANITY_WARNING"))), Times.Once);
             Assert.Empty(lobbyChatHistoryMock[lobbyCode]);
         }
 

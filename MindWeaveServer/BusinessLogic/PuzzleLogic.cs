@@ -1,13 +1,13 @@
-﻿using MindWeaveServer.DataAccess;
+﻿using MindWeaveServer.Contracts.DataContracts.Puzzle;
+using MindWeaveServer.Contracts.DataContracts.Shared;
+using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
+using MindWeaveServer.Utilities;
 using NLog;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using MindWeaveServer.Contracts.DataContracts.Puzzle;
-using MindWeaveServer.Utilities;
 
 namespace MindWeaveServer.BusinessLogic
 {
@@ -78,7 +78,11 @@ namespace MindWeaveServer.BusinessLogic
                 string.IsNullOrWhiteSpace(username))
             {
                 logger.Warn("uploadPuzzleImageAsync logic failed for {0}: Invalid data provided.", username ?? LOG_PLACEHOLDER_NULL);
-                return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadInvalidData };
+                return new UploadResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.PUZZLE_UPLOAD_FAILED
+                };
             }
 
             byte[] optimizedBytes = ImageUtilities.optimizeImage(imageBytes);
@@ -99,7 +103,11 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Warn("Upload Error: Player {0} not found. Cleaning up file.", username);
                 tryDeleteFileForCleanup(filePath);
-                return new UploadResultDto { Success = false, Message = Lang.ErrorPuzzleUploadPlayerNotFound };
+                return new UploadResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
+                };
             }
 
             var newPuzzle = new Puzzles
@@ -114,7 +122,7 @@ namespace MindWeaveServer.BusinessLogic
             return new UploadResultDto
             {
                 Success = true,
-                Message = Lang.SuccessPuzzleUpload,
+                MessageCode = MessageCodes.PUZZLE_UPLOAD_SUCCESS,
                 NewPuzzleId = newPuzzle.puzzle_id
             };
         }
@@ -131,20 +139,20 @@ namespace MindWeaveServer.BusinessLogic
                 return null;
             }
 
-            byte[] imageBytes = loadPuzzleImageBytes(puzzleData);
-            if (imageBytes == null)
-            {
-                logger.Error("Puzzle file not found for puzzleId: {0}", puzzleId);
-                throw new FileNotFoundException(
-                    $"Puzzle image file not found for puzzle {puzzleId}",
-                    puzzleData.image_path);
-            }
-
             var difficulty = await puzzleRepository.getDifficultyByIdAsync(difficultyId);
             if (difficulty == null)
             {
                 logger.Warn("Invalid difficultyId {0} requested.", difficultyId);
                 return null;
+            }
+
+            byte[] imageBytes = loadPuzzleImageBytes(puzzleData);
+            if (imageBytes == null || imageBytes.Length == 0)
+            {
+                logger.Error("Puzzle file not found for puzzleId: {0}", puzzleId);
+                throw new FileNotFoundException(
+                    $"Puzzle image file not found for puzzle {puzzleId}",
+                    puzzleData.image_path);
             }
 
             return PuzzleGenerator.generatePuzzle(imageBytes, difficulty);

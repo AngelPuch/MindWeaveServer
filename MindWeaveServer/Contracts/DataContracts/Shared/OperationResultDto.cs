@@ -9,9 +9,6 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
         public bool Success { get; set; }
 
         [DataMember]
-        public string Message { get; set; } 
-
-        [DataMember]
         public string MessageCode { get; set; }
 
         [DataMember]

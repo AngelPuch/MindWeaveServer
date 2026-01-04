@@ -5,7 +5,6 @@ using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.DataContracts.Social;
 using MindWeaveServer.Contracts.ServiceContracts;
-using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
@@ -61,14 +60,12 @@ namespace MindWeaveServer.Services
 
                 currentUserCallback = callbackChannel;
                 currentUsername = username;
-                string safeUsername = username ?? "Unknown";
 
                 Task.Run(async () =>
-                { 
-                    var existingCallback = gameStateManager.getUserCallback(currentUsername); 
-                    gameStateManager.addConnectedUser(currentUsername, currentUserCallback); 
-                    await handleConnectionResult(existingCallback, currentUserCallback, safeUsername);
-                    
+                {
+                    var existingCallback = gameStateManager.getUserCallback(currentUsername);
+                    gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
+                    await handleConnectionResult(existingCallback, currentUserCallback);
                 });
             }
             catch (InvalidOperationException opEx)
@@ -86,7 +83,6 @@ namespace MindWeaveServer.Services
             Task.Run(async () =>
             {
                 await processDisconnect(username);
-              
             });
         }
 
@@ -97,7 +93,7 @@ namespace MindWeaveServer.Services
                 logger.Info("Player search requested by {UserId}", requesterUsername);
 
                 validateSession(requesterUsername);
-                return  await socialLogic.searchPlayersAsync(requesterUsername, query);
+                return await socialLogic.searchPlayersAsync(requesterUsername, query);
             }
             catch (Exception ex)
             {
@@ -202,7 +198,6 @@ namespace MindWeaveServer.Services
                 throw exceptionHandler.handleException(ex, "GetFriendRequestsOperation");
             }
         }
-
         private void subscribeToChannelEvents()
         {
             if (OperationContext.Current?.Channel != null)
@@ -260,7 +255,7 @@ namespace MindWeaveServer.Services
             }
         }
 
-        private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback, string username)
+        private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback)
         {
             if (previousCallback != null && previousCallback != newCallback)
             {
@@ -301,6 +296,7 @@ namespace MindWeaveServer.Services
         private async Task handleFriendResponseSuccess(string responder, string requester, bool accepted)
         {
             sendNotificationToUser(requester, cb => cb.notifyFriendResponse(responder, accepted));
+
             if (accepted)
             {
                 await notifyFriendsStatusChange(responder, true);
@@ -405,8 +401,8 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn("Session security check failed. Expected: {Expected}, Got: {Actual}", currentUsername, username);
                 throw new FaultException<ServiceFaultDto>(
-                    new ServiceFaultDto(ServiceErrorType.SecurityError, Lang.ErrorSessionMismatch, "Session"),
-                    new FaultReason("Session Mismatch"));
+                    new ServiceFaultDto(ServiceErrorType.SecurityError, MessageCodes.ERROR_SESSION_MISMATCH, "Session"),
+                    new FaultReason(MessageCodes.ERROR_SESSION_MISMATCH));
             }
         }
     }

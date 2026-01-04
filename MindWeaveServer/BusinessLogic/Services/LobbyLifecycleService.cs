@@ -6,7 +6,6 @@ using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities;
 using NLog;
 using System;
@@ -108,7 +107,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             return new LobbyCreationResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_CREATION_FAILED };
         }
-        
+
         public async Task joinLobbyAsync(LobbyActionContext context, IMatchmakingCallback callback)
         {
             registerMatchmakingCallback(context.RequesterUsername, callback);
@@ -163,7 +162,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 if (lobby.Players.Count >= 4)
                 {
-                    return new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_FULL};
+                    return new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_FULL };
                 }
 
                 finalGuestUsername = generateUniqueGuestName(request.LobbyCode, request.DesiredGuestUsername);
@@ -291,7 +290,7 @@ namespace MindWeaveServer.BusinessLogic.Services
         private void handleJoinFailure(LobbyStateDto lobby, string username)
         {
             revertPlayerFromMemory(lobby, username);
-            notificationService.notifyLobbyCreationFailed(username, MessageCodes.VALIDATION_FIELDS_REQUIRED);
+            notificationService.notifyLobbyCreationFailed(username, MessageCodes.MATCH_JOIN_ERROR_DATA);
         }
 
         private async Task<(byte[] bytes, string path)> resolvePuzzleResourcesAsync(int puzzleId, byte[] customBytes)
@@ -362,7 +361,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 foreach (var p in playersToKick)
                 {
-                    notificationService.notifyKicked(p, Lang.HostLeftLobby);
+                    notificationService.notifyKicked(p, MessageCodes.NOTIFY_HOST_LEFT);
                     removeMatchmakingCallback(p);
                 }
             }
@@ -387,8 +386,8 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED });
             }
 
-            if (!gameStateManager.ActiveLobbies.TryGetValue(req.LobbyCode, out var lobby)) 
-            { 
+            if (!gameStateManager.ActiveLobbies.TryGetValue(req.LobbyCode, out var lobby))
+            {
                 return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND });
             }
 
@@ -401,6 +400,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                     MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND,
                     MessageParams = new[] { req.LobbyCode }
                 });
+
             var invitation = await invitationRepository.findValidInvitationAsync(match.matches_id, req.GuestEmail.Trim().ToLowerInvariant());
             if (invitation == null)
             {

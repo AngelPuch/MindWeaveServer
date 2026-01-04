@@ -1,30 +1,36 @@
-﻿using MindWeaveServer.Resources;
+﻿using MindWeaveServer.Contracts.DataContracts.Shared;
 using MindWeaveServer.Utilities.Abstractions;
-using System.Linq;
-using MindWeaveServer.Contracts.DataContracts.Shared;
 using NLog;
+using System.Linq;
 
 namespace MindWeaveServer.Utilities.Validators
 {
     public class PasswordPolicyValidator : IPasswordPolicyValidator
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
-       
+        private const int MIN_PASSWORD_LENGTH = 8;
         public OperationResultDto validate(string password)
         {
             logger.Debug("Validating password policy.");
 
-            if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+            if (string.IsNullOrWhiteSpace(password) || password.Length < MIN_PASSWORD_LENGTH)
             {
                 logger.Warn("Password validation failed: Length is less than 8 characters or null/whitespace.");
-                return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordLength };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_PASSWORD_TOO_SHORT
+                };
             }
 
             if (password.Any(char.IsWhiteSpace))
             {
                 logger.Warn("Password validation failed: Contains whitespace characters.");
-                return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordNoSpaces };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_PASSWORD_NO_SPACES
+                };
             }
 
             bool hasUpper = password.Any(char.IsUpper);
@@ -35,7 +41,11 @@ namespace MindWeaveServer.Utilities.Validators
             if (!hasUpper || !hasLower || !hasDigit || !hasSpecialChar)
             {
                 logger.Warn("Password validation failed: Complexity requirement not met.");
-                return new OperationResultDto { Success = false, Message = Lang.ValidationPasswordComplexity };
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_PASSWORD_TOO_WEAK
+                };
             }
 
             return new OperationResultDto { Success = true };

@@ -1,5 +1,4 @@
 ﻿using MindWeaveServer.Contracts.DataContracts.Shared;
-using MindWeaveServer.Resources;
 using MindWeaveServer.Utilities.Abstractions;
 using NLog;
 using System;
@@ -95,13 +94,12 @@ namespace MindWeaveServer.Utilities
                 return handleOutOfMemoryException(oomEx, safeContext);
             }
 
-
             logger.Fatal(exception, "UNEXPECTED exception type [{0}] in operation: {1}. Add specific handler!",
                 exception.GetType().Name, safeContext);
 
             return createFault(
                 ServiceErrorType.Unknown,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_SERVER_GENERIC,
                 "Server",
                 "Internal Server Error");
         }
@@ -118,7 +116,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.DatabaseError,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_DATABASE,
                 "Database",
                 "Database Error");
         }
@@ -133,7 +131,7 @@ namespace MindWeaveServer.Utilities
                     logger.Warn(ex, "Duplicate record constraint violation. Operation: {0}", context);
                     return createFault(
                         ServiceErrorType.DuplicateRecord,
-                        Lang.RegistrationUsernameOrEmailExists,
+                        MessageCodes.AUTH_USER_ALREADY_EXISTS,
                         "Constraint",
                         "Duplicate Record");
                 }
@@ -143,7 +141,7 @@ namespace MindWeaveServer.Utilities
                     logger.Error(ex, "Foreign key constraint violation. Operation: {0}", context);
                     return createFault(
                         ServiceErrorType.ValidationError,
-                        Lang.GenericServerError,
+                        MessageCodes.ERROR_DATABASE,
                         "Constraint",
                         "Reference Integrity Error");
                 }
@@ -152,19 +150,19 @@ namespace MindWeaveServer.Utilities
             logger.Error(ex, "Database update failed. Operation: {0}", context);
             return createFault(
                 ServiceErrorType.DatabaseError,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_DATABASE,
                 "Database",
                 "Database Update Failed");
         }
 
         private FaultException<ServiceFaultDto> handleSqlException(SqlException ex, string context)
-        {
+        { 
             if (ex.Number == -2 || ex.Number == 53 || ex.Number == -1 || ex.Number == 2 || ex.Number == 0)
             {
                 logger.Fatal(ex, "SQL Server connection failed. Operation: {0}", context);
                 return createFault(
                     ServiceErrorType.DatabaseError,
-                    Lang.GenericServerError,
+                    MessageCodes.ERROR_DATABASE,
                     "Database",
                     "Database Connection Failed");
             }
@@ -174,7 +172,7 @@ namespace MindWeaveServer.Utilities
                 logger.Error(ex, "SQL query timeout. Operation: {0}", context);
                 return createFault(
                     ServiceErrorType.DatabaseError,
-                    Lang.GenericServerError,
+                    MessageCodes.ERROR_DATABASE,
                     "Database",
                     "Query Timeout");
             }
@@ -182,7 +180,7 @@ namespace MindWeaveServer.Utilities
             logger.Error(ex, "SQL error (Number: {0}). Operation: {1}", ex.Number, context);
             return createFault(
                 ServiceErrorType.DatabaseError,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_DATABASE,
                 "Database",
                 "Database Error");
         }
@@ -193,7 +191,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.NotFound,
-                Lang.ErrorPuzzleFileNotFound,
+                MessageCodes.MATCH_PUZZLE_FILE_NOT_FOUND,
                 "FileSystem",
                 "Resource Missing");
         }
@@ -204,7 +202,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.Unknown,
-                Lang.ErrorReadingPuzzleFile,
+                MessageCodes.PUZZLE_LOAD_FAILED,
                 "FileSystem",
                 "Storage Error");
         }
@@ -215,7 +213,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.DatabaseError,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_SERVER_GENERIC,
                 "Timeout",
                 "Service Timeout");
         }
@@ -226,7 +224,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.CommunicationError,
-                Lang.ErrorEmailServiceUnavailable,
+                MessageCodes.ERROR_COMMUNICATION_CHANNEL,
                 "Network",
                 "Network Error");
         }
@@ -237,7 +235,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.CommunicationError,
-                Lang.ErrorCommunicationChannelFailed,
+                MessageCodes.ERROR_COMMUNICATION_CHANNEL,
                 "Communication",
                 "Communication Error");
         }
@@ -248,7 +246,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.CommunicationError,
-                Lang.ErrorServiceConnectionClosing,
+                MessageCodes.ERROR_SERVICE_CLOSING,
                 "Channel",
                 "Channel Disposed");
         }
@@ -260,7 +258,7 @@ namespace MindWeaveServer.Utilities
                 logger.Warn("Duplicate user detected. Operation: {0}", context);
                 return createFault(
                     ServiceErrorType.DuplicateRecord,
-                    Lang.RegistrationUsernameOrEmailExists,
+                    MessageCodes.AUTH_USER_ALREADY_EXISTS,
                     "Username/Email",
                     "Duplicate Record");
             }
@@ -268,7 +266,7 @@ namespace MindWeaveServer.Utilities
             logger.Error(ex, "Invalid operation. Operation: {0}", context);
             return createFault(
                 ServiceErrorType.ValidationError,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_SERVER_GENERIC,
                 "InvalidOperation",
                 "Invalid Operation");
         }
@@ -279,7 +277,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.ValidationError,
-                Lang.ErrorAllFieldsRequired,
+                MessageCodes.VALIDATION_FIELDS_REQUIRED,
                 ex.ParamName ?? "Parameter",
                 "Missing Required Field");
         }
@@ -290,7 +288,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.ValidationError,
-                Lang.GenericServerError,
+                MessageCodes.VALIDATION_GENERAL_ERROR,
                 ex.ParamName ?? "Parameter",
                 "Invalid Argument");
         }
@@ -301,7 +299,7 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.Unknown,
-                Lang.GenericServerError,
+                MessageCodes.ERROR_SERVER_GENERIC,
                 "FileSystem",
                 "Access Denied");
         }
@@ -312,18 +310,18 @@ namespace MindWeaveServer.Utilities
 
             return createFault(
                 ServiceErrorType.Unknown,
-                "The file is too large to process. Please try with a smaller file.",
+                MessageCodes.PUZZLE_IMAGE_TOO_LARGE,
                 "Memory",
                 "Out of Memory");
         }
 
         private static FaultException<ServiceFaultDto> createFault(
             ServiceErrorType errorType,
-            string userMessage,
+            string messageCode,
             string source,
             string faultReason)
         {
-            var fault = new ServiceFaultDto(errorType, userMessage, source);
+            var fault = new ServiceFaultDto(errorType, messageCode, source);
             return new FaultException<ServiceFaultDto>(fault, new FaultReason(faultReason));
         }
     }

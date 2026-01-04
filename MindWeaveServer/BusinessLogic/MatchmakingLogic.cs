@@ -4,7 +4,7 @@ using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.ServiceContracts;
 using MindWeaveServer.DataAccess.Abstractions;
-using MindWeaveServer.Contracts.DataContracts.Shared; // Importante para MessageCodes
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using NLog;
 using System;
 using System.Threading.Tasks;
@@ -48,7 +48,6 @@ namespace MindWeaveServer.BusinessLogic
             logger.Info("MatchmakingLogic Facade initialized.");
         }
 
-        // ... [Los métodos de delegación (createLobbyAsync, joinLobbyAsync, etc.) se mantienen igual] ...
 
         public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
         {
@@ -123,8 +122,6 @@ namespace MindWeaveServer.BusinessLogic
             gameStateManager.MatchmakingCallbacks.AddOrUpdate(username, callback, (k, v) => callback);
         }
 
-        // --- Lógica Corregida ---
-
         public async Task expelPlayerAsync(string lobbyCode, string username, string reasonText)
         {
             logger.Info("ExpelPlayerAsync (System) for {0} in {1}. Reason: {2}", username, lobbyCode, reasonText);
@@ -148,7 +145,6 @@ namespace MindWeaveServer.BusinessLogic
         {
             int reasonId = (reasonText == PROFANITY_REASON_TEXT) ? ID_REASON_PROFANITY : ID_REASON_HOST_DECISION;
 
-            // CAMBIO: Retornar MessageCode en lugar de Lang string
             string messageCode = (reasonId == ID_REASON_PROFANITY)
                 ? MessageCodes.NOTIFY_KICKED_PROFANITY
                 : MessageCodes.NOTIFY_KICKED_BY_HOST;
@@ -183,7 +179,6 @@ namespace MindWeaveServer.BusinessLogic
         {
             await registerLobbyExpulsionInDbAsync(lobbyCode, username, reasonId, hostId);
 
-            // CAMBIO: Se envía el messageCode
             notificationService.notifyKicked(username, messageCode);
 
             updateLobbyStateAndNotify(lobbyCode, username);

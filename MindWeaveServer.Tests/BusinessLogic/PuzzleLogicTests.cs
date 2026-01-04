@@ -10,6 +10,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Shared;
 using Xunit;
 
 namespace MindWeaveServer.Tests.BusinessLogic
@@ -95,7 +96,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await puzzleLogic.uploadPuzzleImageAsync("user1", null, "file.png");
 
             Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorPuzzleUploadInvalidData, result.Message);
+            Assert.Equal(MessageCodes.PUZZLE_UPLOAD_FAILED, result.MessageCode);
         }
 
         [Fact]
@@ -107,7 +108,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await puzzleLogic.uploadPuzzleImageAsync("unknownUser", getValidImageBytes(), "file.png");
 
             Assert.False(result.Success);
-            Assert.Equal(Lang.ErrorPuzzleUploadPlayerNotFound, result.Message);
+            Assert.Equal(MessageCodes.AUTH_USER_NOT_FOUND, result.MessageCode);
         }
 
         [Fact]
@@ -128,19 +129,20 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getPuzzleDefinitionAsyncThrowsArgumentNullWhenImageMissingOnDisk()
+        public async Task getPuzzleDefinitionAsyncThrowsFileNotFoundWhenImageMissingOnDisk()
         {
             var puzzle = new Puzzles { puzzle_id = 1, image_path = "missing_file.png" };
             var difficulty = new DifficultyLevels { idDifficulty = 1, piece_count = 25 };
-
             puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(1))
                 .ReturnsAsync(puzzle);
-
             puzzleRepositoryMock.Setup(x => x.getDifficultyByIdAsync(1))
                 .ReturnsAsync(difficulty);
 
-            await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            var exception = await Assert.ThrowsAsync<FileNotFoundException>(() =>
                 puzzleLogic.getPuzzleDefinitionAsync(1, 1));
+
+            Assert.Contains("puzzle 1", exception.Message);
+            Assert.Equal("missing_file.png", exception.FileName);
         }
 
         [Fact]
