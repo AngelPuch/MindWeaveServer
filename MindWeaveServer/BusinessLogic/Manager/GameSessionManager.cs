@@ -233,6 +233,16 @@ namespace MindWeaveServer.BusinessLogic.Manager
             return directPath;
         }
 
+        public int? getPlayerIdInLobby(string lobbyCode, string username)
+        {
+            var session = getSession(lobbyCode);
+            if (session != null)
+            {
+                return session.getPlayerIdByUsername(username);
+            }
+            return null;
+        }
+
         public async Task handlePlayerLeaveAsync(string lobbyCode, string username)
         {
             var session = getSession(lobbyCode);

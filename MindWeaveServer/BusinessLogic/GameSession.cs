@@ -354,6 +354,16 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
+        public int? getPlayerIdByUsername(string username)
+        {
+            var playerEntry = Players.FirstOrDefault(p => p.Value.Username.Equals(username, StringComparison.OrdinalIgnoreCase));
+            if (playerEntry.Value != null)
+            {
+                return playerEntry.Key;
+            }
+            return null;
+        }
+
         public void Dispose()
         {
             dispose(true);

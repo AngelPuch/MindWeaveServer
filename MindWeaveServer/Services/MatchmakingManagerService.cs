@@ -461,7 +461,7 @@ namespace MindWeaveServer.Services
 
             try
             {
-                int playerId = getPlayerIdFromContext();
+                int playerId = getPlayerIdFromContext(lobbyCode);
                 gameSessionManager.handlePieceDrag(lobbyCode, playerId, pieceId);
             }
             catch (InvalidOperationException ex)
@@ -487,7 +487,7 @@ namespace MindWeaveServer.Services
 
             try
             {
-                int playerId = getPlayerIdFromContext();
+                int playerId = getPlayerIdFromContext(lobbyCode);
                 gameSessionManager.handlePieceMove(lobbyCode, playerId, pieceId, newX, newY);
             }
             catch (InvalidOperationException ex)
@@ -510,7 +510,7 @@ namespace MindWeaveServer.Services
 
             try
             {
-                int playerId = getPlayerIdFromContext();
+                int playerId = getPlayerIdFromContext(lobbyCode);
                 Task.Run(async () =>
                 {
                     try
@@ -547,7 +547,7 @@ namespace MindWeaveServer.Services
 
             try
             {
-                int playerId = getPlayerIdFromContext();
+                int playerId = getPlayerIdFromContext(lobbyCode);
                 logger.Debug("RequestPieceRelease: PlayerId {PlayerId}, PieceId {PieceId}, Lobby {LobbyCode}",
                     playerId, pieceId, lobbyCode);
 
@@ -565,7 +565,7 @@ namespace MindWeaveServer.Services
 
         #region Private Methods
 
-        private int getPlayerIdFromContext()
+        private int getPlayerIdFromContext(string lobbyCode = null)
         {
             if (currentPlayerId.HasValue)
             {
@@ -579,14 +579,25 @@ namespace MindWeaveServer.Services
             }
 
             var player = playerRepository.getPlayerByUsernameAsync(currentUsername).GetAwaiter().GetResult();
-            if (player == null)
+            if (player != null)
             {
-                logger.Error("GetPlayerIdFromContext: Player not found in database.");
-                throw new InvalidOperationException("Player not found in database.");
+                currentPlayerId = player.idPlayer;
+                return currentPlayerId.Value;
             }
 
-            currentPlayerId = player.idPlayer;
-            return currentPlayerId.Value;
+            if (!string.IsNullOrEmpty(lobbyCode))
+            {
+                int? guestId = gameSessionManager.getPlayerIdInLobby(lobbyCode, currentUsername);
+                if (guestId.HasValue)
+                {
+                    logger.Info("Guest ID {0} resolved for user {1}", guestId, currentUsername);
+                    currentPlayerId = guestId.Value;
+                    return currentPlayerId.Value;
+                }
+            }
+
+            logger.Error("GetPlayerIdFromContext: Player/Guest not found for user: {0}", currentUsername);
+            throw new InvalidOperationException("Player not found in database or active session.");
         }
 
         private bool tryRegisterCurrentUserCallback(string username)
