@@ -391,22 +391,20 @@ namespace MindWeaveServer.BusinessLogic
             ValidationResult profileResult = await profileValidator.ValidateAsync(userProfile);
             if (!profileResult.IsValid)
             {
-                logger.Warn("Profile validation failed. ErrorCode: {Error}", profileResult.Errors[0].ErrorCode);
+                var firstError = profileResult.Errors[0];
+                logger.Warn("Profile validation failed. ErrorCode: {Error}", firstError.ErrorCode);
+
                 return new OperationResultDto
                 {
                     Success = false,
-                    MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR
+                    MessageCode = firstError.ErrorCode
                 };
             }
 
             var passwordResult = passwordPolicyValidator.validate(password);
             if (!passwordResult.Success)
             {
-                logger.Warn("Password validation failed.");
-                if (string.IsNullOrEmpty(passwordResult.MessageCode))
-                {
-                    passwordResult.MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR;
-                }
+                logger.Warn("Password validation failed. Code: {Code}", passwordResult.MessageCode);
                 return passwordResult;
             }
 
