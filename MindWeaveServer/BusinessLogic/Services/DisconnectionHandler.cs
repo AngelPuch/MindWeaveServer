@@ -64,7 +64,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                 int? playerId = await getPlayerIdAsync(username);
 
-                await cleanupFromActiveGamesAsync(username, playerId);
+                await cleanupFromActiveGamesAsync(username);
 
                 await cleanupFromLobbiesAsync(username);
 
@@ -90,39 +90,40 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private async Task cleanupFromActiveGamesAsync(string username, int? playerId)
+        private async Task cleanupFromActiveGamesAsync(string username)
         {
             try
             {
-                if (!playerId.HasValue)
-                { 
-                    logger.Warn("DisconnectionHandler: No player ID for {0}. Will search sessions by username.", username);
-                }
+                // ╔═══════════════════════════════════════════════════════════════════════════════════╗
+                // ║ CRITICAL FIX: Use findSessionByUsername to locate the player's active game        ║
+                // ║ Then use handlePlayerLeaveAsync - the SAME method used by ALT+F4 / voluntary exit ║
+                // ╚═══════════════════════════════════════════════════════════════════════════════════╝
 
+                var session = gameSessionManager.findSessionByUsername(username);
 
-                if (playerId.HasValue)
+                if (session == null)
                 {
-                    gameSessionManager.handlePlayerDisconnect(username, playerId.Value);
-                    logger.Info("DisconnectionHandler: Called handlePlayerDisconnect for {0} (ID: {1}).", username, playerId.Value);
-                }
-                else
-                {
-                    var sessionWithPlayer = findSessionContainingPlayer(username);
-
-                    if (sessionWithPlayer != null)
-                    {
-                        var playerIdInSession = sessionWithPlayer.getPlayerIdByUsername(username);
-
-                        if (playerIdInSession.HasValue)
-                        {
-                            gameSessionManager.handlePlayerDisconnect(username, playerIdInSession.Value);
-                            logger.Info("DisconnectionHandler: Found and disconnected {0} from session {1}.",
-                                username, sessionWithPlayer.LobbyCode);
-                        }
-                    }
+                    logger.Info("DisconnectionHandler: No active game session found for {0}.", username);
+                    return;
                 }
 
-                await Task.CompletedTask;
+                string lobbyCode = session.LobbyCode;
+
+                logger.Info("DisconnectionHandler: Found active game session {0} for {1}. " +
+                            "Using handlePlayerLeaveAsync (same as ALT+F4 flow).", lobbyCode, username);
+
+                // ╔═══════════════════════════════════════════════════════════════════════════════════╗
+                // ║ THIS IS THE KEY FIX: Use handlePlayerLeaveAsync instead of handlePlayerDisconnect ║
+                // ║ This ensures:                                                                      ║
+                // ║   1. Other players are notified via broadcast(onPlayerLeftMatch)                   ║
+                // ║   2. If only 1 player remains, endGameAsync(FORFEIT) is called                     ║
+                // ║   3. The remaining player wins automatically                                       ║
+                // ║   4. Stats are properly updated                                                    ║
+                // ╚═══════════════════════════════════════════════════════════════════════════════════╝
+                await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
+
+                logger.Info("DisconnectionHandler: Successfully processed game exit for {0} from session {1}.",
+                            username, lobbyCode);
             }
             catch (EntityException ex)
             {
@@ -132,7 +133,12 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Error(ex, "DisconnectionHandler: SQL error cleaning up games for {0}.", username);
             }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: Unexpected error cleaning up games for {0}.", username);
+            }
         }
+
 
         private async Task cleanupFromLobbiesAsync(string username)
         {
