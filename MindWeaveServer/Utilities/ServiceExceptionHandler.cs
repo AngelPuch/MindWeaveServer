@@ -156,7 +156,8 @@ namespace MindWeaveServer.Utilities
         }
 
         private FaultException<ServiceFaultDto> handleSqlException(SqlException ex, string context)
-        { 
+        {
+            // Códigos que indican caída de red o servidor SQL no disponible (-2, 53, -1, 2, 0)
             if (ex.Number == -2 || ex.Number == 53 || ex.Number == -1 || ex.Number == 2 || ex.Number == 0)
             {
                 logger.Fatal(ex, "SQL Server connection failed. Operation: {0}", context);
