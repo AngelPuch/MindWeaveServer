@@ -28,8 +28,9 @@ namespace MindWeaveServer.Utilities
                 string.IsNullOrEmpty(dbPass) ||
                 string.IsNullOrEmpty(efMetadata))
             {
-                throw new Exception("FATAL SECURITY ERROR: One or more database configuration variables are missing in the Environment.");
+                throw new InvalidOperationException("FATAL SECURITY ERROR: One or more database configuration variables are missing in the Environment.");
             }
+        
 
             SqlConnectionStringBuilder sqlBuilder = new SqlConnectionStringBuilder
             {

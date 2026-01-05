@@ -18,6 +18,7 @@ namespace MindWeaveServer.Services
     public class ProfileManagerService : IProfileManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private const string UNKNOWN_USER = "Unknown";
 
         private readonly ProfileLogic profileLogic;
         private readonly IServiceExceptionHandler exceptionHandler;
@@ -37,7 +38,7 @@ namespace MindWeaveServer.Services
 
         public async Task<PlayerProfileViewDto> getPlayerProfileView(string username)
         {
-            logger.Info("Request received: GetPlayerProfileView for user {Username}", username ?? "Unknown");
+            logger.Info("Request received: GetPlayerProfileView for user {Username}", username ?? UNKNOWN_USER);
             try
             {
                 return await profileLogic.getPlayerProfileViewAsync(username);
@@ -50,7 +51,7 @@ namespace MindWeaveServer.Services
 
         public async Task<UserProfileForEditDto> getPlayerProfileForEditAsync(string username)
         {
-            logger.Info("Request received: GetPlayerProfileForEditAsync for user {Username}", username ?? "Unknown");
+            logger.Info("Request received: GetPlayerProfileForEditAsync for user {Username}", username ?? UNKNOWN_USER);
             try
             {
                 return await profileLogic.getPlayerProfileForEditAsync(username);
@@ -63,7 +64,7 @@ namespace MindWeaveServer.Services
 
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
         {
-            logger.Info("Request received: UpdateProfileAsync for user {Username}", username ?? "Unknown");
+            logger.Info("Request received: UpdateProfileAsync for user {Username}", username ?? UNKNOWN_USER);
             try
             {
                 return await profileLogic.updateProfileAsync(username, updatedProfileData);
@@ -76,7 +77,7 @@ namespace MindWeaveServer.Services
 
         public async Task<OperationResultDto> updateAvatarPathAsync(string username, string newAvatarPath)
         {
-            logger.Info("Request received: UpdateAvatarPathAsync for user {Username}", username ?? "Unknown");
+            logger.Info("Request received: UpdateAvatarPathAsync for user {Username}", username ?? UNKNOWN_USER);
             try
             {
                 return await profileLogic.updateAvatarPathAsync(username, newAvatarPath);
@@ -89,7 +90,7 @@ namespace MindWeaveServer.Services
 
         public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
         {
-            logger.Info("Request received: ChangePasswordAsync for user {Username}", username ?? "Unknown");
+            logger.Info("Request received: ChangePasswordAsync for user {Username}", username ?? UNKNOWN_USER);
             try
             {
                 return await profileLogic.changePasswordAsync(username, currentPassword, newPassword);

@@ -131,9 +131,7 @@ namespace MindWeaveServer.Services
             {
                 return;
             }
-
             bool recorded = heartbeatMonitor.recordHeartbeat(username, sequenceNumber);
-
             if (recorded && currentCallback != null)
             {
                 try
@@ -141,20 +139,21 @@ namespace MindWeaveServer.Services
                     long serverTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                     currentCallback.heartbeatAck(sequenceNumber, serverTimestamp);
                 }
-                catch (CommunicationException)
+                catch (CommunicationException commEx)
                 {
-                    logger.Warn("HeartbeatService: Failed to send ACK to {0} - channel issue.", username);
+                    logger.Warn(commEx, "HeartbeatService: Failed to send ACK to {0} - channel issue.", username);
                 }
-                catch (TimeoutException)
+                catch (TimeoutException timeoutEx)
                 {
-                    logger.Warn("HeartbeatService: Timeout sending ACK to {0}.", username);
+                    logger.Warn(timeoutEx, "HeartbeatService: Timeout sending ACK to {0}.", username);
                 }
-                catch (ObjectDisposedException)
+                catch (ObjectDisposedException disposedEx)
                 {
-                    logger.Warn("HeartbeatService: Channel disposed for {0}.", username);
+                    logger.Warn(disposedEx, "HeartbeatService: Channel disposed for {0}.", username);
                 }
             }
         }
+        
 
         public void unregisterHeartbeat(string username)
         {

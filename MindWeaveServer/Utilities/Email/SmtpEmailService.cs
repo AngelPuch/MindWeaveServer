@@ -87,41 +87,43 @@ namespace MindWeaveServer.Utilities.Email
 
                 using (var client = new SmtpClient())
                 {
-                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls); 
+                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls);
                     await client.AuthenticateAsync(user, pass);
                     await client.SendAsync(message);
                     await client.DisconnectAsync(true);
                 }
+
+                logger.Info("Email sent successfully to {RecipientEmail}", recipientEmail);
             }
             catch (AuthenticationException authEx)
             {
                 logger.Error(authEx, "SMTP Authentication failed for user {SmtpUser}.", user);
-                throw;
+                throw new InvalidOperationException($"Failed to authenticate with SMTP server using user '{user}'. Please verify credentials.", authEx);
             }
             catch (SmtpCommandException smtpCmdEx)
             {
                 logger.Error(smtpCmdEx, "SMTP Command error. Status: {StatusCode}", smtpCmdEx.StatusCode);
-                throw;
+                throw new InvalidOperationException($"SMTP server returned error status {smtpCmdEx.StatusCode} while sending email to {recipientEmail}.", smtpCmdEx);
             }
             catch (SmtpProtocolException smtpProtoEx)
             {
                 logger.Error(smtpProtoEx, "SMTP Protocol error.");
-                throw;
+                throw new InvalidOperationException($"SMTP protocol error occurred while sending email to {recipientEmail}.", smtpProtoEx);
             }
             catch (IOException ioEx)
             {
                 logger.Error(ioEx, "Network error while sending email to {RecipientEmail}.", recipientEmail);
-                throw;
+                throw new InvalidOperationException($"Network I/O error occurred while sending email to {recipientEmail}. Please check network connectivity.", ioEx);
             }
             catch (System.Net.Sockets.SocketException sockEx)
             {
                 logger.Error(sockEx, "Socket connection failed to SMTP host {Host}:{Port}.", host, port);
-                throw;
+                throw new InvalidOperationException($"Failed to connect to SMTP server at {host}:{port}. Please verify server address and firewall settings.", sockEx);
             }
             catch (Exception ex)
             {
                 logger.Error(ex, "Unexpected error sending email to {RecipientEmail}.", recipientEmail);
-                throw;
+                throw new InvalidOperationException($"Unexpected error occurred while sending email to {recipientEmail}. See inner exception for details.", ex);
             }
         }
     }

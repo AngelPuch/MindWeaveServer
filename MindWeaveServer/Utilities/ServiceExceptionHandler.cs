@@ -14,6 +14,7 @@ namespace MindWeaveServer.Utilities
     public class ServiceExceptionHandler : IServiceExceptionHandler
     {
         private readonly Logger logger = LogManager.GetCurrentClassLogger();
+        private const string DatabaseSource = "Database";
 
         public FaultException<ServiceFaultDto> handleException(Exception exception, string operationContext)
         {
@@ -117,7 +118,7 @@ namespace MindWeaveServer.Utilities
             return createFault(
                 ServiceErrorType.DatabaseError,
                 MessageCodes.ERROR_DATABASE,
-                "Database",
+                DatabaseSource,
                 "Database Error");
         }
 
@@ -151,20 +152,19 @@ namespace MindWeaveServer.Utilities
             return createFault(
                 ServiceErrorType.DatabaseError,
                 MessageCodes.ERROR_DATABASE,
-                "Database",
+                DatabaseSource,
                 "Database Update Failed");
         }
 
         private FaultException<ServiceFaultDto> handleSqlException(SqlException ex, string context)
         {
-            // Códigos que indican caída de red o servidor SQL no disponible (-2, 53, -1, 2, 0)
             if (ex.Number == -2 || ex.Number == 53 || ex.Number == -1 || ex.Number == 2 || ex.Number == 0)
             {
                 logger.Fatal(ex, "SQL Server connection failed. Operation: {0}", context);
                 return createFault(
                     ServiceErrorType.DatabaseError,
                     MessageCodes.ERROR_DATABASE,
-                    "Database",
+                    DatabaseSource,
                     "Database Connection Failed");
             }
 
@@ -174,7 +174,7 @@ namespace MindWeaveServer.Utilities
                 return createFault(
                     ServiceErrorType.DatabaseError,
                     MessageCodes.ERROR_DATABASE,
-                    "Database",
+                    DatabaseSource,
                     "Query Timeout");
             }
 
@@ -182,7 +182,7 @@ namespace MindWeaveServer.Utilities
             return createFault(
                 ServiceErrorType.DatabaseError,
                 MessageCodes.ERROR_DATABASE,
-                "Database",
+                DatabaseSource,
                 "Database Error");
         }
 

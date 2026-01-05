@@ -142,7 +142,7 @@ namespace MindWeaveServer.Services
 
                 if (result.Success)
                 {
-                    Task.Run(async () => await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted));
+                    await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted);
                 }
 
                 return result;
@@ -225,7 +225,7 @@ namespace MindWeaveServer.Services
             cleanupCallbackEvents(sender as ICommunicationObject);
         }
 
-        private ISocialCallback tryGetCallbackChannel(string username)
+        private static ISocialCallback tryGetCallbackChannel(string username)
         {
             if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
             {
@@ -265,12 +265,9 @@ namespace MindWeaveServer.Services
 
         private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback)
         {
-            if (previousCallback != null && previousCallback != newCallback)
+            if (previousCallback != null && previousCallback != newCallback && previousCallback is ICommunicationObject oldComm)
             {
-                if (previousCallback is ICommunicationObject oldComm)
-                {
-                    cleanupCallbackEvents(oldComm);
-                }
+                cleanupCallbackEvents(oldComm);
             }
 
             setupCallbackEvents(newCallback as ICommunicationObject);
@@ -327,12 +324,9 @@ namespace MindWeaveServer.Services
 
                 if (friendsToNotify == null || !friendsToNotify.Any()) return;
 
-                foreach (var friend in friendsToNotify)
+                foreach (var friend in friendsToNotify.Where(f => gameStateManager.isUserConnected(f.Username)))
                 {
-                    if (gameStateManager.isUserConnected(friend.Username))
-                    {
-                        sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
-                    }
+                    sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
                 }
             }
             catch (EntityException dbEx)
