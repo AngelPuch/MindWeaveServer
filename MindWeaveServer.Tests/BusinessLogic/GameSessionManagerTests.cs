@@ -40,7 +40,6 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
             scoreCalculatorMock = new Mock<IScoreCalculator>();
             callbackMock = new Mock<IMatchmakingCallback>();
 
-            // Setup Callback Mock to look "Open"
             var commObj = callbackMock.As<System.ServiceModel.ICommunicationObject>();
             commObj.Setup(x => x.State).Returns(System.ServiceModel.CommunicationState.Opened);
 
@@ -54,7 +53,6 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
                 puzzleGenerator,
                 scoreCalculatorMock.Object);
 
-            // Setup valid puzzle file
             tempPuzzlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "puzzleDefaultTest.png");
             using (var bmp = new Bitmap(100, 100))
             {

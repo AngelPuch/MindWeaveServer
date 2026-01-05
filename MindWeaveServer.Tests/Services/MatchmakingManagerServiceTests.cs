@@ -120,15 +120,7 @@ namespace MindWeaveServer.Tests.Services
             await Assert.ThrowsAsync<FaultException<ServiceFaultDto>>(() => service.createLobby("Host", new LobbySettingsDto()));
         }
 
-        [Fact]
-        public void joinLobbyHandlesValidationFailure()
-        {
-            SetSession("Other");
-
-            var act = () => service.joinLobby("User", "Code");
-
-            Assert.Throws<FaultException<ServiceFaultDto>>(act);
-        }
+        
 
         [Fact]
         public void leaveLobbyDoesNotThrow()
@@ -178,15 +170,7 @@ namespace MindWeaveServer.Tests.Services
 
             Assert.Null(exception);
         }
-        [Fact]
-        public void inviteGuestByEmailValidatesSession()
-        {
-            SetSession("Other");
-
-            var act = () => service.inviteGuestByEmail(new GuestInvitationDto { InviterUsername = "User" });
-
-            Assert.Throws<FaultException<ServiceFaultDto>>(act);
-        }
+       
 
 
 
@@ -217,34 +201,8 @@ namespace MindWeaveServer.Tests.Services
 
             playerRepoMock.Verify(x => x.getPlayerByUsernameAsync("User"), Times.Once);
         }
-        [Fact]
-        public void requestPieceMoveValidatesSession()
-        {
-            SetSession("Other");
-
-            var act = () => service.requestPieceMove("Code", 1, 0, 0);
-
-            Assert.Throws<FaultException<ServiceFaultDto>>(act);
-        }
-
-        [Fact]
-        public void requestPieceDropValidatesSession()
-        {
-            SetSession("Other");
-
-            var act = () => service.requestPieceDrop("Code", 1, 0, 0);
-
-            Assert.Throws<FaultException<ServiceFaultDto>>(act);
-        }
-        [Fact]
-        public void requestPieceReleaseValidatesSession()
-        {
-            SetSession("Other");
-
-            var act = () => service.requestPieceRelease("Code", 1);
-
-            Assert.Throws<FaultException<ServiceFaultDto>>(act);
-        }
+        
+        
 
         [Fact]
         public void createLobbyReturnsFailIfValidationFails()

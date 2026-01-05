@@ -103,8 +103,8 @@ namespace MindWeaveServer.Tests.Services
         public async Task registerDelegatesToLogic()
         {
             var profile = new UserProfileDto { Username = "NewUser", Email = "new@test.com", FirstName = "F" };
-            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("NewUser")).ReturnsAsync((Player)null);
-            playerRepoMock.Setup(x => x.getPlayerByEmailAsync("new@test.com")).ReturnsAsync((Player)null);
+            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("NewUser")).ReturnsAsync((Player)null!);
+            playerRepoMock.Setup(x => x.getPlayerByEmailAsync("new@test.com")).ReturnsAsync((Player)null!);
             verificationMock.Setup(x => x.generateVerificationCode()).Returns("123456");
 
             var result = await service.register(profile, "Password123");
@@ -235,7 +235,7 @@ namespace MindWeaveServer.Tests.Services
             {
                 service.logOut("User");
             }
-            catch (ArgumentNullException ex) when (ex.Source.Contains("Autofac") || ex.StackTrace.Contains("ResolutionExtensions"))
+            catch (ArgumentNullException ex) when (ex.Source!.Contains("Autofac") || ex.StackTrace!.Contains("ResolutionExtensions"))
             {
             }
 

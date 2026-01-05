@@ -60,7 +60,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task getPlayerProfileViewAsyncUserNotFoundReturnsNull()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerWithProfileViewDataAsync("Unknown")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerWithProfileViewDataAsync("Unknown")).ReturnsAsync((Player)null!);
             var result = await profileLogic.getPlayerProfileViewAsync("Unknown");
             Assert.Null(result);
         }
@@ -102,7 +102,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task getPlayerProfileForEditAsyncUserNotFoundReturnsNull()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.getPlayerProfileForEditAsync("U");
             Assert.Null(result);
         }
@@ -124,7 +124,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             var player = new Player { first_name = "F", date_of_birth = DateTime.MinValue };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync(player);
-            genderRepositoryMock.Setup(g => g.getAllGendersAsync()).ReturnsAsync(new List<Gender>());
+            genderRepositoryMock.Setup(g => g.getAllGendersAsync()).ReturnsAsync(new List<Gender>()!);
 
             var result = await profileLogic.getPlayerProfileForEditAsync("U");
             Assert.Equal("F", result.FirstName);
@@ -151,7 +151,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task updateProfileAsyncPlayerNotFoundReturnsError()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.updateProfileAsync("U", new UserProfileForEditDto());
             Assert.False(result.Success);
         }
@@ -194,7 +194,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task updateAvatarPathAsyncUserNotFoundReturnsError()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.updateAvatarPathAsync("U", "path");
             Assert.False(result.Success);
         }

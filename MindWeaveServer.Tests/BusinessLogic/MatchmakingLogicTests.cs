@@ -232,7 +232,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             activeLobbiesMock.TryAdd(lobbyCode, lobbyState);
             moderationManager.initializeLobby(lobbyCode);
 
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync((Player)null!);
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Host")).ReturnsAsync(new Player { idPlayer = 1 });
             matchmakingRepositoryMock.Setup(r => r.getMatchByLobbyCodeAsync(lobbyCode)).ReturnsAsync(new Matches { matches_id = 100 });
 
