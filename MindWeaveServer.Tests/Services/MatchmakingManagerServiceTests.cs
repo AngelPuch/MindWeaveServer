@@ -29,6 +29,7 @@ namespace MindWeaveServer.Tests.Services
         private readonly Mock<IServiceExceptionHandler> exceptionHandlerMock;
 
         private readonly GameSessionManager sessionManager;
+        private readonly LobbyModerationManager moderationManager;
         private readonly MatchmakingLogic logic;
         private readonly MatchmakingManagerService service;
 
@@ -51,6 +52,8 @@ namespace MindWeaveServer.Tests.Services
                 new PuzzleGenerator(),
                 new Mock<IScoreCalculator>().Object);
 
+            moderationManager = new LobbyModerationManager();
+
             logic = new MatchmakingLogic(
                 lifecycleMock.Object,
                 interactionMock.Object,
@@ -58,7 +61,8 @@ namespace MindWeaveServer.Tests.Services
                 gameStateMock.Object,
                 sessionManager,
                 playerRepoMock.Object,
-                matchRepoMock.Object
+                matchRepoMock.Object,
+                moderationManager
             );
 
             service = new MatchmakingManagerService(logic, sessionManager, playerRepoMock.Object, exceptionHandlerMock.Object);

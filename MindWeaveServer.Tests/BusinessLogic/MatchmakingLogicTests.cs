@@ -27,6 +27,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         private readonly Mock<IScoreCalculator> scoreCalculatorMock;
 
         private readonly GameSessionManager gameSessionManager;
+        private readonly LobbyModerationManager moderationManager;
         private readonly MatchmakingLogic matchmakingLogic;
 
         private readonly ConcurrentDictionary<string, LobbyStateDto> activeLobbiesMock;
@@ -60,6 +61,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
                 scoreCalculatorMock.Object
             );
 
+            moderationManager = new LobbyModerationManager();
+
             matchmakingLogic = new MatchmakingLogic(
                 lifecycleServiceMock.Object,
                 interactionServiceMock.Object,
@@ -67,7 +70,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
                 gameStateManagerMock.Object,
                 gameSessionManager,
                 playerRepositoryMock.Object,
-                matchmakingRepositoryMock.Object
+                matchmakingRepositoryMock.Object,
+                moderationManager
             );
         }
 
@@ -142,43 +146,101 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
 
         [Fact]
-        public async Task expelPlayerAsync_FromLobbyState_Notifies()
+        public async Task expelPlayerAsync_FromLobbyState_NotifiesAndBansUser()
         {
             string lobbyCode = "L1";
             string user = "Target";
-            var lobbyState = new LobbyStateDto { Players = new System.Collections.Generic.List<string> { "Host", "Target" } };
+            var lobbyState = new LobbyStateDto
+            {
+                Players = new System.Collections.Generic.List<string> { "Host", "Target" },
+                HostUsername = "Host"
+            };
 
             activeLobbiesMock.TryAdd(lobbyCode, lobbyState);
+            moderationManager.initializeLobby(lobbyCode);
 
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(new Player { idPlayer = 2 });
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Host")).ReturnsAsync(new Player { idPlayer = 1 });
             matchmakingRepositoryMock.Setup(r => r.getMatchByLobbyCodeAsync(lobbyCode)).ReturnsAsync(new Matches { matches_id = 100 });
 
             await matchmakingLogic.expelPlayerAsync(lobbyCode, user, "Reason");
 
             notificationServiceMock.Verify(n => n.notifyKicked(user, It.IsAny<string>()), Times.Once);
             matchmakingRepositoryMock.Verify(r => r.registerExpulsionAsync(It.IsAny<ExpulsionDto>()), Times.Once);
+            Assert.True(moderationManager.isBanned(lobbyCode, user));
+        }
+
+        [Fact]
+        public async Task expelPlayerAsync_WithProfanityReason_UsesProfanityReasonId()
+        {
+            string lobbyCode = "L1";
+            string user = "Target";
+            var lobbyState = new LobbyStateDto
+            {
+                Players = new System.Collections.Generic.List<string> { "Host", "Target" },
+                HostUsername = "Host"
+            };
+
+            activeLobbiesMock.TryAdd(lobbyCode, lobbyState);
+            moderationManager.initializeLobby(lobbyCode);
+
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(new Player { idPlayer = 2 });
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Host")).ReturnsAsync(new Player { idPlayer = 1 });
+            matchmakingRepositoryMock.Setup(r => r.getMatchByLobbyCodeAsync(lobbyCode)).ReturnsAsync(new Matches { matches_id = 100 });
+
+            await matchmakingLogic.expelPlayerAsync(lobbyCode, user, MatchmakingLogic.PROFANITY_REASON_TEXT);
+
+            notificationServiceMock.Verify(n => n.notifyKicked(user, MessageCodes.NOTIFY_KICKED_PROFANITY), Times.Once);
         }
 
         [Fact]
         public async Task expelPlayerAsync_LobbyNotFound_DoesNotCrash()
         {
-            
             await matchmakingLogic.expelPlayerAsync("UnknownLobby", "User", "Reason");
 
-           
-            Assert.True(true); 
+            Assert.True(true);
         }
 
         [Fact]
         public async Task expelPlayerAsync_UserNotInLobby_DoesNotCrash()
         {
             string lobbyCode = "L1";
-            var lobbyState = new LobbyStateDto { Players = new System.Collections.Generic.List<string> { "Host" } };
+            var lobbyState = new LobbyStateDto
+            {
+                Players = new System.Collections.Generic.List<string> { "Host" },
+                HostUsername = "Host"
+            };
             activeLobbiesMock.TryAdd(lobbyCode, lobbyState);
+            moderationManager.initializeLobby(lobbyCode);
 
             await matchmakingLogic.expelPlayerAsync(lobbyCode, "Target", "Reason");
 
             Assert.True(true);
+        }
+
+        [Fact]
+        public async Task expelPlayerAsync_PlayerNotFoundInDb_StillBansAndNotifies()
+        {
+            string lobbyCode = "L1";
+            string user = "Target";
+            var lobbyState = new LobbyStateDto
+            {
+                Players = new System.Collections.Generic.List<string> { "Host", "Target" },
+                HostUsername = "Host"
+            };
+
+            activeLobbiesMock.TryAdd(lobbyCode, lobbyState);
+            moderationManager.initializeLobby(lobbyCode);
+
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Host")).ReturnsAsync(new Player { idPlayer = 1 });
+            matchmakingRepositoryMock.Setup(r => r.getMatchByLobbyCodeAsync(lobbyCode)).ReturnsAsync(new Matches { matches_id = 100 });
+
+            await matchmakingLogic.expelPlayerAsync(lobbyCode, user, "Reason");
+
+            Assert.True(moderationManager.isBanned(lobbyCode, user));
+            notificationServiceMock.Verify(n => n.notifyKicked(user, It.IsAny<string>()), Times.Once);
+            matchmakingRepositoryMock.Verify(r => r.registerExpulsionAsync(It.IsAny<ExpulsionDto>()), Times.Never);
         }
 
 
@@ -203,7 +265,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task kickPlayerAsync_DelegatesToInteraction()
         {
             await matchmakingLogic.kickPlayerAsync("Host", "Target", "CODE");
-            Assert.True(true);
+            interactionServiceMock.Verify(x => x.kickPlayerAsync(It.Is<LobbyActionContext>(
+                c => c.RequesterUsername == "Host" && c.TargetUsername == "Target" && c.LobbyCode == "CODE")), Times.Once);
         }
 
 
@@ -211,7 +274,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task inviteToLobbyAsync_DelegatesToInteraction()
         {
             await matchmakingLogic.inviteToLobbyAsync("Inviter", "Invited", "CODE");
-            Assert.True(true);
+            interactionServiceMock.Verify(x => x.invitePlayerAsync(It.Is<LobbyActionContext>(
+                c => c.RequesterUsername == "Inviter" && c.TargetUsername == "Invited" && c.LobbyCode == "CODE")), Times.Once);
         }
 
 
@@ -219,15 +283,16 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task changeDifficultyAsync_DelegatesToInteraction()
         {
             await matchmakingLogic.changeDifficultyAsync("Host", "CODE", 2);
-            Assert.True(true);
+            interactionServiceMock.Verify(x => x.changeDifficultyAsync(It.Is<LobbyActionContext>(
+                c => c.RequesterUsername == "Host" && c.LobbyCode == "CODE"), 2), Times.Once);
         }
 
 
         [Fact]
-        public void handleUserDisconnect_CallsGameStateManager()
+        public void handleUserDisconnect_CallsLifecycleService()
         {
             matchmakingLogic.handleUserDisconnect("User");
-            Assert.True(true);
+            lifecycleServiceMock.Verify(x => x.handleUserDisconnect("User"), Times.Once);
         }
 
 
@@ -238,6 +303,36 @@ namespace MindWeaveServer.Tests.BusinessLogic
             matchmakingLogic.registerCallback("User", callbackMock.Object);
 
             Assert.True(matchmakingCallbacksMock.ContainsKey("User"));
+        }
+
+        [Fact]
+        public void registerCallback_NullUsername_DoesNotStore()
+        {
+            var callbackMock = new Mock<IMatchmakingCallback>();
+            matchmakingLogic.registerCallback(null, callbackMock.Object);
+
+            Assert.Empty(matchmakingCallbacksMock);
+        }
+
+        [Fact]
+        public void registerCallback_NullCallback_DoesNotStore()
+        {
+            matchmakingLogic.registerCallback("User", null);
+
+            Assert.False(matchmakingCallbacksMock.ContainsKey("User"));
+        }
+
+        [Fact]
+        public void registerCallback_UpdatesExistingCallback()
+        {
+            var callbackMock1 = new Mock<IMatchmakingCallback>();
+            var callbackMock2 = new Mock<IMatchmakingCallback>();
+
+            matchmakingLogic.registerCallback("User", callbackMock1.Object);
+            matchmakingLogic.registerCallback("User", callbackMock2.Object);
+
+            Assert.True(matchmakingCallbacksMock.TryGetValue("User", out var storedCallback));
+            Assert.Same(callbackMock2.Object, storedCallback);
         }
     }
 }
