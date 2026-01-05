@@ -16,6 +16,7 @@ using System;
 using Autofac.Core;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Services;
+using MindWeaveServer.Services;
 
 namespace MindWeaveServer.AppStart
 {
@@ -197,6 +198,20 @@ namespace MindWeaveServer.AppStart
                 .As<ILobbyLifecycleService>();
 
             builder.RegisterType<MatchmakingLogic>().AsSelf();
+
+            builder.RegisterType<DisconnectionHandler>()
+                .As<IDisconnectionHandler>()
+                .SingleInstance();
+
+            builder.RegisterType<HeartbeatMonitor>()
+                .As<IHeartbeatMonitor>()
+                .SingleInstance()
+                .OnActivated(e => e.Instance.start());
+
+            builder.RegisterType<HeartbeatManagerService>()
+                .AsSelf()
+                .InstancePerLifetimeScope();
+
         }
     }
 }

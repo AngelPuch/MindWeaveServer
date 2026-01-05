@@ -99,5 +99,7 @@
         public const string PUZZLE_LOAD_FAILED = "PUZZLE_LOAD_FAILED";
 
         public const string CHAT_PROFANITY_WARNING = "CHAT_PROFANITY_WARNING";
+        public const string SUCCESS = "SUCCESS";
     }
+
 }

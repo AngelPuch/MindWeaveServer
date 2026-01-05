@@ -1,14 +1,15 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using MindWeaveServer.BusinessLogic.Abstractions;
+﻿using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Puzzle;
 using MindWeaveServer.DataAccess;
 using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic.Manager
 {
@@ -255,6 +256,29 @@ namespace MindWeaveServer.BusinessLogic.Manager
             {
                 logger.Warn("HandlePlayerLeave: No active session found for lobby {LobbyCode}", lobbyCode);
             }
+        }
+
+        public GameSession findSessionByUsername(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return null;
+            }
+
+            foreach (var session in activeSessions.Values)
+            {
+                var playerId = session.getPlayerIdByUsername(username);
+                if (playerId.HasValue)
+                {
+                    return session;
+                }
+            }
+
+            return null;
+        }
+        public IReadOnlyCollection<string> getActiveSessionCodes()
+        {
+            return activeSessions.Keys.ToList().AsReadOnly();
         }
     }
 }
