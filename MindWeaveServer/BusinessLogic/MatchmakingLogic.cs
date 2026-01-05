@@ -22,6 +22,8 @@ namespace MindWeaveServer.BusinessLogic
         private readonly GameSessionManager gameSessionManager;
         private readonly IPlayerRepository playerRepository;
         private readonly IMatchmakingRepository matchmakingRepository;
+        private readonly LobbyModerationManager moderationManager;
+
 
         private const int ID_REASON_HOST_DECISION = 1;
         private const int ID_REASON_PROFANITY = 2;
@@ -35,7 +37,8 @@ namespace MindWeaveServer.BusinessLogic
             IGameStateManager gameStateManager,
             GameSessionManager gameSessionManager,
             IPlayerRepository playerRepository,
-            IMatchmakingRepository matchmakingRepository)
+            IMatchmakingRepository matchmakingRepository,
+            LobbyModerationManager moderationManager)
         {
             this.lifecycleService = lifecycleService;
             this.interactionService = interactionService;
@@ -44,6 +47,7 @@ namespace MindWeaveServer.BusinessLogic
             this.gameSessionManager = gameSessionManager;
             this.playerRepository = playerRepository;
             this.matchmakingRepository = matchmakingRepository;
+            this.moderationManager = moderationManager;
 
             logger.Info("MatchmakingLogic Facade initialized.");
         }
@@ -128,6 +132,9 @@ namespace MindWeaveServer.BusinessLogic
 
             var (reasonId, messageCode) = determineExpulsionDetails(reasonText);
             int hostId = await getHostIdAsync(lobbyCode);
+
+            moderationManager.banUser(lobbyCode, username, reasonText);
+            logger.Info("User {0} banned from lobby {1}. Reason: {2}", username, lobbyCode, reasonText);
 
             var session = gameSessionManager.getSession(lobbyCode);
 

@@ -108,6 +108,10 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 return ValidationResult.failure(MessageCodes.MATCH_USERNAME_REQUIRED);
             }
+            if (moderationManager.isBanned(lobby.LobbyId, targetUsername))
+            {
+                return ValidationResult.failure(MessageCodes.MATCH_CANNOT_INVITE_BANNED, targetUsername);
+            }
             if (!gameStateManager.isUserConnected(targetUsername))
             {
                 return ValidationResult.failure(MessageCodes.MATCH_USER_NOT_ONLINE, targetUsername);

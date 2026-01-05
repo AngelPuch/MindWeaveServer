@@ -100,6 +100,8 @@
 
         public const string CHAT_PROFANITY_WARNING = "CHAT_PROFANITY_WARNING";
         public const string SUCCESS = "SUCCESS";
+        public const string MATCH_CANNOT_INVITE_BANNED = "MATCH_CANNOT_INVITE_BANNED";
+
     }
 
 }

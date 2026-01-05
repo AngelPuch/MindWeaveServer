@@ -24,6 +24,8 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly ILobbyValidationService validationService;
         private readonly INotificationService notificationService;
         private readonly GameSessionManager gameSessionManager;
+        private readonly LobbyModerationManager moderationManager;
+
 
         private readonly IMatchmakingRepository matchmakingRepository;
         private readonly IPlayerRepository playerRepository;
@@ -36,6 +38,8 @@ namespace MindWeaveServer.BusinessLogic.Services
         private const int GUEST_EXPIRY_MINUTES = 10;
         private const int INVALID_ID = 0;
         private const int MAX_PLAYERS_PER_LOBBY = 4;
+        private const string BAN_REASON_HOST_KICK = "KickedByHost"; 
+
 
         public LobbyInteractionService(
             IGameStateManager gameStateManager,
@@ -45,7 +49,8 @@ namespace MindWeaveServer.BusinessLogic.Services
             IMatchmakingRepository matchmakingRepository,
             IPlayerRepository playerRepository,
             IGuestInvitationRepository invitationRepository,
-            IEmailService emailService)
+            IEmailService emailService,
+            LobbyModerationManager moderationManager)
         {
             this.gameStateManager = gameStateManager;
             this.validationService = validationService;
@@ -55,6 +60,8 @@ namespace MindWeaveServer.BusinessLogic.Services
             this.playerRepository = playerRepository;
             this.invitationRepository = invitationRepository;
             this.emailService = emailService;
+            this.moderationManager = moderationManager; 
+
         }
 
         public async Task invitePlayerAsync(LobbyActionContext context)
@@ -65,6 +72,13 @@ namespace MindWeaveServer.BusinessLogic.Services
             if (!validation.IsSuccess)
             {
                 notificationService.notifyActionFailed(context.RequesterUsername, validation.MessageCode);
+                return;
+            }
+
+            if (moderationManager.isBanned(context.LobbyCode, context.TargetUsername))
+            {
+                logger.Info("Cannot invite banned user {0} to lobby {1}", context.TargetUsername, context.LobbyCode);
+                notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_CANNOT_INVITE_BANNED);
                 return;
             }
 
@@ -84,6 +98,10 @@ namespace MindWeaveServer.BusinessLogic.Services
                 notificationService.notifyActionFailed(context.RequesterUsername, validation.MessageCode);
                 return;
             }
+
+            moderationManager.banUser(context.LobbyCode, context.TargetUsername, BAN_REASON_HOST_KICK);
+            logger.Info("User {0} banned from lobby {1} by host decision", context.TargetUsername, context.LobbyCode);
+
 
             int hostId = await getPlayerIdAsync(context.RequesterUsername);
             int targetId = await getPlayerIdAsync(context.TargetUsername);
