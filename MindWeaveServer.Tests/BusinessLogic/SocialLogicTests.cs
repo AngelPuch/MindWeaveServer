@@ -37,7 +37,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var target = new Player { idPlayer = 2, username = "Target" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(requester);
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync(target);
-            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync((Friendships)null);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync((Friendships)null!);
 
             var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
@@ -49,7 +49,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task sendFriendRequestAsync_TargetNotFound_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Target")).ReturnsAsync((Player)null!);
 
             var result = await socialLogic.sendFriendRequestAsync("Me", "Target");
 
@@ -141,7 +141,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task getFriendsListAsync_UserNotFound_ReturnsEmpty()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync((Player)null!);
 
             var result = await socialLogic.getFriendsListAsync("Me", new List<string>());
 
@@ -208,7 +208,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Other")).ReturnsAsync(new Player { idPlayer = 2 });
-            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(2, 1)).ReturnsAsync((Friendships)null);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(2, 1)).ReturnsAsync((Friendships)null!);
 
             var result = await socialLogic.respondToFriendRequestAsync("Me", "Other", true);
 
@@ -243,7 +243,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync(new Player { idPlayer = 1 });
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Friend")).ReturnsAsync(new Player { idPlayer = 2 });
-            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync((Friendships)null);
+            friendshipRepositoryMock.Setup(r => r.findFriendshipAsync(1, 2)).ReturnsAsync((Friendships)null!);
 
             var result = await socialLogic.removeFriendAsync("Me", "Friend");
 
@@ -274,7 +274,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task searchPlayersAsync_NullUser_ReturnsEmpty()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Me")).ReturnsAsync((Player)null!);
 
             var result = await socialLogic.searchPlayersAsync("Me", "query");
 

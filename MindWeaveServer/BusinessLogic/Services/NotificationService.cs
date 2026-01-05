@@ -105,17 +105,17 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             catch (CommunicationException ex)
             {
-                logger.Warn("CommunicationException sending callback to {0}: {1}", username, ex.Message);
+                logger.Warn(ex, "CommunicationException sending callback to {0}", username);
                 cleanupUserReference(username, isMatchmaking);
             }
             catch (TimeoutException ex)
             {
-                logger.Warn("TimeoutException sending callback to {0}: {1}", username, ex.Message);
+                logger.Warn(ex, "TimeoutException sending callback to {0}", username);
                 cleanupUserReference(username, isMatchmaking);
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
-                logger.Warn("ObjectDisposedException sending callback to {0}.", username);
+                logger.Warn(ex, "ObjectDisposedException sending callback to {0}", username);
                 cleanupUserReference(username, isMatchmaking);
             }
         }

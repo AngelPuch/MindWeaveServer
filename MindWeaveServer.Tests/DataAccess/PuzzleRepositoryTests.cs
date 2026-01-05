@@ -37,7 +37,7 @@ namespace MindWeaveServer.Tests.DataAccess
 
             var dSet = SetupMockDbSet(diffData);
             dSet.Setup(m => m.FindAsync(It.IsAny<object[]>()))
-                .Returns<object[]>(ids => Task.FromResult(diffData.FirstOrDefault(d => d.idDifficulty == (int)ids[0])));
+    .Returns<object[]>(ids => Task.FromResult(diffData.FirstOrDefault(d => d.idDifficulty == (int)ids[0])!));
 
             contextMock = new Mock<MindWeaveDBEntities1>();
             contextMock.Setup(c => c.Puzzles).Returns(pSet.Object);
@@ -127,7 +127,7 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.Null(p);
         }
 
-        private Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
+        private static Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
         {
             var mock = new Mock<DbSet<T>>();
             var queryable = sourceList.AsQueryable();

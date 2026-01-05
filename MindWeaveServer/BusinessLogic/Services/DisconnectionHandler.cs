@@ -20,7 +20,6 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly IGameStateManager gameStateManager;
         private readonly GameSessionManager gameSessionManager;
         private readonly IPlayerRepository playerRepository;
-        private readonly LobbyModerationManager moderationManager;
 
         private readonly object disconnectionLock = new object();
         private readonly HashSet<string> usersBeingDisconnected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -29,14 +28,12 @@ namespace MindWeaveServer.BusinessLogic.Services
             IUserSessionManager userSessionManager,
             IGameStateManager gameStateManager,
             GameSessionManager gameSessionManager,
-            IPlayerRepository playerRepository,
-            LobbyModerationManager moderationManager)
+            IPlayerRepository playerRepository)
         {
             this.userSessionManager = userSessionManager ?? throw new ArgumentNullException(nameof(userSessionManager));
             this.gameStateManager = gameStateManager ?? throw new ArgumentNullException(nameof(gameStateManager));
             this.gameSessionManager = gameSessionManager ?? throw new ArgumentNullException(nameof(gameSessionManager));
             this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
-            this.moderationManager = moderationManager ?? throw new ArgumentNullException(nameof(moderationManager));
         }
 
         public async Task handleFullDisconnectionAsync(string username, string reason)
@@ -62,7 +59,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Info("===== DISCONNECTION START: {0} (Reason: {1}) =====", username, reason);
 
-                int? playerId = await getPlayerIdAsync(username);
 
                 await cleanupFromActiveGamesAsync(username);
 
@@ -145,15 +141,15 @@ namespace MindWeaveServer.BusinessLogic.Services
             try
             {
                 var lobbiesToLeave = gameStateManager.ActiveLobbies
-                    .Where(kvp =>
+                .Where(kvp =>
+                {
+                    lock (kvp.Value)
                     {
-                        lock (kvp.Value)
-                        {
-                            return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
-                        }
-                    })
-                    .Select(kvp => kvp.Key)
-                    .ToList();
+                        return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
+                    }
+                })
+                .Select(kvp => kvp.Key)
+                .ToList();
 
                 foreach (var lobbyCode in lobbiesToLeave)
                 {
@@ -259,29 +255,36 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             foreach (var playerName in playersSnapshot)
             {
-                if (gameStateManager.MatchmakingCallbacks.TryGetValue(playerName, out var callback))
+                tryNotifyPlayerOfLobbyUpdate(playerName, lobby);
+            }
+        }
+
+        private void tryNotifyPlayerOfLobbyUpdate(string playerName, MindWeaveServer.Contracts.DataContracts.Matchmaking.LobbyStateDto lobby)
+        {
+            if (!gameStateManager.MatchmakingCallbacks.TryGetValue(playerName, out var callback))
+            {
+                return;
+            }
+
+            try
+            {
+                var commObj = callback as ICommunicationObject;
+                if (commObj?.State == CommunicationState.Opened)
                 {
-                    try
-                    {
-                        var commObj = callback as ICommunicationObject;
-                        if (commObj?.State == CommunicationState.Opened)
-                        {
-                            callback.updateLobbyState(lobby);
-                        }
-                    }
-                    catch (CommunicationException)
-                    {
-                        // Ignore
-                    }
-                    catch (TimeoutException)
-                    {
-                        // Ignore
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        // Ignore
-                    }
+                    callback.updateLobbyState(lobby);
                 }
+            }
+            catch (CommunicationException)
+            {
+                // Ignore
+            }
+            catch (TimeoutException)
+            {
+                // Ignore
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore
             }
         }
 
@@ -348,7 +351,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                     return;
                 }
 
-                await notifyFriendsOfDisconnectionAsync(username);
+                await notifyFriendsOfDisconnectionAsync();
 
                 gameStateManager.removeConnectedUser(username);
 
@@ -360,7 +363,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private async Task notifyFriendsOfDisconnectionAsync(string username)
+        private async Task notifyFriendsOfDisconnectionAsync()
         {
             await Task.CompletedTask;
         }
@@ -395,9 +398,5 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private GameSession findSessionContainingPlayer(string username)
-        {
-            return null;
-        }
     }
 }

@@ -12,7 +12,6 @@ namespace MindWeaveServer.BusinessLogic.Services
 {
     public class LobbyValidationService : ILobbyValidationService
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly IGameStateManager gameStateManager;
         private readonly GameSessionManager gameSessionManager;
@@ -182,9 +181,8 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
 
             var lobbies = gameStateManager.ActiveLobbies;
-            foreach (var kvp in lobbies)
+            foreach (var lobby in gameStateManager.ActiveLobbies.Values)
             {
-                var lobby = kvp.Value;
 
                 if (currentLobbyId != null && lobby.LobbyId == currentLobbyId) continue;
 

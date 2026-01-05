@@ -22,7 +22,6 @@ namespace MindWeaveServer.BusinessLogic.Manager
         private readonly IMatchmakingRepository matchmakingRepository;
         private readonly IPuzzleRepository puzzleRepository;
         private readonly StatsLogic statsLogic;
-        private readonly PuzzleGenerator puzzleGenerator;
         private readonly IScoreCalculator scoreCalculator;
 
         public GameSessionManager(
@@ -35,7 +34,6 @@ namespace MindWeaveServer.BusinessLogic.Manager
             this.puzzleRepository = puzzleRepository;
             this.matchmakingRepository = matchmakingRepository;
             this.statsLogic = statsLogic;
-            this.puzzleGenerator = puzzleGenerator;
             this.scoreCalculator = scoreCalculator;
         }
 

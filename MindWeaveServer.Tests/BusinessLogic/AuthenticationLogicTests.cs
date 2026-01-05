@@ -203,8 +203,8 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task registerPlayerAsyncNewUserCallsAddPlayer()
         {
             var dto = new UserProfileDto { Username = "New", Email = "e@e.com", FirstName = "F" };
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("New")).ReturnsAsync((Player)null);
-            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("e@e.com")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("New")).ReturnsAsync((Player)null!);
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("e@e.com")).ReturnsAsync((Player)null!);
 
             await authenticationLogic.registerPlayerAsync(dto, "Pass123!");
 
@@ -266,7 +266,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task verifyAccountAsyncPlayerNotFoundReturnsError()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
             var result = await authenticationLogic.verifyAccountAsync("e@e.com", "123456");
             Assert.False(result.Success);
         }
@@ -317,7 +317,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task resendVerificationCodeAsyncNotFoundReturnsError()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
             var result = await authenticationLogic.resendVerificationCodeAsync("e@e.com");
             Assert.False(result.Success);
         }
@@ -346,7 +346,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task sendPasswordRecoveryCodeAsyncUserNotFoundReturnsError()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
             var result = await authenticationLogic.sendPasswordRecoveryCodeAsync("e@e.com");
             Assert.False(result.Success);
         }

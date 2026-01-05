@@ -66,6 +66,7 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
         public void Dispose()
         {
             if (File.Exists(tempPuzzlePath)) File.Delete(tempPuzzlePath);
+            GC.SuppressFinalize(this);
         }
 
         private async Task<string> createActiveSession(string lobbyCode = "LOBBY1")
@@ -279,7 +280,7 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
         [Fact]
         public async Task createGameSessionFailsIfPuzzleNotFoundInDb()
         {
-            puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(It.IsAny<int>())).ReturnsAsync((Puzzles)null);
+            puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(It.IsAny<int>())).ReturnsAsync((Puzzles)null!);
 
             await Assert.ThrowsAsync<InvalidOperationException>(() =>
                 gameSessionManager.createGameSession("L", 1, 99, new DifficultyLevels(), new ConcurrentDictionary<int, PlayerSessionData>()));
@@ -303,7 +304,6 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
         {
             string lobbyCode = await createActiveSession();
             var session = gameSessionManager.getSession(lobbyCode);
-            int pieceId = 0;
 
             await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, "Player1");
 

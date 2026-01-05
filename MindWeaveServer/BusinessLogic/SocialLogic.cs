@@ -28,8 +28,8 @@ namespace MindWeaveServer.BusinessLogic
             this.playerRepository = playerRepo;
             this.friendshipRepository = friendshipRepo;
         }
-        private SemaphoreSlim getLockForUsers(string user1, string user2)
-        {
+        private static SemaphoreSlim getLockForUsers(string user1, string user2)
+        { 
             string key = string.Compare(user1, user2, StringComparison.OrdinalIgnoreCase) < 0
                 ? $"{user1.ToLower()}_{user2.ToLower()}"
                 : $"{user2.ToLower()}_{user1.ToLower()}";

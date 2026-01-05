@@ -35,7 +35,7 @@ namespace MindWeaveServer.Tests.Services
             service = new PuzzleManagerService(logic, exceptionHandlerMock.Object);
         }
 
-        private byte[] GetValidImageBytes()
+        private static byte[] GetValidImageBytes()
         {
             using (var bmp = new Bitmap(10, 10))
             using (var ms = new MemoryStream())
@@ -74,7 +74,7 @@ namespace MindWeaveServer.Tests.Services
         [Fact]
         public async Task getPuzzleDefinitionAsyncCallsLogic()
         {
-            puzzleRepoMock.Setup(x => x.getPuzzleByIdAsync(1)).ReturnsAsync((Puzzles)null);
+            puzzleRepoMock.Setup(x => x.getPuzzleByIdAsync(1)).ReturnsAsync((Puzzles)null!);
             var result = await service.getPuzzleDefinitionAsync(1, 1);
             Assert.Null(result);
         }
@@ -125,7 +125,7 @@ namespace MindWeaveServer.Tests.Services
         public async Task uploadPuzzleImageAsyncReturnsFailIfUserNotFound()
         {
 
-            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).ReturnsAsync((Player)null);
+            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
 
             try
             {
@@ -141,7 +141,7 @@ namespace MindWeaveServer.Tests.Services
         [Fact]
         public async Task uploadPuzzleImageAsyncReturnsFailIfBytesEmpty()
         {
-            var res = await service.uploadPuzzleImageAsync("User", new byte[0], "a.jpg");
+            var res = await service.uploadPuzzleImageAsync("User", Array.Empty<byte>(), "a.jpg");
             Assert.False(res.Success);
         }
 
@@ -162,11 +162,7 @@ namespace MindWeaveServer.Tests.Services
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
 
-            try
-            {
-                await service.getAvailablePuzzlesAsync();
-            }
-            catch (FaultException<ServiceFaultDto>) { }
+            await Assert.ThrowsAsync<FaultException<ServiceFaultDto>>(() => service.getAvailablePuzzlesAsync());
         }
 
         [Fact]
@@ -188,7 +184,7 @@ namespace MindWeaveServer.Tests.Services
         public async Task getPuzzleDefinitionAsyncValidatesDifficulty()
         {
             puzzleRepoMock.Setup(x => x.getPuzzleByIdAsync(1)).ReturnsAsync(new Puzzles { image_path = "def.png" });
-            puzzleRepoMock.Setup(x => x.getDifficultyByIdAsync(99)).ReturnsAsync((DifficultyLevels)null);
+            puzzleRepoMock.Setup(x => x.getDifficultyByIdAsync(99)).ReturnsAsync((DifficultyLevels)null!);
 
             var res = await service.getPuzzleDefinitionAsync(1, 99);
             Assert.Null(res);

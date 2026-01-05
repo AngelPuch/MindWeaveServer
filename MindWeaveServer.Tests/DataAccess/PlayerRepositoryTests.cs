@@ -149,7 +149,7 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.Equal(0, res);
         }
 
-        private Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
+        private static Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
         {
             var mock = new Mock<DbSet<T>>();
             var queryable = sourceList.AsQueryable();

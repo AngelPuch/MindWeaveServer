@@ -304,9 +304,10 @@ namespace MindWeaveServer.BusinessLogic
                 historySnapshot = history.ToList();
             }
 
-            foreach (var message in historySnapshot.Where(message => !trySendHistoryMessage(userCallback, message, lobbyId)))
+            foreach (var message in historySnapshot)
             {
-                break;
+                if (!trySendHistoryMessage(userCallback, message, lobbyId))
+                    break;
             }
         }
 

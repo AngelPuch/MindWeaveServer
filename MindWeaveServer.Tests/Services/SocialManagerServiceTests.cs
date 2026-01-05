@@ -44,7 +44,7 @@ namespace MindWeaveServer.Tests.Services
         private void SetServiceSession(string username)
         {
             var field = typeof(SocialManagerService).GetField("currentUsername", BindingFlags.NonPublic | BindingFlags.Instance);
-            field.SetValue(service, username);
+            field!.SetValue(service, username);
         }
 
         [Fact]
@@ -82,7 +82,7 @@ namespace MindWeaveServer.Tests.Services
             SetServiceSession("Requester");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
                 .ReturnsAsync(new Player { idPlayer = 1 });
-            friendshipRepoMock.Setup(x => x.findFriendshipAsync(1, 1)).ReturnsAsync((Friendships)null);
+            friendshipRepoMock.Setup(x => x.findFriendshipAsync(1, 1)).ReturnsAsync((Friendships)null!);
 
             var res = await service.sendFriendRequest("Requester", "Target");
             Assert.NotNull(res);
@@ -102,7 +102,7 @@ namespace MindWeaveServer.Tests.Services
             SetServiceSession("Me");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
                 .ReturnsAsync(new Player { idPlayer = 1 });
-            friendshipRepoMock.Setup(x => x.findFriendshipAsync(1, 1)).ReturnsAsync((Friendships)null);
+            friendshipRepoMock.Setup(x => x.findFriendshipAsync(1, 1)).ReturnsAsync((Friendships)null!);
 
             var res = await service.respondToFriendRequest("Me", "Sender", true);
             Assert.False(res.Success);
@@ -123,7 +123,7 @@ namespace MindWeaveServer.Tests.Services
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
                 .ReturnsAsync(new Player { idPlayer = 1 });
             friendshipRepoMock.Setup(x => x.findFriendshipAsync(1, 1))
-                .ReturnsAsync((Friendships)null);
+                 .ReturnsAsync((Friendships)null!);
 
             var res = await service.removeFriend("Me", "Friend");
             Assert.False(res.Success);
@@ -256,22 +256,7 @@ namespace MindWeaveServer.Tests.Services
             await Assert.ThrowsAsync<FaultException<ServiceFaultDto>>(() => service.getFriendRequests("A"));
         }
 
-        [Fact]
-        public async Task sendFriendRequestNotifiesTargetIfConnected()
-        {
-            SetServiceSession("A");
-            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
-                .ReturnsAsync(new Player { idPlayer = 1 });
-            friendshipRepoMock.Setup(x => x.findFriendshipAsync(It.IsAny<int>(), It.IsAny<int>())).ReturnsAsync((Friendships)null);
-
-            var cbMock = new Mock<Contracts.ServiceContracts.ISocialCallback>();
-            var commObj = cbMock.As<ICommunicationObject>();
-            commObj.Setup(x => x.State).Returns(CommunicationState.Opened);
-
-            gameStateMock.Setup(x => x.getUserCallback("B")).Returns(cbMock.Object);
-
-            try { await service.sendFriendRequest("A", "B"); } catch { }
-        }
+        
 
         [Fact]
         public void constructorInitializes()

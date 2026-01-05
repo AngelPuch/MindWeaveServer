@@ -71,14 +71,14 @@ namespace MindWeaveServer.Tests.Services
         private void SetSession(string username)
         {
             var uField = typeof(MatchmakingManagerService).GetField("currentUsername", BindingFlags.NonPublic | BindingFlags.Instance);
-            uField.SetValue(service, username);
+            uField!.SetValue(service, username);
 
             var cbMock = new Mock<IMatchmakingCallback>();
             var comm = cbMock.As<ICommunicationObject>();
             comm.Setup(x => x.State).Returns(CommunicationState.Opened);
 
             var cField = typeof(MatchmakingManagerService).GetField("currentUserCallback", BindingFlags.NonPublic | BindingFlags.Instance);
-            cField.SetValue(service, cbMock.Object);
+            cField!.SetValue(service, cbMock.Object);
         }
 
         [Fact]
@@ -124,56 +124,71 @@ namespace MindWeaveServer.Tests.Services
         public void joinLobbyHandlesValidationFailure()
         {
             SetSession("Other");
-            service.joinLobby("User", "Code");
+
+            var act = () => service.joinLobby("User", "Code");
+
+            Assert.Throws<FaultException<ServiceFaultDto>>(act);
         }
 
         [Fact]
         public void leaveLobbyDoesNotThrow()
         {
             SetSession("User");
-            service.leaveLobby("User", "Code");
-        }
 
+            var exception = Record.Exception(() => service.leaveLobby("User", "Code"));
+
+            Assert.Null(exception);
+        }
         [Fact]
         public void startGameDoesNotThrow()
         {
             SetSession("Host");
-            service.startGame("Host", "Code");
+
+            var exception = Record.Exception(() => service.startGame("Host", "Code"));
+
+            Assert.Null(exception);
         }
 
         [Fact]
         public void kickPlayerDoesNotThrow()
         {
             SetSession("Host");
-            service.kickPlayer("Host", "Kicked", "Code");
+
+            var exception = Record.Exception(() => service.kickPlayer("Host", "Kicked", "Code"));
+
+            Assert.Null(exception);
         }
 
         [Fact]
         public void inviteToLobbyDoesNotThrow()
         {
             SetSession("Inviter");
-            service.inviteToLobby("Inviter", "Invited", "Code");
+
+            var exception = Record.Exception(() => service.inviteToLobby("Inviter", "Invited", "Code"));
+
+            Assert.Null(exception);
         }
 
         [Fact]
         public void changeDifficultyDoesNotThrow()
         {
             SetSession("Host");
-            service.changeDifficulty("Host", "Code", 2);
-        }
 
+            var exception = Record.Exception(() => service.changeDifficulty("Host", "Code", 2));
+
+            Assert.Null(exception);
+        }
         [Fact]
         public void inviteGuestByEmailValidatesSession()
         {
             SetSession("Other");
-            service.inviteGuestByEmail(new GuestInvitationDto { InviterUsername = "User" });
+
+            var act = () => service.inviteGuestByEmail(new GuestInvitationDto { InviterUsername = "User" });
+
+            Assert.Throws<FaultException<ServiceFaultDto>>(act);
         }
 
-        [Fact]
-        public void leaveGameCallsSessionManager()
-        {
-            service.leaveGame("User", "Code");
-        }
+
 
         [Fact]
         public async Task joinLobbyAsGuestHandlesException()
@@ -198,28 +213,37 @@ namespace MindWeaveServer.Tests.Services
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("User"))
                 .ReturnsAsync(new Player { idPlayer = 1 });
 
-            try { service.requestPieceDrag("Code", 1); } catch { }
-        }
+            service.requestPieceDrag("Code", 1);
 
+            playerRepoMock.Verify(x => x.getPlayerByUsernameAsync("User"), Times.Once);
+        }
         [Fact]
         public void requestPieceMoveValidatesSession()
         {
             SetSession("Other");
-            service.requestPieceMove("Code", 1, 0, 0);
+
+            var act = () => service.requestPieceMove("Code", 1, 0, 0);
+
+            Assert.Throws<FaultException<ServiceFaultDto>>(act);
         }
 
         [Fact]
         public void requestPieceDropValidatesSession()
         {
             SetSession("Other");
-            service.requestPieceDrop("Code", 1, 0, 0);
-        }
 
+            var act = () => service.requestPieceDrop("Code", 1, 0, 0);
+
+            Assert.Throws<FaultException<ServiceFaultDto>>(act);
+        }
         [Fact]
         public void requestPieceReleaseValidatesSession()
         {
             SetSession("Other");
-            service.requestPieceRelease("Code", 1);
+
+            var act = () => service.requestPieceRelease("Code", 1);
+
+            Assert.Throws<FaultException<ServiceFaultDto>>(act);
         }
 
         [Fact]

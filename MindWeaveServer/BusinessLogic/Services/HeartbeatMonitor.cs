@@ -93,15 +93,15 @@ namespace MindWeaveServer.BusinessLogic.Services
             var clientInfo = new HeartbeatClientInfo(username, callback);
 
             var result = registeredClients.AddOrUpdate(
-                username,
-                clientInfo,
-                (key, existingClient) =>
-                {
-                    cleanupClientCallbackEvents(existingClient);
+            username,
+            clientInfo,
+            (key, existingClient) =>
+            {
+                cleanupClientCallbackEvents(existingClient);
 
-                    logger.Info("HeartbeatMonitor: Updating existing registration for {0}.", username);
-                    return clientInfo;
-                });
+                logger.Info("HeartbeatMonitor: Updating existing registration for {0}.", key);
+                return clientInfo;
+            });
 
             setupClientCallbackEvents(result);
 
@@ -194,11 +194,11 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         public void Dispose()
         {
-            dispose(true);
+            Dispose(true);
             GC.SuppressFinalize(this);
         }
 
-        protected virtual void dispose(bool disposing)
+        protected virtual void Dispose(bool disposing)
         {
             if (isDisposed)
             {
@@ -238,7 +238,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                 try
                 {
-                    checkSingleClient(username, clientInfo, now);
+                    checkSingleClient(username, clientInfo);
                 }
                 catch (Exception ex)
                 {
@@ -247,7 +247,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private void checkSingleClient(string username, HeartbeatClientInfo clientInfo, DateTime now)
+        private void checkSingleClient(string username, HeartbeatClientInfo clientInfo)
         {
             if (clientInfo.IsBeingDisconnected)
             {
@@ -310,7 +310,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             });
         }
 
-        private void tryNotifyClientOfTermination(HeartbeatClientInfo clientInfo, string reason)
+        private static void tryNotifyClientOfTermination(HeartbeatClientInfo clientInfo, string reason)
         {
             if (clientInfo.Callback == null || !clientInfo.isChannelHealthy())
             {
@@ -348,7 +348,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             commObject.Closed += (sender, args) => onClientChannelClosed(clientInfo.Username);
         }
 
-        private void cleanupClientCallbackEvents(HeartbeatClientInfo clientInfo)
+        private static void cleanupClientCallbackEvents(HeartbeatClientInfo clientInfo)
         {
             clientInfo.Callback = null;
             clientInfo.CommunicationObject = null;

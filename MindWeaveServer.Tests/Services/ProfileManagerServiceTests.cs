@@ -204,7 +204,7 @@ namespace MindWeaveServer.Tests.Services
         [Fact]
         public async Task updateProfileAsyncReturnsFalseIfUserNotFound()
         {
-            playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("Ghost")).ReturnsAsync((Player)null);
+            playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("Ghost")).ReturnsAsync((Player)null!);
             var res = await service.updateProfileAsync("Ghost", new UserProfileForEditDto());
             Assert.False(res.Success);
         }
@@ -223,7 +223,7 @@ namespace MindWeaveServer.Tests.Services
         [Fact]
         public async Task getPlayerProfileForEditAsyncReturnsNullIfNotFound()
         {
-            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("Ghost")).ReturnsAsync((Player)null);
+            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("Ghost")).ReturnsAsync((Player)null!);
             var res = await service.getPlayerProfileForEditAsync("Ghost");
             Assert.Null(res);
         }

@@ -370,7 +370,7 @@ namespace MindWeaveServer.BusinessLogic
 
         public void Dispose()
         {
-            dispose(true);
+            Dispose(true);
             GC.SuppressFinalize(this);
         }
 
@@ -411,7 +411,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        protected virtual void dispose(bool disposing)
+        protected virtual void Dispose(bool disposing)
         {
             if (isDisposed) return;
 

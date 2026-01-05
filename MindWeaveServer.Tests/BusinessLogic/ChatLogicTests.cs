@@ -51,14 +51,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
             );
         }
 
-        private Mock<IChatCallback> CreateMockCallback()
+        private static Mock<IChatCallback> CreateMockCallback()
         {
             var mock = new Mock<IChatCallback>();
             mock.As<ICommunicationObject>().Setup(x => x.State).Returns(CommunicationState.Opened);
             return mock;
         }
 
-        private Mock<IChatCallback> CreateMockCallbackClosedState()
+        private static Mock<IChatCallback> CreateMockCallbackClosedState()
         {
             var mock = new Mock<IChatCallback>();
             mock.As<ICommunicationObject>().Setup(x => x.State).Returns(CommunicationState.Closed);
@@ -239,9 +239,9 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             chatLogic.leaveLobbyChat(username, lobbyCode);
 
-            if (lobbyChatUsersMock.ContainsKey(lobbyCode))
+            if (lobbyChatUsersMock.TryGetValue(lobbyCode, out var userChat))
             {
-                Assert.False(lobbyChatUsersMock[lobbyCode].ContainsKey(username));
+                Assert.False(userChat.ContainsKey(username));
             }
         }
 

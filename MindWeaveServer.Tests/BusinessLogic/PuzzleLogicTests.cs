@@ -41,9 +41,10 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             if (Directory.Exists(testUploadPath)) Directory.Delete(testUploadPath, true);
             if (Directory.Exists(testDefaultPath)) Directory.Delete(testDefaultPath, true);
+            GC.SuppressFinalize(this);
         }
 
-        private byte[] getValidImageBytes()
+        private static byte[] getValidImageBytes()
         {
             using (var bmp = new Bitmap(100, 100))
             using (var stream = new MemoryStream())
@@ -103,7 +104,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         public async Task uploadPuzzleImageAsyncReturnsErrorWhenPlayerNotFound()
         {
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
-                .ReturnsAsync((Player)null);
+                .ReturnsAsync((Player)null!);
 
             var result = await puzzleLogic.uploadPuzzleImageAsync("unknownUser", getValidImageBytes(), "file.png");
 
@@ -167,7 +168,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         [Fact]
         public async Task getPuzzleDefinitionAsyncReturnsNullWhenPuzzleNotFoundInDb()
         {
-            puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(99)).ReturnsAsync((Puzzles)null);
+            puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(99)).ReturnsAsync((Puzzles)null!);
             var result = await puzzleLogic.getPuzzleDefinitionAsync(99, 1);
             Assert.Null(result);
         }
@@ -181,7 +182,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var puzzle = new Puzzles { puzzle_id = 1, image_path = fileName };
             puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(1)).ReturnsAsync(puzzle);
-            puzzleRepositoryMock.Setup(x => x.getDifficultyByIdAsync(99)).ReturnsAsync((DifficultyLevels)null);
+            puzzleRepositoryMock.Setup(x => x.getDifficultyByIdAsync(99)).ReturnsAsync((DifficultyLevels)null!);
 
             var result = await puzzleLogic.getPuzzleDefinitionAsync(1, 99);
             Assert.Null(result);
