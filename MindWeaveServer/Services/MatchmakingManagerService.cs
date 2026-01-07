@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Shared;
@@ -18,7 +19,9 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(
+        InstanceContextMode = InstanceContextMode.PerSession,
+        ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class MatchmakingManagerService : IMatchmakingManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
@@ -27,11 +30,17 @@ namespace MindWeaveServer.Services
         private readonly GameSessionManager gameSessionManager;
         private readonly IPlayerRepository playerRepository;
         private readonly IServiceExceptionHandler exceptionHandler;
+        private readonly IDisconnectionHandler disconnectionHandler;
 
         private string currentUsername;
         private int? currentPlayerId;
         private IMatchmakingCallback currentUserCallback;
-        private bool isDisconnected;
+
+        private volatile bool isDisconnecting;
+        private readonly object disconnectLock = new object();
+
+        private const string DISCONNECT_REASON_SESSION_CLOSED = "SessionClosed";
+        private const string DISCONNECT_REASON_SESSION_FAULTED = "SessionFaulted";
 
         public MatchmakingManagerService()
         {
@@ -41,30 +50,125 @@ namespace MindWeaveServer.Services
             this.gameSessionManager = Bootstrapper.Container.Resolve<GameSessionManager>();
             this.playerRepository = Bootstrapper.Container.Resolve<IPlayerRepository>();
             this.exceptionHandler = Bootstrapper.Container.Resolve<IServiceExceptionHandler>();
+            this.disconnectionHandler = Bootstrapper.Container.Resolve<IDisconnectionHandler>();
+
+            subscribeToChannelEvents();
         }
 
         public MatchmakingManagerService(
             MatchmakingLogic matchmakingLogic,
             GameSessionManager gameSessionManager,
             IPlayerRepository playerRepository,
-            IServiceExceptionHandler exceptionHandler)
+            IServiceExceptionHandler exceptionHandler,
+            IDisconnectionHandler disconnectionHandler)
         {
             this.matchmakingLogic = matchmakingLogic;
             this.gameSessionManager = gameSessionManager;
             this.playerRepository = playerRepository;
             this.exceptionHandler = exceptionHandler;
-            initializeService();
+            this.disconnectionHandler = disconnectionHandler;
+
+            subscribeToChannelEvents();
         }
 
-        private void initializeService()
+        #region Channel Event Handlers (Reliable Session Detection)
+
+        private void subscribeToChannelEvents()
         {
-            if (OperationContext.Current == null || OperationContext.Current.Channel == null)
+            if (OperationContext.Current?.Channel == null)
             {
+                logger.Warn("MatchmakingManagerService: Cannot subscribe to channel events - OperationContext or Channel is null.");
                 return;
             }
-            OperationContext.Current.Channel.Faulted += channelFaultedOrClosed;
-            OperationContext.Current.Channel.Closed += channelFaultedOrClosed;
+
+            OperationContext.Current.Channel.Faulted += onChannelFaulted;
+            OperationContext.Current.Channel.Closed += onChannelClosed;
+
+            logger.Debug("MatchmakingManagerService: Subscribed to channel Faulted/Closed events.");
         }
+
+        private void onChannelFaulted(object sender, EventArgs e)
+        {
+            logger.Warn("MatchmakingManagerService: Channel FAULTED for user {0}. Initiating disconnection.",
+                currentUsername ?? "Unknown");
+
+            initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_FAULTED);
+        }
+
+        private void onChannelClosed(object sender, EventArgs e)
+        {
+            logger.Info("MatchmakingManagerService: Channel CLOSED for user {0}. Initiating disconnection.",
+                currentUsername ?? "Unknown");
+
+            initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_CLOSED);
+        }
+
+        private void initiateDisconnectionAsync(string reason)
+        {
+            string usernameToDisconnect;
+
+            lock (disconnectLock)
+            {
+                if (isDisconnecting)
+                {
+                    logger.Debug("MatchmakingManagerService: Disconnection already in progress for {0}.", currentUsername);
+                    return;
+                }
+
+                isDisconnecting = true;
+                usernameToDisconnect = currentUsername;
+            }
+
+            if (string.IsNullOrWhiteSpace(usernameToDisconnect))
+            {
+                logger.Warn("MatchmakingManagerService: Cannot disconnect - username is null/empty.");
+                return;
+            }
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    logger.Info("MatchmakingManagerService: Executing full disconnection for {0}. Reason: {1}",
+                        usernameToDisconnect, reason);
+
+                    await disconnectionHandler.handleFullDisconnectionAsync(usernameToDisconnect, reason);
+
+                    logger.Info("MatchmakingManagerService: Full disconnection completed for {0}.", usernameToDisconnect);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "MatchmakingManagerService: Error during full disconnection for {0}.", usernameToDisconnect);
+                }
+                finally
+                {
+                    cleanupLocalState();
+                }
+            });
+        }
+
+        private void cleanupLocalState()
+        {
+            cleanupCallbackEvents(OperationContext.Current?.Channel);
+            cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
+
+            currentUsername = null;
+            currentUserCallback = null;
+            currentPlayerId = null;
+        }
+
+        private void cleanupCallbackEvents(ICommunicationObject commObject)
+        {
+            if (commObject != null)
+            {
+                commObject.Faulted -= onChannelFaulted;
+                commObject.Closed -= onChannelClosed;
+            }
+        }
+
+        #endregion
+
+        #region Service Operations
 
         private void preloadPlayerId()
         {
@@ -137,19 +241,16 @@ namespace MindWeaveServer.Services
                 {
                     logger.Error(dbEx, "Database error joining lobby: {LobbyId}", lobbyId);
                     trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.MATCH_JOIN_ERROR_DATA));
-                    await handleDisconnect();
                 }
                 catch (SqlException sqlEx)
                 {
                     logger.Error(sqlEx, "SQL error joining lobby: {LobbyId}", lobbyId);
                     trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.ERROR_SERVER_GENERIC));
-                    await handleDisconnect();
                 }
                 catch (TimeoutException timeEx)
                 {
                     logger.Error(timeEx, "Timeout joining lobby: {LobbyId}", lobbyId);
                     trySendCallback(cb => cb.lobbyCreationFailed(MessageCodes.ERROR_SERVER_GENERIC));
-                    await handleDisconnect();
                 }
             });
         }
@@ -415,7 +516,7 @@ namespace MindWeaveServer.Services
             string lobbyCode = joinRequest?.LobbyCode ?? "NULL";
             logger.Info("JoinLobbyAsGuest operation started for lobby: {LobbyCode}", lobbyCode);
 
-            if (isDisconnected)
+            if (isDisconnecting)
             {
                 logger.Warn("JoinLobbyAsGuest rejected: Service instance is marked as disconnected.");
                 return new GuestJoinResultDto
@@ -563,6 +664,8 @@ namespace MindWeaveServer.Services
             }
         }
 
+        #endregion
+
         #region Private Methods
 
         private int getPlayerIdFromContext(string lobbyCode = null)
@@ -643,9 +746,9 @@ namespace MindWeaveServer.Services
 
         private bool ensureSessionIsRegistered(string username)
         {
-            if (isDisconnected)
+            if (isDisconnecting)
             {
-                logger.Warn("Session check failed: Already marked as disconnected.");
+                logger.Warn("Session check failed: Already marked as disconnecting.");
                 return false;
             }
 
@@ -656,8 +759,7 @@ namespace MindWeaveServer.Services
                     return true;
                 }
 
-                logger.Fatal("CRITICAL: Session mismatch detected. Aborting and disconnecting.");
-                Task.Run(async () => await handleDisconnect());
+                logger.Fatal("CRITICAL: Session mismatch detected. Aborting.");
                 return false;
             }
 
@@ -670,69 +772,14 @@ namespace MindWeaveServer.Services
             return tryRegisterCurrentUserCallback(username);
         }
 
-        private async void channelFaultedOrClosed(object sender, EventArgs e)
-        {
-            await handleDisconnect();
-        }
-
-        private void cleanupCallbackEvents(ICommunicationObject commObject)
-        {
-            if (commObject != null)
-            {
-                commObject.Faulted -= channelFaultedOrClosed;
-                commObject.Closed -= channelFaultedOrClosed;
-            }
-        }
-
-        private async Task handleDisconnect()
-        {
-            if (isDisconnected) return;
-            isDisconnected = true;
-
-            string userToDisconnect = currentUsername;
-            int? idToDisconnect = currentPlayerId;
-
-            if (OperationContext.Current?.Channel != null)
-            {
-                OperationContext.Current.Channel.Faulted -= channelFaultedOrClosed;
-                OperationContext.Current.Channel.Closed -= channelFaultedOrClosed;
-            }
-
-            cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
-
-            if (!string.IsNullOrWhiteSpace(userToDisconnect))
-            {
-                try
-                {
-                    if (idToDisconnect.HasValue)
-                    {
-                        gameSessionManager.handlePlayerDisconnect(userToDisconnect, idToDisconnect.Value);
-                    }
-                    await Task.Run(() => matchmakingLogic.handleUserDisconnect(userToDisconnect));
-                }
-                catch (EntityException ex)
-                {
-                    logger.Error(ex, "Database error during disconnect notification for user: {0}", userToDisconnect);
-                }
-                catch (CommunicationException ex)
-                {
-                    logger.Warn(ex, "Communication error during disconnect notification for user: {0}", userToDisconnect);
-                }
-            }
-
-            currentUsername = null;
-            currentUserCallback = null;
-            currentPlayerId = null;
-        }
-
         private void setupCallbackEvents(ICommunicationObject commObject)
         {
             if (commObject != null)
             {
-                commObject.Faulted -= channelFaultedOrClosed;
-                commObject.Closed -= channelFaultedOrClosed;
-                commObject.Faulted += channelFaultedOrClosed;
-                commObject.Closed += channelFaultedOrClosed;
+                commObject.Faulted -= onChannelFaulted;
+                commObject.Closed -= onChannelClosed;
+                commObject.Faulted += onChannelFaulted;
+                commObject.Closed += onChannelClosed;
             }
         }
 

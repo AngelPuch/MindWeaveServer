@@ -1,6 +1,7 @@
 ﻿using Autofac;
 using MindWeaveServer.AppStart;
 using MindWeaveServer.BusinessLogic;
+using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.Contracts.ServiceContracts;
 using NLog;
 using System;
@@ -9,39 +10,148 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(
+        InstanceContextMode = InstanceContextMode.PerSession,
+        ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ChatManagerService : IChatManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly ChatLogic chatLogic;
-        private IChatCallback currentUserCallback;
+        private readonly IDisconnectionHandler disconnectionHandler;
 
+        private IChatCallback currentUserCallback;
         private string currentUsername;
         private string currentLobbyId;
-        private volatile bool isDisconnected;
+
+        private volatile bool isDisconnecting;
         private readonly object disconnectLock = new object();
+
+        private const string DISCONNECT_REASON_SESSION_CLOSED = "ChatSessionClosed";
+        private const string DISCONNECT_REASON_SESSION_FAULTED = "ChatSessionFaulted";
 
         public ChatManagerService()
         {
             Bootstrapper.init();
             this.chatLogic = Bootstrapper.Container.Resolve<ChatLogic>();
+            this.disconnectionHandler = Bootstrapper.Container.Resolve<IDisconnectionHandler>();
+
+            subscribeToChannelEvents();
         }
 
-        public ChatManagerService(ChatLogic chatLogic)
+        public ChatManagerService(ChatLogic chatLogic, IDisconnectionHandler disconnectionHandler)
         {
             this.chatLogic = chatLogic;
-            attachChannelEventHandlers();
+            this.disconnectionHandler = disconnectionHandler;
+
+            subscribeToChannelEvents();
         }
 
+        #region Channel Event Handlers (Reliable Session Detection)
+
+        private void subscribeToChannelEvents()
+        {
+            if (OperationContext.Current?.Channel == null)
+            {
+                logger.Warn("ChatManagerService: Cannot subscribe to channel events - OperationContext or Channel is null.");
+                return;
+            }
+
+            OperationContext.Current.Channel.Faulted += onChannelFaulted;
+            OperationContext.Current.Channel.Closed += onChannelClosed;
+
+            logger.Debug("ChatManagerService: Subscribed to channel Faulted/Closed events.");
+        }
+
+        private void onChannelFaulted(object sender, EventArgs e)
+        {
+            logger.Warn("ChatManagerService: Channel FAULTED for user {0}. Initiating cleanup.",
+                currentUsername ?? "Unknown");
+
+            initiateCleanupAsync(DISCONNECT_REASON_SESSION_FAULTED);
+        }
+
+        private void onChannelClosed(object sender, EventArgs e)
+        {
+            logger.Info("ChatManagerService: Channel CLOSED for user {0}. Initiating cleanup.",
+                currentUsername ?? "Unknown");
+
+            initiateCleanupAsync(DISCONNECT_REASON_SESSION_CLOSED);
+        }
+
+        private void initiateCleanupAsync(string reason)
+        {
+            string usernameToCleanup;
+            string lobbyToLeave;
+
+            lock (disconnectLock)
+            {
+                if (isDisconnecting)
+                {
+                    logger.Debug("ChatManagerService: Cleanup already in progress for {0}.", currentUsername);
+                    return;
+                }
+
+                isDisconnecting = true;
+                usernameToCleanup = currentUsername;
+                lobbyToLeave = currentLobbyId;
+            }
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    // Solo limpiar del chat, NO llamar a handleFullDisconnectionAsync
+                    // porque el SocialManagerService o MatchmakingManagerService ya lo harán
+                    if (!string.IsNullOrWhiteSpace(usernameToCleanup) && !string.IsNullOrWhiteSpace(lobbyToLeave))
+                    {
+                        logger.Info("ChatManagerService: Cleaning up chat for {0} from lobby {1}.",
+                            usernameToCleanup, lobbyToLeave);
+
+                        chatLogic.leaveLobbyChat(usernameToCleanup, lobbyToLeave);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "ChatManagerService: Error during chat cleanup for {0}.", usernameToCleanup);
+                }
+                finally
+                {
+                    cleanupLocalState();
+                }
+            });
+        }
+
+        private void cleanupLocalState()
+        {
+            cleanupCallbackEvents(OperationContext.Current?.Channel);
+            cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
+
+            currentUsername = null;
+            currentLobbyId = null;
+            currentUserCallback = null;
+        }
+
+        private void cleanupCallbackEvents(ICommunicationObject commObject)
+        {
+            if (commObject != null)
+            {
+                commObject.Faulted -= onChannelFaulted;
+                commObject.Closed -= onChannelClosed;
+            }
+        }
+
+        #endregion
+
+        #region Service Operations
 
         public void joinLobbyChat(string username, string lobbyId)
         {
             logger.Info("joinLobbyChat request for lobby {LobbyId}", lobbyId ?? "NULL");
 
-            if (isDisconnected)
+            if (isDisconnecting)
             {
-                logger.Warn("joinLobbyChat ignored: Session is marked as disconnected.");
+                logger.Warn("joinLobbyChat ignored: Session is marked as disconnecting.");
                 return;
             }
 
@@ -59,7 +169,6 @@ namespace MindWeaveServer.Services
             {
                 logger.Warn(ex, "Chat Service Validation Error for lobby {LobbyId}", lobbyId);
             }
-            
         }
 
         public void leaveLobbyChat(string username, string lobbyId)
@@ -94,7 +203,11 @@ namespace MindWeaveServer.Services
                     logger.Warn(ex, "Chat Message Validation Failed for lobby {LobbyId}", lobbyId);
                 }
             });
-            }
+        }
+
+        #endregion
+
+        #region Private Helper Methods
 
         private bool tryRegisterSession(string username, string lobbyId)
         {
@@ -119,6 +232,8 @@ namespace MindWeaveServer.Services
                         logger.Error("GetCallbackChannel returned null for lobby {LobbyId}.", lobbyId);
                         return false;
                     }
+
+                    setupCallbackEvents(currentUserCallback as ICommunicationObject);
                 }
                 catch (InvalidCastException)
                 {
@@ -156,9 +271,9 @@ namespace MindWeaveServer.Services
                 return false;
             }
 
-            if (isDisconnected)
+            if (isDisconnecting)
             {
-                logger.Warn("leaveLobbyChat ignored: Session is marked as disconnected.");
+                logger.Warn("leaveLobbyChat ignored: Session is marked as disconnecting.");
                 return false;
             }
 
@@ -167,10 +282,10 @@ namespace MindWeaveServer.Services
 
         private bool validateSessionForMessage(string senderUsername, string lobbyId)
         {
-            if (isDisconnected || currentUserCallback == null || string.IsNullOrEmpty(currentUsername))
+            if (isDisconnecting || currentUserCallback == null || string.IsNullOrEmpty(currentUsername))
             {
-                logger.Warn("sendLobbyMessage denied: Invalid session state. Disconnected={IsDisconnected}, CallbackNull={CallbackNull}",
-                    isDisconnected, currentUserCallback == null);
+                logger.Warn("sendLobbyMessage denied: Invalid session state. Disconnecting={IsDisconnecting}, CallbackNull={CallbackNull}",
+                    isDisconnecting, currentUserCallback == null);
                 return false;
             }
 
@@ -180,63 +295,17 @@ namespace MindWeaveServer.Services
             return usernameMatches && lobbyMatches;
         }
 
-        private void attachChannelEventHandlers()
-        {
-            if (OperationContext.Current?.Channel == null)
-            {
-                logger.Warn("Could not attach channel event handlers - OperationContext or Channel is null.");
-                return;
-            }
-
-            OperationContext.Current.Channel.Faulted += onChannelFaultedOrClosed;
-            OperationContext.Current.Channel.Closed += onChannelFaultedOrClosed;
-        }
-
-        private void onChannelFaultedOrClosed(object sender, EventArgs e)
-        {
-            initiateDisconnectAsync();
-        }
-
-        private void initiateDisconnectAsync()
-        {
-            Task.Run(handleDisconnect);
-        }
-
-        private void handleDisconnect()
-        {
-            lock (disconnectLock)
-            {
-                if (isDisconnected)
-                {
-                    return;
-                }
-                isDisconnected = true;
-            }
-
-            string userToDisconnect = currentUsername;
-            string lobbyToDisconnect = currentLobbyId;
-
-
-            cleanupCallbackEvents(OperationContext.Current?.Channel);
-            cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
-
-            if (!string.IsNullOrWhiteSpace(userToDisconnect) && !string.IsNullOrWhiteSpace(lobbyToDisconnect))
-            {
-                chatLogic.leaveLobbyChat(userToDisconnect, lobbyToDisconnect);
-            }
-
-            currentUsername = null;
-            currentLobbyId = null;
-            currentUserCallback = null;
-        }
-
-        private void cleanupCallbackEvents(ICommunicationObject commObject)
+        private void setupCallbackEvents(ICommunicationObject commObject)
         {
             if (commObject != null)
             {
-                commObject.Faulted -= onChannelFaultedOrClosed;
-                commObject.Closed -= onChannelFaultedOrClosed;
+                commObject.Faulted -= onChannelFaulted;
+                commObject.Closed -= onChannelClosed;
+                commObject.Faulted += onChannelFaulted;
+                commObject.Closed += onChannelClosed;
             }
         }
+
+        #endregion
     }
 }

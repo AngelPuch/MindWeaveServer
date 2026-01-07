@@ -41,11 +41,12 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return;
             }
 
+            // Verificar si ya estamos procesando este usuario
             lock (disconnectionLock)
             {
                 if (usersBeingDisconnected.Contains(username))
                 {
-                    logger.Warn("DisconnectionHandler: Disconnection already in progress for {0}. Skipping.", username);
+                    logger.Info("DisconnectionHandler: Disconnection already in progress for {0}. Skipping duplicate call.", username);
                     return;
                 }
 
@@ -56,19 +57,25 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Info("===== DISCONNECTION START: {0} (Reason: {1}) =====", username, reason);
 
-
+                // 1. Limpiar de partidas activas
                 await cleanupFromActiveGamesAsync(username);
 
+                // 2. Limpiar de lobbies
                 await cleanupFromLobbiesAsync(username);
 
+                // 3. Limpiar de chats de lobby
                 cleanupFromLobbyChats(username);
 
+                // 4. Limpiar callbacks de matchmaking
                 cleanupMatchmakingCallbacks(username);
 
+                // 5. Limpiar del servicio social
                 await cleanupFromSocialAsync(username);
 
+                // 6. Limpiar sesión de autenticación
                 cleanupAuthenticationSession(username);
 
+                logger.Info("===== DISCONNECTION COMPLETE: {0} =====", username);
             }
             catch (Exception ex)
             {
@@ -91,19 +98,19 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                 if (session == null)
                 {
-                    logger.Info("DisconnectionHandler: No active game session found for {0}.", username);
+                    logger.Debug("DisconnectionHandler: No active game session found for {0}.", username);
                     return;
                 }
 
                 string lobbyCode = session.LobbyCode;
 
-                logger.Info("DisconnectionHandler: Found active game session {0} for {1}. " +
-                            "Using handlePlayerLeaveAsync (same as ALT+F4 flow).", lobbyCode, username);
+                logger.Info("DisconnectionHandler: Found active game session {0} for {1}. Processing leave.",
+                    lobbyCode, username);
 
                 await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
 
                 logger.Info("DisconnectionHandler: Successfully processed game exit for {0} from session {1}.",
-                            username, lobbyCode);
+                    username, lobbyCode);
             }
             catch (EntityException ex)
             {
@@ -119,21 +126,20 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-
         private async Task cleanupFromLobbiesAsync(string username)
         {
             try
             {
                 var lobbiesToLeave = gameStateManager.ActiveLobbies
-                .Where(kvp =>
-                {
-                    lock (kvp.Value)
+                    .Where(kvp =>
                     {
-                        return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
-                    }
-                })
-                .Select(kvp => kvp.Key)
-                .ToList();
+                        lock (kvp.Value)
+                        {
+                            return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
+                        }
+                    })
+                    .Select(kvp => kvp.Key)
+                    .ToList();
 
                 foreach (var lobbyCode in lobbiesToLeave)
                 {
@@ -147,11 +153,12 @@ namespace MindWeaveServer.BusinessLogic.Services
                     }
                 }
 
+                // Limpiar de tracking de guests
                 foreach (var kvp in gameStateManager.GuestUsernamesInLobby.ToArray())
                 {
                     if (kvp.Value.Remove(username))
                     {
-                        logger.Info("DisconnectionHandler: Removed {0} from guest tracking in lobby {1}.", username, kvp.Key);
+                        logger.Debug("DisconnectionHandler: Removed {0} from guest tracking in lobby {1}.", username, kvp.Key);
 
                         if (kvp.Value.Count == 0)
                         {
@@ -258,18 +265,9 @@ namespace MindWeaveServer.BusinessLogic.Services
                     callback.updateLobbyState(lobby);
                 }
             }
-            catch (CommunicationException)
-            {
-                // Ignore
-            }
-            catch (TimeoutException)
-            {
-                // Ignore
-            }
-            catch (ObjectDisposedException)
-            {
-                // Ignore
-            }
+            catch (CommunicationException) { }
+            catch (TimeoutException) { }
+            catch (ObjectDisposedException) { }
         }
 
         private void notifyPlayerKicked(string username, string reason)
@@ -284,10 +282,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                         callback.kickedFromLobby(reason);
                     }
                 }
-                catch
-                {
-                    // Ignored
-                }
+                catch { }
             }
         }
 
@@ -302,7 +297,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                     if (usersInLobby.TryRemove(username, out _))
                     {
-                        logger.Info("DisconnectionHandler: Removed {0} from chat in lobby {1}.", username, lobbyId);
+                        logger.Debug("DisconnectionHandler: Removed {0} from chat in lobby {1}.", username, lobbyId);
 
                         if (usersInLobby.IsEmpty)
                         {
@@ -322,7 +317,7 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             if (gameStateManager.MatchmakingCallbacks.TryRemove(username, out _))
             {
-                logger.Info("DisconnectionHandler: Removed matchmaking callback for {0}.", username);
+                logger.Debug("DisconnectionHandler: Removed matchmaking callback for {0}.", username);
             }
         }
 
@@ -335,11 +330,12 @@ namespace MindWeaveServer.BusinessLogic.Services
                     return;
                 }
 
-                await notifyFriendsOfDisconnectionAsync();
+                // Notificar a amigos que el usuario se desconectó
+                await notifyFriendsOfDisconnectionAsync(username);
 
                 gameStateManager.removeConnectedUser(username);
 
-                logger.Info("DisconnectionHandler: Removed {0} from social/connected users.", username);
+                logger.Debug("DisconnectionHandler: Removed {0} from social/connected users.", username);
             }
             catch (Exception ex)
             {
@@ -347,8 +343,11 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private async Task notifyFriendsOfDisconnectionAsync()
+        private async Task notifyFriendsOfDisconnectionAsync(string username)
         {
+            // TODO: Si quieres notificar a los amigos que el usuario se desconectó,
+            // implementa la lógica aquí usando SocialLogic.getFriendsListAsync
+            // y enviando notificaciones a cada amigo conectado.
             await Task.CompletedTask;
         }
 
@@ -359,7 +358,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 if (userSessionManager.isUserLoggedIn(username))
                 {
                     userSessionManager.removeSession(username);
-                    logger.Info("DisconnectionHandler: Removed authentication session for {0}.", username);
+                    logger.Debug("DisconnectionHandler: Removed authentication session for {0}.", username);
                 }
             }
             catch (Exception ex)

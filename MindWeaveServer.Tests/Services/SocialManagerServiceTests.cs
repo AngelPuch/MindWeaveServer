@@ -24,6 +24,7 @@ namespace MindWeaveServer.Tests.Services
         private readonly Mock<IFriendshipRepository> friendshipRepoMock;
         private readonly Mock<IGameStateManager> gameStateMock;
         private readonly Mock<IServiceExceptionHandler> exceptionHandlerMock;
+        private readonly Mock<IDisconnectionHandler> disconnectionHandlerMock;
         private readonly SocialLogic logic;
         private readonly SocialManagerService service;
 
@@ -33,12 +34,13 @@ namespace MindWeaveServer.Tests.Services
             friendshipRepoMock = new Mock<IFriendshipRepository>();
             gameStateMock = new Mock<IGameStateManager>();
             exceptionHandlerMock = new Mock<IServiceExceptionHandler>();
+            disconnectionHandlerMock = new Mock<IDisconnectionHandler>();
 
             gameStateMock.Setup(x => x.ConnectedUsers)
                 .Returns(new ConcurrentDictionary<string, ISocialCallback>());
 
             logic = new SocialLogic(playerRepoMock.Object, friendshipRepoMock.Object);
-            service = new SocialManagerService(logic, gameStateMock.Object, exceptionHandlerMock.Object);
+            service = new SocialManagerService(logic, gameStateMock.Object, exceptionHandlerMock.Object, disconnectionHandlerMock.Object);
         }
 
         private void SetServiceSession(string username)

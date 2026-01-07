@@ -203,14 +203,6 @@ namespace MindWeaveServer.AppStart
                 .As<IDisconnectionHandler>()
                 .SingleInstance();
 
-            builder.RegisterType<HeartbeatMonitor>()
-                .As<IHeartbeatMonitor>()
-                .SingleInstance()
-                .OnActivated(e => e.Instance.start());
-
-            builder.RegisterType<HeartbeatManagerService>()
-                .AsSelf()
-                .InstancePerLifetimeScope();
 
         }
     }

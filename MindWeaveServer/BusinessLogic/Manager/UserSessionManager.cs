@@ -30,7 +30,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
         }
 
         public void removeSession(string username)
-        {
+        { 
             if (!string.IsNullOrWhiteSpace(username))
             {
                 string key = username.Trim().ToLower();

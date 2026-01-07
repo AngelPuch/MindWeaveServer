@@ -27,6 +27,7 @@ namespace MindWeaveServer.Tests.Services
         private readonly Mock<IPlayerRepository> playerRepoMock;
         private readonly Mock<IPuzzleRepository> puzzleRepoMock;
         private readonly Mock<IServiceExceptionHandler> exceptionHandlerMock;
+        private readonly Mock<IDisconnectionHandler> disconnectionHandlerMock;
 
         private readonly GameSessionManager sessionManager;
         private readonly LobbyModerationManager moderationManager;
@@ -43,6 +44,7 @@ namespace MindWeaveServer.Tests.Services
             playerRepoMock = new Mock<IPlayerRepository>();
             puzzleRepoMock = new Mock<IPuzzleRepository>();
             exceptionHandlerMock = new Mock<IServiceExceptionHandler>();
+            disconnectionHandlerMock = new Mock<IDisconnectionHandler>();
 
             var statsLogic = new StatsLogic(new Mock<IStatsRepository>().Object, playerRepoMock.Object);
             sessionManager = new GameSessionManager(
@@ -65,7 +67,7 @@ namespace MindWeaveServer.Tests.Services
                 moderationManager
             );
 
-            service = new MatchmakingManagerService(logic, sessionManager, playerRepoMock.Object, exceptionHandlerMock.Object);
+            service = new MatchmakingManagerService(logic, sessionManager, playerRepoMock.Object, exceptionHandlerMock.Object, disconnectionHandlerMock.Object);
         }
 
         private void SetSession(string username)

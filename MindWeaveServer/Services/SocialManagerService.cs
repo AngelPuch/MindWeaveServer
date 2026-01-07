@@ -17,7 +17,9 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
-    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(
+        InstanceContextMode = InstanceContextMode.PerSession,
+        ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class SocialManagerService : ISocialManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
@@ -25,25 +27,35 @@ namespace MindWeaveServer.Services
         private readonly SocialLogic socialLogic;
         private readonly IGameStateManager gameStateManager;
         private readonly IServiceExceptionHandler exceptionHandler;
+        private readonly IDisconnectionHandler disconnectionHandler;
 
         private ISocialCallback currentUserCallback;
         private string currentUsername;
 
+        private volatile bool isDisconnecting;
+        private readonly object disconnectLock = new object();
+
+        private const string DISCONNECT_REASON_SESSION_CLOSED = "SessionClosed";
+        private const string DISCONNECT_REASON_SESSION_FAULTED = "SessionFaulted";
+
         public SocialManagerService() : this(
             Bootstrapper.Container.Resolve<SocialLogic>(),
             Bootstrapper.Container.Resolve<IGameStateManager>(),
-            Bootstrapper.Container.Resolve<IServiceExceptionHandler>())
+            Bootstrapper.Container.Resolve<IServiceExceptionHandler>(),
+            Bootstrapper.Container.Resolve<IDisconnectionHandler>())
         {
         }
 
         public SocialManagerService(
             SocialLogic socialLogic,
             IGameStateManager gameStateManager,
-            IServiceExceptionHandler exceptionHandler)
+            IServiceExceptionHandler exceptionHandler,
+            IDisconnectionHandler disconnectionHandler)
         {
             this.socialLogic = socialLogic;
             this.gameStateManager = gameStateManager;
             this.exceptionHandler = exceptionHandler;
+            this.disconnectionHandler = disconnectionHandler;
 
             subscribeToChannelEvents();
         }
@@ -67,6 +79,8 @@ namespace MindWeaveServer.Services
                     gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
                     await handleConnectionResult(existingCallback, currentUserCallback);
                 });
+
+                logger.Info("SocialManagerService: User {0} connected via Reliable Session.", username);
             }
             catch (InvalidOperationException opEx)
             {
@@ -206,24 +220,97 @@ namespace MindWeaveServer.Services
                 throw exceptionHandler.handleException(ex, "GetFriendRequestsOperation");
             }
         }
+
+        #region Channel Event Handlers (Reliable Session Detection)
+
         private void subscribeToChannelEvents()
         {
-            if (OperationContext.Current?.Channel != null)
+            if (OperationContext.Current?.Channel == null)
             {
-                OperationContext.Current.Channel.Faulted += channelFaultedOrClosed;
-                OperationContext.Current.Channel.Closed += channelFaultedOrClosed;
+                logger.Warn("SocialManagerService: Cannot subscribe to channel events - OperationContext or Channel is null.");
+                return;
             }
+
+            OperationContext.Current.Channel.Faulted += onChannelFaulted;
+            OperationContext.Current.Channel.Closed += onChannelClosed;
+
+            logger.Debug("SocialManagerService: Subscribed to channel Faulted/Closed events.");
         }
 
-        private async void channelFaultedOrClosed(object sender, EventArgs e)
+        private void onChannelFaulted(object sender, EventArgs e)
         {
-            if (!string.IsNullOrEmpty(currentUsername))
+            logger.Warn("SocialManagerService: Channel FAULTED for user {0}. Initiating disconnection.",
+                currentUsername ?? "Unknown");
+
+            initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_FAULTED);
+        }
+
+        private void onChannelClosed(object sender, EventArgs e)
+        {
+            logger.Info("SocialManagerService: Channel CLOSED for user {0}. Initiating disconnection.",
+                currentUsername ?? "Unknown");
+
+            initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_CLOSED);
+        }
+
+        private void initiateDisconnectionAsync(string reason)
+        {
+            string usernameToDisconnect;
+
+            lock (disconnectLock)
             {
-                await cleanupAndNotifyDisconnect(currentUsername);
+                if (isDisconnecting)
+                {
+                    logger.Debug("SocialManagerService: Disconnection already in progress for {0}.", currentUsername);
+                    return;
+                }
+
+                isDisconnecting = true;
+                usernameToDisconnect = currentUsername;
             }
 
-            cleanupCallbackEvents(sender as ICommunicationObject);
+            if (string.IsNullOrWhiteSpace(usernameToDisconnect))
+            {
+                logger.Warn("SocialManagerService: Cannot disconnect - username is null/empty.");
+                return;
+            }
+
+            // Ejecutar la desconexión completa en un hilo separado
+            Task.Run(async () =>
+            {
+                try
+                {
+                    logger.Info("SocialManagerService: Executing full disconnection for {0}. Reason: {1}",
+                        usernameToDisconnect, reason);
+
+                    // Llamar al DisconnectionHandler centralizado
+                    await disconnectionHandler.handleFullDisconnectionAsync(usernameToDisconnect, reason);
+
+                    logger.Info("SocialManagerService: Full disconnection completed for {0}.", usernameToDisconnect);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "SocialManagerService: Error during full disconnection for {0}.", usernameToDisconnect);
+                }
+                finally
+                {
+                    cleanupLocalState();
+                }
+            });
         }
+
+        private void cleanupLocalState()
+        {
+            cleanupCallbackEvents(OperationContext.Current?.Channel);
+            cleanupCallbackEvents(currentUserCallback as ICommunicationObject);
+
+            currentUsername = null;
+            currentUserCallback = null;
+        }
+
+        #endregion
+
+        #region Private Helper Methods
 
         private static ISocialCallback tryGetCallbackChannel(string username)
         {
@@ -380,10 +467,10 @@ namespace MindWeaveServer.Services
         {
             if (commObject != null)
             {
-                commObject.Faulted -= channelFaultedOrClosed;
-                commObject.Closed -= channelFaultedOrClosed;
-                commObject.Faulted += channelFaultedOrClosed;
-                commObject.Closed += channelFaultedOrClosed;
+                commObject.Faulted -= onChannelFaulted;
+                commObject.Closed -= onChannelClosed;
+                commObject.Faulted += onChannelFaulted;
+                commObject.Closed += onChannelClosed;
             }
         }
 
@@ -391,8 +478,8 @@ namespace MindWeaveServer.Services
         {
             if (commObject != null)
             {
-                commObject.Faulted -= channelFaultedOrClosed;
-                commObject.Closed -= channelFaultedOrClosed;
+                commObject.Faulted -= onChannelFaulted;
+                commObject.Closed -= onChannelClosed;
             }
         }
 
@@ -407,5 +494,7 @@ namespace MindWeaveServer.Services
                     new FaultReason(MessageCodes.ERROR_SESSION_MISMATCH));
             }
         }
+
+        #endregion
     }
 }

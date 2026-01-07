@@ -138,7 +138,6 @@
   <ItemGroup>
     <Compile Include="AppStart\Bootstrapper.cs" />
     <Compile Include="BusinessLogic\Abstractions\IDisconnectionHandler.cs" />
-    <Compile Include="BusinessLogic\Abstractions\IHeartbeatMonitor.cs" />
     <Compile Include="BusinessLogic\Abstractions\ILobbyInteractionService.cs" />
     <Compile Include="BusinessLogic\Abstractions\ILobbyLifecycleService.cs" />
     <Compile Include="BusinessLogic\Abstractions\ILobbyValidationService.cs" />
@@ -157,11 +156,9 @@
     <Compile Include="BusinessLogic\Manager\LobbyModerationManager.cs" />
     <Compile Include="BusinessLogic\Manager\UserSessionManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
-    <Compile Include="BusinessLogic\Models\HeartbeatClientInfo.cs" />
     <Compile Include="BusinessLogic\Models\LobbyActionContext.cs" />
     <Compile Include="BusinessLogic\Models\ValidationResult.cs" />
     <Compile Include="BusinessLogic\Services\DisconnectionHandler.cs" />
-    <Compile Include="BusinessLogic\Services\HeartbeatMonitor.cs" />
     <Compile Include="BusinessLogic\Services\PlayerExpulsionService.cs" />
     <Compile Include="BusinessLogic\Models\PlayerSessionData.cs" />
     <Compile Include="BusinessLogic\ProfileLogic.cs" />
@@ -181,7 +178,6 @@
     <Compile Include="Contracts\DataContracts\Game\AchievementContext.cs" />
     <Compile Include="Contracts\DataContracts\Game\MatchEndResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Game\PlayerResultDto.cs" />
-    <Compile Include="Contracts\DataContracts\Heartbeat\HeartbeatRegistrationResult.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\ExpulsionDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestInvitationDto.cs" />
     <Compile Include="Contracts\DataContracts\Matchmaking\GuestJoinRequestDto.cs" />
@@ -211,7 +207,6 @@
     <Compile Include="Contracts\DataContracts\Authentication\UserProfileDto.cs" />
     <Compile Include="Contracts\ServiceContracts\IAuthenticationManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IChatManager.cs" />
-    <Compile Include="Contracts\ServiceContracts\IHeartbeatManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IMatchmakingManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IProfileManager.cs" />
     <Compile Include="Contracts\ServiceContracts\IPuzzleManager.cs" />
@@ -299,7 +294,6 @@
     </Compile>
     <Compile Include="Services\AuthenticationManagerService.cs" />
     <Compile Include="Services\ChatManagerService.cs" />
-    <Compile Include="Services\HeartbeatManagerService.cs" />
     <Compile Include="Services\MatchmakingManagerService.cs" />
     <Compile Include="Services\ProfileManagerService.cs" />
     <Compile Include="Services\PuzzleManagerService.cs" />
