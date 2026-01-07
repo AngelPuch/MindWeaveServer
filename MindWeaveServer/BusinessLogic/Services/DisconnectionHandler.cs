@@ -1,6 +1,5 @@
 ﻿using MindWeaveServer.BusinessLogic.Abstractions;
 using MindWeaveServer.BusinessLogic.Manager;
-using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
 using System;
 using System.Collections.Generic;
@@ -9,6 +8,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 
 namespace MindWeaveServer.BusinessLogic.Services
 {
@@ -19,7 +19,6 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly IUserSessionManager userSessionManager;
         private readonly IGameStateManager gameStateManager;
         private readonly GameSessionManager gameSessionManager;
-        private readonly IPlayerRepository playerRepository;
 
         private readonly object disconnectionLock = new object();
         private readonly HashSet<string> usersBeingDisconnected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -27,13 +26,11 @@ namespace MindWeaveServer.BusinessLogic.Services
         public DisconnectionHandler(
             IUserSessionManager userSessionManager,
             IGameStateManager gameStateManager,
-            GameSessionManager gameSessionManager,
-            IPlayerRepository playerRepository)
+            GameSessionManager gameSessionManager)
         {
             this.userSessionManager = userSessionManager ?? throw new ArgumentNullException(nameof(userSessionManager));
             this.gameStateManager = gameStateManager ?? throw new ArgumentNullException(nameof(gameStateManager));
             this.gameSessionManager = gameSessionManager ?? throw new ArgumentNullException(nameof(gameSessionManager));
-            this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
         }
 
         public async Task handleFullDisconnectionAsync(string username, string reason)
@@ -90,11 +87,6 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             try
             {
-                // ╔═══════════════════════════════════════════════════════════════════════════════════╗
-                // ║ CRITICAL FIX: Use findSessionByUsername to locate the player's active game        ║
-                // ║ Then use handlePlayerLeaveAsync - the SAME method used by ALT+F4 / voluntary exit ║
-                // ╚═══════════════════════════════════════════════════════════════════════════════════╝
-
                 var session = gameSessionManager.findSessionByUsername(username);
 
                 if (session == null)
@@ -108,14 +100,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                 logger.Info("DisconnectionHandler: Found active game session {0} for {1}. " +
                             "Using handlePlayerLeaveAsync (same as ALT+F4 flow).", lobbyCode, username);
 
-                // ╔═══════════════════════════════════════════════════════════════════════════════════╗
-                // ║ THIS IS THE KEY FIX: Use handlePlayerLeaveAsync instead of handlePlayerDisconnect ║
-                // ║ This ensures:                                                                      ║
-                // ║   1. Other players are notified via broadcast(onPlayerLeftMatch)                   ║
-                // ║   2. If only 1 player remains, endGameAsync(FORFEIT) is called                     ║
-                // ║   3. The remaining player wins automatically                                       ║
-                // ║   4. Stats are properly updated                                                    ║
-                // ╚═══════════════════════════════════════════════════════════════════════════════════╝
                 await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
 
                 logger.Info("DisconnectionHandler: Successfully processed game exit for {0} from session {1}.",
@@ -240,7 +224,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private void broadcastLobbyState(MindWeaveServer.Contracts.DataContracts.Matchmaking.LobbyStateDto lobby)
+        private void broadcastLobbyState(LobbyStateDto lobby)
         {
             if (lobby == null)
             {
@@ -259,7 +243,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private void tryNotifyPlayerOfLobbyUpdate(string playerName, MindWeaveServer.Contracts.DataContracts.Matchmaking.LobbyStateDto lobby)
+        private void tryNotifyPlayerOfLobbyUpdate(string playerName, LobbyStateDto lobby)
         {
             if (!gameStateManager.MatchmakingCallbacks.TryGetValue(playerName, out var callback))
             {
@@ -302,7 +286,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 }
                 catch
                 {
-                    // Ignorar
+                    // Ignored
                 }
             }
         }
@@ -383,20 +367,5 @@ namespace MindWeaveServer.BusinessLogic.Services
                 logger.Error(ex, "DisconnectionHandler: Error cleaning up auth session for {0}.", username);
             }
         }
-
-        private async Task<int?> getPlayerIdAsync(string username)
-        {
-            try
-            {
-                var player = await playerRepository.getPlayerByUsernameAsync(username);
-                return player?.idPlayer;
-            }
-            catch (Exception ex)
-            {
-                logger.Warn(ex, "DisconnectionHandler: Could not get player ID for {0}.", username);
-                return null;
-            }
-        }
-
     }
 }

@@ -166,32 +166,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             return false;
         }
 
-        public bool isClientRegistered(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                return false;
-            }
-
-            return registeredClients.ContainsKey(username);
-        }
-
-        public HeartbeatClientInfo getClientInfo(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username))
-            {
-                return null;
-            }
-
-            registeredClients.TryGetValue(username, out var info);
-            return info;
-        }
-
-        public IReadOnlyCollection<string> getRegisteredClients()
-        {
-            return registeredClients.Keys.ToList().AsReadOnly();
-        }
-
         public void Dispose()
         {
             Dispose(true);

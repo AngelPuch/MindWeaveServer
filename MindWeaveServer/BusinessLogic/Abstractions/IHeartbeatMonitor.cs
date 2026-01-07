@@ -13,12 +13,6 @@ namespace MindWeaveServer.BusinessLogic.Abstractions
 
         bool unregisterClient(string username);
 
-        bool isClientRegistered(string username);
-
-        HeartbeatClientInfo getClientInfo(string username);
-
-        IReadOnlyCollection<string> getRegisteredClients();
-
         void start();
 
         void stop();
