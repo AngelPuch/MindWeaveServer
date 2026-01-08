@@ -63,6 +63,27 @@ namespace MindWeaveServer.BusinessLogic
                 return validationResult;
             }
 
+            var existingPlayer = await playerRepository.getPlayerByEmailAsync(userProfile.Email);
+
+            if (existingPlayer != null)
+            {
+                
+                if (!existingPlayer.is_verified)
+                {
+                    return new OperationResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.AUTH_ACCOUNT_NOT_VERIFIED
+                    };
+                }
+
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_EMAIL_ALREADY_REGISTERED
+                };
+            }
+
             try
             {
                 return await processPlayerRegistrationAsync(userProfile, password);
@@ -291,6 +312,16 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
+            if (!player.is_verified)
+            {
+                logger.Warn("Recovery attempt on unverified account. PlayerId: {Id}", player.idPlayer);
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_ACCOUNT_NOT_VERIFIED
+                };
+            }
+
             await generateAndSaveNewCodeAsync(player);
 
             var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, player.verification_code);
@@ -356,7 +387,9 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             player.password_hash = passwordService.hashPassword(newPassword);
-            markPlayerAsVerified(player);
+
+            player.verification_code = null;
+            player.code_expiry_date = null;
 
             await playerRepository.updatePlayerAsync(player);
 
