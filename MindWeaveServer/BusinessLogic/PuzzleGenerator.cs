@@ -23,12 +23,22 @@ namespace MindWeaveServer.BusinessLogic
         private const int MEDIUM_PUZZLE_PIECES = 50;
         private const int GRID_SIZE_SMALL = 5;
         private const int GRID_SIZE_LARGE = 10;
+        private const int MIN_SIZE = 100;
+        private const int MAX_SIZE_LIMIT = 4096; 
 
         public static PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
         {
             validateInputs(imageBytes, difficulty);
 
+            validateImageSize(imageBytes);
+
             var optimizedImageBytes = ImageUtilities.optimizeImage(imageBytes);
+
+            if (optimizedImageBytes == null)
+            {
+                throw new ArgumentException("The file is not a valid image or could not be processed.");
+            }
+
             var dimensions = calculateGridDimensions(difficulty.piece_count);
 
             return createPuzzleStructure(optimizedImageBytes, dimensions);
@@ -46,6 +56,31 @@ namespace MindWeaveServer.BusinessLogic
             {
                 logger.Error("Difficulty level is null.");
                 throw new ArgumentNullException(nameof(difficulty));
+            }
+        }
+
+        private static void validateImageSize(byte[] imageBytes)
+        {
+            try
+            {
+                using (var ms = new MemoryStream(imageBytes))
+                using (var img = Image.FromStream(ms))
+                {
+                    if (img.Width < MIN_SIZE || img.Height < MIN_SIZE)
+                    {
+                        logger.Warn($"Rejected image too small: {img.Width}x{img.Height}. Min: {MIN_SIZE}px");
+                        throw new ArgumentException($"Image must be at least {MIN_SIZE}x{MIN_SIZE} pixels.");
+                    }
+                    if (img.Width > MAX_SIZE_LIMIT || img.Height > MAX_SIZE_LIMIT)
+                    {
+                        logger.Warn($"Rejected image too large (dimensions): {img.Width}x{img.Height}. Max: {MAX_SIZE_LIMIT}px");
+                        throw new ArgumentException($"Image dimensions exceed the maximum allowed limit of {MAX_SIZE_LIMIT}px.");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                throw new ArgumentException("Invalid image data or format.");
             }
         }
 
