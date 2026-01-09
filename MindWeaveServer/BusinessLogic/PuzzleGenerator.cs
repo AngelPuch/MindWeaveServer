@@ -5,6 +5,7 @@ using NLog;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Threading;
 
@@ -24,15 +25,15 @@ namespace MindWeaveServer.BusinessLogic
         private const int GRID_SIZE_SMALL = 5;
         private const int GRID_SIZE_LARGE = 10;
         private const int MIN_SIZE = 100;
-        private const int MAX_SIZE_LIMIT = 4096; 
+        private const int MAX_SIZE_LIMIT = 4096;
+        private const float TAB_SIZE_RATIO = 0.20f;
 
         public static PuzzleDefinitionDto generatePuzzle(byte[] imageBytes, DifficultyLevels difficulty)
         {
             validateInputs(imageBytes, difficulty);
-
             validateImageSize(imageBytes);
 
-            var optimizedImageBytes = ImageUtilities.optimizeImage(imageBytes);
+            var optimizedImageBytes = ImageUtilities.optimizeImageAsPng(imageBytes);
 
             if (optimizedImageBytes == null)
             {
@@ -48,13 +49,11 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (imageBytes == null || imageBytes.Length == 0)
             {
-                logger.Error("Image bytes are null or empty.");
                 throw new ArgumentNullException(nameof(imageBytes));
             }
 
             if (difficulty == null)
             {
-                logger.Error("Difficulty level is null.");
                 throw new ArgumentNullException(nameof(difficulty));
             }
         }
@@ -68,15 +67,17 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     if (img.Width < MIN_SIZE || img.Height < MIN_SIZE)
                     {
-                        logger.Warn($"Rejected image too small: {img.Width}x{img.Height}. Min: {MIN_SIZE}px");
                         throw new ArgumentException($"Image must be at least {MIN_SIZE}x{MIN_SIZE} pixels.");
                     }
                     if (img.Width > MAX_SIZE_LIMIT || img.Height > MAX_SIZE_LIMIT)
                     {
-                        logger.Warn($"Rejected image too large (dimensions): {img.Width}x{img.Height}. Max: {MAX_SIZE_LIMIT}px");
                         throw new ArgumentException($"Image dimensions exceed the maximum allowed limit of {MAX_SIZE_LIMIT}px.");
                     }
                 }
+            }
+            catch (ArgumentException)
+            {
+                throw;
             }
             catch (Exception)
             {
@@ -91,16 +92,35 @@ namespace MindWeaveServer.BusinessLogic
             {
                 var puzzleDef = initializePuzzleDto(imageBytes, image);
 
+                int pieceWidth = image.Width / dimensions.Columns;
+                int pieceHeight = image.Height / dimensions.Rows;
+                int tabSize = (int)(Math.Min(pieceWidth, pieceHeight) * TAB_SIZE_RATIO);
+
+                var edgesGrid = generateEdgesGrid(dimensions);
+
                 var context = new PieceContext
                 {
-                    PieceWidth = image.Width / dimensions.Columns,
-                    PieceHeight = image.Height / dimensions.Rows,
-                    SidebarStart = image.Width + SIDEBAR_OFFSET,
-                    ImageHeight = image.Height
+                    PieceWidth = pieceWidth,
+                    PieceHeight = pieceHeight,
+                    TabSize = tabSize,
+                    SidebarStart = image.Width + SIDEBAR_OFFSET + tabSize,
+                    ImageHeight = image.Height,
+                    SourceImage = image
                 };
 
-                var grid = generatePieces(dimensions, context, puzzleDef);
+                var silhouettes = new List<SilhouetteData>();
+                var grid = generatePieces(dimensions, context, puzzleDef, edgesGrid, silhouettes);
                 assignNeighbors(grid, dimensions);
+
+                puzzleDef.SilhouetteImageBytes = ImageUtilities.generateSilhouetteImage(
+                    puzzleDef.PuzzleWidth,
+                    puzzleDef.PuzzleHeight,
+                    silhouettes);
+
+                foreach (var sil in silhouettes)
+                {
+                    sil.Path?.Dispose();
+                }
 
                 return puzzleDef;
             }
@@ -140,7 +160,40 @@ namespace MindWeaveServer.BusinessLogic
             return dimensions;
         }
 
-        private static PuzzlePieceDefinitionDto[,] generatePieces(GridDimensions dim, PieceContext ctx, PuzzleDefinitionDto puzzleDef)
+        private static JigsawEdgeType[,][] generateEdgesGrid(GridDimensions dim)
+        {
+            Random random = threadSafeRandom.Value;
+            var edges = new JigsawEdgeType[dim.Rows, dim.Columns][];
+
+            for (int r = 0; r < dim.Rows; r++)
+            {
+                for (int c = 0; c < dim.Columns; c++)
+                {
+                    edges[r, c] = new JigsawEdgeType[4];
+
+                    edges[r, c][0] = (r == 0) ? JigsawEdgeType.Flat :
+                        (edges[r - 1, c][2] == JigsawEdgeType.Tab ? JigsawEdgeType.Blank : JigsawEdgeType.Tab);
+
+                    edges[r, c][1] = (c == dim.Columns - 1) ? JigsawEdgeType.Flat :
+                        (random.Next(2) == 0 ? JigsawEdgeType.Tab : JigsawEdgeType.Blank);
+
+                    edges[r, c][2] = (r == dim.Rows - 1) ? JigsawEdgeType.Flat :
+                        (random.Next(2) == 0 ? JigsawEdgeType.Tab : JigsawEdgeType.Blank);
+
+                    edges[r, c][3] = (c == 0) ? JigsawEdgeType.Flat :
+                        (edges[r, c - 1][1] == JigsawEdgeType.Tab ? JigsawEdgeType.Blank : JigsawEdgeType.Tab);
+                }
+            }
+
+            return edges;
+        }
+
+        private static PuzzlePieceDefinitionDto[,] generatePieces(
+            GridDimensions dim,
+            PieceContext ctx,
+            PuzzleDefinitionDto puzzleDef,
+            JigsawEdgeType[,][] edgesGrid,
+            List<SilhouetteData> silhouettes)
         {
             var grid = new PuzzlePieceDefinitionDto[dim.Rows, dim.Columns];
             int currentId = 0;
@@ -153,7 +206,15 @@ namespace MindWeaveServer.BusinessLogic
                     ctx.Column = c;
                     ctx.PieceId = currentId;
 
-                    var piece = createSinglePiece(ctx);
+                    var pieceEdges = new JigsawPieceEdges
+                    {
+                        Top = edgesGrid[r, c][0],
+                        Right = edgesGrid[r, c][1],
+                        Bottom = edgesGrid[r, c][2],
+                        Left = edgesGrid[r, c][3]
+                    };
+
+                    var piece = createJigsawPiece(ctx, pieceEdges, silhouettes);
 
                     grid[r, c] = piece;
                     puzzleDef.Pieces.Add(piece);
@@ -163,21 +224,62 @@ namespace MindWeaveServer.BusinessLogic
             return grid;
         }
 
-        private static PuzzlePieceDefinitionDto createSinglePiece(PieceContext ctx)
+        private static PuzzlePieceDefinitionDto createJigsawPiece(
+            PieceContext ctx,
+            JigsawPieceEdges edges,
+            List<SilhouetteData> silhouettes)
         {
             Random random = threadSafeRandom.Value;
+
+            int offsetX, offsetY, totalWidth, totalHeight;
+
+            var path = JigsawPathGenerator.CreateJigsawPath(
+                ctx.PieceWidth,
+                ctx.PieceHeight,
+                edges,
+                ctx.TabSize,
+                out offsetX,
+                out offsetY,
+                out totalWidth,
+                out totalHeight);
+
+            int sourceX = ctx.Column * ctx.PieceWidth - offsetX;
+            int sourceY = ctx.Row * ctx.PieceHeight - offsetY;
+
+            byte[] pieceBytes = ImageUtilities.extractPieceWithMask(
+                ctx.SourceImage,
+                path,
+                sourceX,
+                sourceY,
+                totalWidth,
+                totalHeight);
+
+            double correctX = ctx.Column * ctx.PieceWidth - offsetX;
+            double correctY = ctx.Row * ctx.PieceHeight - offsetY;
+
+            silhouettes.Add(new SilhouetteData
+            {
+                Path = path,
+                X = correctX,
+                Y = correctY
+            });
 
             return new PuzzlePieceDefinitionDto
             {
                 PieceId = ctx.PieceId,
                 Width = ctx.PieceWidth,
                 Height = ctx.PieceHeight,
+                RenderWidth = totalWidth,
+                RenderHeight = totalHeight,
+                OffsetX = offsetX,
+                OffsetY = offsetY,
                 SourceX = ctx.Column * ctx.PieceWidth,
                 SourceY = ctx.Row * ctx.PieceHeight,
-                CorrectX = ctx.Column * ctx.PieceWidth,
-                CorrectY = ctx.Row * ctx.PieceHeight,
+                CorrectX = correctX,
+                CorrectY = correctY,
                 InitialX = random.Next(ctx.SidebarStart, ctx.SidebarStart + SIDEBAR_WIDTH),
-                InitialY = random.Next(0, Math.Max(ctx.PieceHeight, ctx.ImageHeight - ctx.PieceHeight))
+                InitialY = random.Next(0, Math.Max(totalHeight, ctx.ImageHeight - totalHeight)),
+                PieceImageBytes = pieceBytes
             };
         }
 
@@ -211,9 +313,10 @@ namespace MindWeaveServer.BusinessLogic
         {
             public int PieceWidth { get; set; }
             public int PieceHeight { get; set; }
+            public int TabSize { get; set; }
             public int SidebarStart { get; set; }
             public int ImageHeight { get; set; }
-
+            public Image SourceImage { get; set; }
             public int Row { get; set; }
             public int Column { get; set; }
             public int PieceId { get; set; }

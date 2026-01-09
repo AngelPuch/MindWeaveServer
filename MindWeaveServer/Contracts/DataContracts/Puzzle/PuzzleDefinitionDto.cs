@@ -10,12 +10,15 @@ namespace MindWeaveServer.Contracts.DataContracts.Puzzle
         public byte[] FullImageBytes { get; set; }
 
         [DataMember]
-        public int PuzzleWidth { get; set; } 
+        public List<PuzzlePieceDefinitionDto> Pieces { get; set; }
+
+        [DataMember]
+        public int PuzzleWidth { get; set; }
 
         [DataMember]
         public int PuzzleHeight { get; set; }
 
         [DataMember]
-        public List<PuzzlePieceDefinitionDto> Pieces { get; set; }
+        public byte[] SilhouetteImageBytes { get; set; }
     }
 }

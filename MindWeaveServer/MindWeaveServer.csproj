@@ -150,6 +150,9 @@
     <Compile Include="BusinessLogic\ChatLogic.cs" />
     <Compile Include="BusinessLogic\EndGameProcessor.cs" />
     <Compile Include="BusinessLogic\GameSession.cs" />
+    <Compile Include="BusinessLogic\JigsawEdgeType.cs" />
+    <Compile Include="BusinessLogic\JigsawPathGenerator.cs" />
+    <Compile Include="BusinessLogic\JigsawPieceEdges.cs" />
     <Compile Include="BusinessLogic\Manager\GameSessionManager.cs" />
     <Compile Include="BusinessLogic\Manager\GameStateManager.cs" />
     <Compile Include="BusinessLogic\Abstractions\IGameStateManager.cs" />
@@ -362,7 +365,9 @@
       <LastGenOutput>MindWeaveDB.cs</LastGenOutput>
     </Content>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="BusinessLogic\Jigsaw\" />
+  </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <VSToolsPath Condition="'$(VSToolsPath)' == '' and '$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' != '11.0'">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>

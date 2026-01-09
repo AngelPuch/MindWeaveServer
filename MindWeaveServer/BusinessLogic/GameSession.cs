@@ -218,14 +218,11 @@ namespace MindWeaveServer.BusinessLogic
 
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
-                logger.Warn("Player {PlayerId} tried to drop non-existent piece {PieceId}", playerId, pieceId);
                 return;
             }
 
             if (pieceState.HeldByPlayerId != playerId)
             {
-                logger.Warn("Player {PlayerId} tried to drop piece {PieceId} but it's held by {HeldBy}",
-                    playerId, pieceId, pieceState.HeldByPlayerId);
                 return;
             }
 
@@ -237,9 +234,11 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.HeldByPlayerId = null;
             pieceState.GrabTime = null;
 
-            bool isCorrect = !pieceState.IsPlaced &&
-                             Math.Abs(pieceState.FinalX - newX) < SNAP_TOLERANCE &&
-                             Math.Abs(pieceState.FinalY - newY) < SNAP_TOLERANCE;
+            double distanceToOwnTarget = calculateDistance(newX, newY, pieceState.FinalX, pieceState.FinalY);
+            bool isNearOwnTarget = distanceToOwnTarget < SNAP_TOLERANCE;
+            bool isClosestToOwn = isClosestToOwnPosition(pieceId, newX, newY, distanceToOwnTarget);
+
+            bool isCorrect = !pieceState.IsPlaced && isNearOwnTarget && isClosestToOwn;
 
             if (isCorrect)
             {
@@ -251,6 +250,45 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
+        private bool isClosestToOwnPosition(int pieceId, double dropX, double dropY, double distanceToOwn)
+        {
+            foreach (var otherState in PieceStates.Values)
+            {
+                if (otherState.PieceId == pieceId) continue;
+
+                double distanceToOther = calculateDistance(dropX, dropY, otherState.FinalX, otherState.FinalY);
+
+                if (distanceToOther <= distanceToOwn)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        
+
+        
+        private bool isClosestToCorrectPosition(int pieceId, double dropX, double dropY, double distanceToOwn)
+        {
+            foreach (var otherState in PieceStates.Values)
+            {
+                if (otherState.PieceId == pieceId) continue;
+                if (otherState.IsPlaced) continue; 
+
+                double distanceToOther = calculateDistance(dropX, dropY, otherState.FinalX, otherState.FinalY);
+
+                if (distanceToOther < distanceToOwn)
+                {
+                    logger.Debug("Piece {PieceId} dropped closer to position of piece {OtherId} ({DistOther:F1}) than own ({DistOwn:F1})",
+                        pieceId, otherState.PieceId, distanceToOther, distanceToOwn);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        
         public void handlePieceRelease(int playerId, int pieceId)
         {
             if (isGameEnded) return;
@@ -522,11 +560,9 @@ namespace MindWeaveServer.BusinessLogic
             broadcast(callback => callback.onPieceMoved(pieceState.PieceId, newX, newY, player.Username));
             broadcast(callback => callback.onPieceDragReleased(pieceState.PieceId, player.Username));
 
-            double distanceToTarget = calculateDistance(newX, newY, pieceState.FinalX, pieceState.FinalY);
-            bool isNearMiss = distanceToTarget < PENALTY_TOLERANCE;
-            bool isWrongHole = checkIfDroppedOnWrongPiece(newX, newY, pieceState.PieceId);
+            bool isNearAnyTarget = isNearAnyPiecePosition(newX, newY);
 
-            if (!isNearMiss && !isWrongHole)
+            if (!isNearAnyTarget)
             {
                 return;
             }
@@ -535,9 +571,23 @@ namespace MindWeaveServer.BusinessLogic
             int penaltyPoints = scoreCalculator.calculatePenaltyPoints(player.NegativeStreak);
             player.Score -= penaltyPoints;
 
-            string reason = isWrongHole ? PENALTY_REASON_WRONG_SPOT : PENALTY_REASON_MISS;
+            double distanceToTarget = calculateDistance(newX, newY, pieceState.FinalX, pieceState.FinalY);
+            bool isNearOwnSpot = distanceToTarget < PENALTY_TOLERANCE;
+            string reason = isNearOwnSpot ? PENALTY_REASON_MISS : PENALTY_REASON_WRONG_SPOT;
 
             broadcast(cb => cb.onPlayerPenalty(player.Username, penaltyPoints, player.Score, reason));
+        }
+        private bool isNearAnyPiecePosition(double x, double y)
+        {
+            foreach (var state in PieceStates.Values)
+            {
+                double dist = calculateDistance(x, y, state.FinalX, state.FinalY);
+                if (dist < PENALTY_TOLERANCE)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private bool isEdgePiece(int pieceId)
@@ -551,21 +601,7 @@ namespace MindWeaveServer.BusinessLogic
                    pieceDef.RightNeighborId == null;
         }
 
-        private bool checkIfDroppedOnWrongPiece(double x, double y, int currentPieceId)
-        {
-            foreach (var otherState in PieceStates.Values)
-            {
-                if (otherState.PieceId == currentPieceId) continue;
-                if (otherState.IsPlaced) continue;
-
-                double dist = calculateDistance(x, y, otherState.FinalX, otherState.FinalY);
-                if (dist < SNAP_TOLERANCE)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+     
 
         private static double calculateDistance(double x1, double y1, double x2, double y2)
         {
