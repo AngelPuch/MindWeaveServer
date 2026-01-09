@@ -10,7 +10,8 @@ namespace MindWeaveServer.Utilities.Validators
         private const int NAME_MAX_LENGTH = 45;
         private const int MINIMUM_AGE_YEARS = 13;
         private const int MAX_REALISTIC_AGE_YEARS = 100;
-        private const string REGEX_LETTERS_AND_SPACES = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$";
+
+        private const string NAME_VALIDATOR_REGEX = @"^(?=.*\p{L})[\p{L}\p{M} '\-]{3,45}$";
 
         public UserProfileForEditDtoValidator()
         {
@@ -18,13 +19,13 @@ namespace MindWeaveServer.Utilities.Validators
                 .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_FIELDS_REQUIRED)
                 .MaximumLength(NAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_NAME_LENGTH)
                 .Must(notHaveLeadingOrTrailingWhitespace).WithErrorCode(MessageCodes.VALIDATION_NO_WHITESPACE)
-                .Matches(REGEX_LETTERS_AND_SPACES).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
+                .Matches(NAME_VALIDATOR_REGEX).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
 
             RuleFor(x => x.LastName)
                 .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_FIELDS_REQUIRED)
                 .MaximumLength(NAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_NAME_LENGTH)
                 .Must(notHaveLeadingOrTrailingWhitespace).WithErrorCode(MessageCodes.VALIDATION_NO_WHITESPACE)
-                .Matches(REGEX_LETTERS_AND_SPACES).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
+                .Matches(NAME_VALIDATOR_REGEX).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
 
             RuleFor(x => x.DateOfBirth)
                 .NotNull().WithErrorCode(MessageCodes.VALIDATION_DATE_REQUIRED)

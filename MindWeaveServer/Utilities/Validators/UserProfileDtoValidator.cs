@@ -7,11 +7,11 @@ namespace MindWeaveServer.Utilities.Validators
 {
     public class UserProfileDtoValidator : AbstractValidator<UserProfileDto>
     {
-        private const string REGEX_ALPHANUMERIC = "^[a-zA-Z0-9]*$";
-        private const string REGEX_LETTERS_AND_SPACES = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ ]*$";
+        private const string NAME_VALIDATOR_REGEX = @"^(?=.*\p{L})[\p{L}\p{M} '\-\.]+$";
+        private const string USERNAME_VALIDATOR_REGEX = @"^[a-zA-Z0-9][a-zA-Z0-9._-]*$";
 
         private const int USERNAME_MIN_LENGTH = 3;
-        private const int USERNAME_MAX_LENGTH = 16;
+        private const int USERNAME_MAX_LENGTH = 20;
         private const int NAME_MAX_LENGTH = 45;
 
         private const int MINIMUM_AGE_YEARS = 13;
@@ -22,7 +22,7 @@ namespace MindWeaveServer.Utilities.Validators
             RuleFor(x => x.Username)
                 .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_USERNAME_REQUIRED)
                 .Length(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_USERNAME_LENGTH)
-                .Matches(REGEX_ALPHANUMERIC).WithErrorCode(MessageCodes.VALIDATION_USERNAME_ALPHANUMERIC);
+                .Matches(USERNAME_VALIDATOR_REGEX).WithErrorCode(MessageCodes.VALIDATION_USERNAME_ALPHANUMERIC);
 
             RuleFor(x => x.Email)
                 .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_EMAIL_REQUIRED)
@@ -32,12 +32,12 @@ namespace MindWeaveServer.Utilities.Validators
                 .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_FIELDS_REQUIRED)
                 .MaximumLength(NAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_NAME_LENGTH)
                 .Must(notHaveLeadingOrTrailingWhitespace).WithErrorCode(MessageCodes.VALIDATION_NO_WHITESPACE)
-                .Matches(REGEX_LETTERS_AND_SPACES).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
+                .Matches(NAME_VALIDATOR_REGEX).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
 
             RuleFor(x => x.LastName)
                 .MaximumLength(NAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_NAME_LENGTH)
                 .Must(notHaveLeadingOrTrailingWhitespace).When(x => !string.IsNullOrEmpty(x.LastName)).WithErrorCode(MessageCodes.VALIDATION_NO_WHITESPACE)
-                .Matches(REGEX_LETTERS_AND_SPACES).When(x => !string.IsNullOrEmpty(x.LastName)).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
+                .Matches(NAME_VALIDATOR_REGEX).When(x => !string.IsNullOrEmpty(x.LastName)).WithErrorCode(MessageCodes.VALIDATION_NAME_ONLY_LETTERS);
 
             RuleFor(x => x.DateOfBirth)
                 .NotNull().WithErrorCode(MessageCodes.VALIDATION_DATE_REQUIRED)

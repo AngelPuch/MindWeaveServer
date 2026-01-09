@@ -155,23 +155,19 @@ namespace MindWeaveServer.BusinessLogic
             float seg1End = start.Y + (length * 0.35f) * direction;
             float seg2Start = start.Y + (length * 0.65f) * direction;
 
-            // Primer segmento recto
             PointF p1 = new PointF(start.X, seg1End);
             path.AddLine(start, p1);
 
-            // Curva de entrada al cuello
             PointF neckStart = new PointF(start.X, midY - (neckWidth / 2f) * direction);
             PointF cp1 = new PointF(start.X, seg1End + (length * 0.05f) * direction);
             PointF cp2 = new PointF(start.X, neckStart.Y - (length * 0.02f) * direction);
             path.AddBezier(p1, cp1, cp2, neckStart);
 
-            // Curva del cuello hacia la parte bulbosa
             PointF bulbTop = new PointF(start.X + tabDepth * 0.7f, midY - (tabWidth / 2f) * direction);
             PointF cp3 = new PointF(start.X + tabDepth * 0.2f, neckStart.Y);
             PointF cp4 = new PointF(start.X + tabDepth * 0.4f, bulbTop.Y - (tabWidth * 0.1f) * direction);
             path.AddBezier(neckStart, cp3, cp4, bulbTop);
 
-            // Curva de la parte bulbosa
             PointF bulbMid = new PointF(start.X + tabDepth, midY);
             PointF bulbBottom = new PointF(start.X + tabDepth * 0.7f, midY + (tabWidth / 2f) * direction);
 
@@ -183,19 +179,16 @@ namespace MindWeaveServer.BusinessLogic
             PointF cp8 = new PointF(start.X + tabDepth * 1.1f, bulbBottom.Y - (tabWidth * 0.1f) * direction);
             path.AddBezier(bulbMid, cp7, cp8, bulbBottom);
 
-            // Curva de la parte bulbosa hacia el cuello de salida
             PointF neckEnd = new PointF(start.X, midY + (neckWidth / 2f) * direction);
             PointF cp9 = new PointF(start.X + tabDepth * 0.4f, bulbBottom.Y + (tabWidth * 0.1f) * direction);
             PointF cp10 = new PointF(start.X + tabDepth * 0.2f, neckEnd.Y);
             path.AddBezier(bulbBottom, cp9, cp10, neckEnd);
 
-            // Curva de salida del cuello
             PointF p2 = new PointF(start.X, seg2Start);
             PointF cp11 = new PointF(start.X, neckEnd.Y + (length * 0.02f) * direction);
             PointF cp12 = new PointF(start.X, seg2Start - (length * 0.05f) * direction);
             path.AddBezier(neckEnd, cp11, cp12, p2);
 
-            // Último segmento recto
             path.AddLine(p2, end);
 
             return end;
