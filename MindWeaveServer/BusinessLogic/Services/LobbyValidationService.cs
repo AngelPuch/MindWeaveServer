@@ -180,7 +180,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return true;
             }
 
-            var lobbies = gameStateManager.ActiveLobbies;
             foreach (var lobby in gameStateManager.ActiveLobbies.Values)
             {
 

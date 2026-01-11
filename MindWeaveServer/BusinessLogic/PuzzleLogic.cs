@@ -23,7 +23,6 @@ namespace MindWeaveServer.BusinessLogic
         private const string DEFAULT_PUZZLES_FOLDER = "DefaultPuzzles";
         private const string DEFAULT_PUZZLE_PREFIX = "puzzleDefault";
         private const string DEFAULT_PUZZLE_NAME_FALLBACK = "Puzzle";
-        private const string LOG_PLACEHOLDER_NULL = "NULL";
         private const char FILENAME_SEPARATOR = '_';
 
         public PuzzleLogic(IPuzzleRepository puzzleRepository, IPlayerRepository playerRepository)
@@ -156,7 +155,10 @@ namespace MindWeaveServer.BusinessLogic
 
         private static byte[] tryLoadFileWithExtensions(string folderPath, string fileName)
         {
-            if (string.IsNullOrWhiteSpace(fileName)) return null;
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return Array.Empty<byte>();
+            }
 
             string fullPath = Path.Combine(folderPath, fileName);
             if (File.Exists(fullPath))
@@ -177,7 +179,7 @@ namespace MindWeaveServer.BusinessLogic
                 }
             }
 
-            return null;
+            return Array.Empty<byte>();
         }
 
         private static byte[] readFileSafe(string path)
@@ -189,7 +191,7 @@ namespace MindWeaveServer.BusinessLogic
             catch (Exception ex)
             {
                 logger.Error(ex, "Error reading file from disk: {0}", path);
-                return null;
+                return Array.Empty<byte>();
             }
         }
 
@@ -230,6 +232,7 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch
             {
+                //ignored
             }
         }
     }

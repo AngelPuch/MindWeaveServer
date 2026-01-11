@@ -62,11 +62,11 @@ namespace MindWeaveServer.Utilities
             }
             catch (ArgumentException)
             {
-                return null;
+                return Array.Empty<byte>();
             }
             catch (ExternalException)
             {
-                return null;
+                return Array.Empty<byte>();
             }
         }
 
@@ -113,11 +113,11 @@ namespace MindWeaveServer.Utilities
             }
             catch (ArgumentException)
             {
-                return null;
+                return Array.Empty<byte>();
             }
             catch (ExternalException)
             {
-                return null;
+                return Array.Empty<byte>();
             }
         }
 

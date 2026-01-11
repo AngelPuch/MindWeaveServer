@@ -13,8 +13,6 @@ namespace MindWeaveServer.BusinessLogic
 {
     public class PuzzleGenerator
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
         private static readonly ThreadLocal<Random> threadSafeRandom = new ThreadLocal<Random>(() =>
             new Random(Guid.NewGuid().GetHashCode()));
 
@@ -171,17 +169,49 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     edges[r, c] = new JigsawEdgeType[4];
 
-                    edges[r, c][0] = (r == 0) ? JigsawEdgeType.Flat :
-                        (edges[r - 1, c][2] == JigsawEdgeType.Tab ? JigsawEdgeType.Blank : JigsawEdgeType.Tab);
+                    if (r == 0)
+                    {
+                        edges[r, c][0] = JigsawEdgeType.Flat;
+                    }
+                    else
+                    {
+                        edges[r, c][0] = edges[r - 1, c][2] == JigsawEdgeType.Tab
+                            ? JigsawEdgeType.Blank
+                            : JigsawEdgeType.Tab;
+                    }
 
-                    edges[r, c][1] = (c == dim.Columns - 1) ? JigsawEdgeType.Flat :
-                        (random.Next(2) == 0 ? JigsawEdgeType.Tab : JigsawEdgeType.Blank);
+                    if (c == dim.Columns - 1)
+                    {
+                        edges[r, c][1] = JigsawEdgeType.Flat;
+                    }
+                    else
+                    {
+                        edges[r, c][1] = random.Next(2) == 0
+                            ? JigsawEdgeType.Tab
+                            : JigsawEdgeType.Blank;
+                    }
 
-                    edges[r, c][2] = (r == dim.Rows - 1) ? JigsawEdgeType.Flat :
-                        (random.Next(2) == 0 ? JigsawEdgeType.Tab : JigsawEdgeType.Blank);
+                    if (r == dim.Rows - 1)
+                    {
+                        edges[r, c][2] = JigsawEdgeType.Flat;
+                    }
+                    else
+                    {
+                        edges[r, c][2] = random.Next(2) == 0
+                            ? JigsawEdgeType.Tab
+                            : JigsawEdgeType.Blank;
+                    }
 
-                    edges[r, c][3] = (c == 0) ? JigsawEdgeType.Flat :
-                        (edges[r, c - 1][1] == JigsawEdgeType.Tab ? JigsawEdgeType.Blank : JigsawEdgeType.Tab);
+                    if (c == 0)
+                    {
+                        edges[r, c][3] = JigsawEdgeType.Flat;
+                    }
+                    else
+                    {
+                        edges[r, c][3] = edges[r, c - 1][1] == JigsawEdgeType.Tab
+                            ? JigsawEdgeType.Blank
+                            : JigsawEdgeType.Tab;
+                    }
                 }
             }
 
@@ -233,7 +263,7 @@ namespace MindWeaveServer.BusinessLogic
 
             int offsetX, offsetY, totalWidth, totalHeight;
 
-            var path = JigsawPathGenerator.CreateJigsawPath(
+            var path = JigsawPathGenerator.createJigsawPath(
                 ctx.PieceWidth,
                 ctx.PieceHeight,
                 edges,

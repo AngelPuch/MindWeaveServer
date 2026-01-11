@@ -269,8 +269,14 @@ namespace MindWeaveServer.BusinessLogic.Services
                     {
                         logger.Warn(ex, "Failed to notify {0} that {1} left.", player, usernameLeft);
                     }
-                    catch (ObjectDisposedException) { }
-                    catch (TimeoutException) { }
+                    catch (ObjectDisposedException)
+                    {
+                        //ignored
+                    }
+                    catch (TimeoutException)
+                    {
+                        //ignored
+                    }
                 }
             }
         }
@@ -302,7 +308,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                 string code = LobbyCodeGenerator.generateUniqueCode();
                 if (gameStateManager.ActiveLobbies.ContainsKey(code) || await matchmakingRepository.doesLobbyCodeExistAsync(code))
                     continue;
-
                 var match = new Matches
                 {
                     creation_time = DateTime.UtcNow,
@@ -311,17 +316,16 @@ namespace MindWeaveServer.BusinessLogic.Services
                     difficulty_id = settings.DifficultyId > 0 ? settings.DifficultyId : DEFAULT_DIFFICULTY_ID,
                     lobby_code = code
                 };
-
                 try
                 {
                     var created = await matchmakingRepository.createMatchAsync(match);
                     await matchmakingRepository.addParticipantAsync(new MatchParticipants
-                    { match_id = created.matches_id, player_id = host.idPlayer, is_host = true });
+                        { match_id = created.matches_id, player_id = host.idPlayer, is_host = true });
                     return created;
                 }
-                catch (DbUpdateException)
+                catch (DbUpdateException ex)
                 {
-                    logger.Warn("Lobby code collision detected for {0}. Retrying.", code);
+                    logger.Warn(ex, "Lobby code collision detected for {0}. Retrying.", code);
                 }
             }
             return null;
@@ -397,7 +401,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             // 1. Eliminar el lobby de la memoria primero para evitar que nadie más entre
             gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
             gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
-
             if (playersToKick != null)
             {
                 foreach (var p in playersToKick)
@@ -409,16 +412,15 @@ namespace MindWeaveServer.BusinessLogic.Services
                             // Usamos el código de mensaje correcto para "El host se fue"
                             callback.lobbyDestroyed(MessageCodes.NOTIFY_HOST_LEFT);
                         }
-                        catch (CommunicationException)
+                        catch (CommunicationException ex)
                         {
-                            logger.Warn("Failed to notify {0} about lobby destruction.", p);
+                            logger.Warn(ex, "Failed to notify {0} about lobby destruction.", p);
                         }
                         catch (Exception)
                         {
                             // Ignorar errores de comunicación al cerrar
                         }
                     }
-
                     // Limpiar el callback de la memoria
                     removeMatchmakingCallback(p);
                 }

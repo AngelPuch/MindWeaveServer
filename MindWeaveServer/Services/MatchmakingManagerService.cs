@@ -39,9 +39,6 @@ namespace MindWeaveServer.Services
         private volatile bool isDisconnecting;
         private readonly object disconnectLock = new object();
 
-        private const string DISCONNECT_REASON_SESSION_CLOSED = "SessionClosed";
-        private const string DISCONNECT_REASON_SESSION_FAULTED = "SessionFaulted";
-
         public MatchmakingManagerService()
         {
             Bootstrapper.init();
@@ -126,50 +123,6 @@ namespace MindWeaveServer.Services
                 catch (Exception ex)
                 {
                     logger.Error(ex, "Error during matchmaking cleanup for {0}.", usernameToDisconnect);
-                }
-                finally
-                {
-                    cleanupLocalState();
-                }
-            });
-        }
-
-        private void initiateDisconnectionAsync(string reason)
-        {
-            string usernameToDisconnect;
-
-            lock (disconnectLock)
-            {
-                if (isDisconnecting)
-                {
-                    logger.Debug("MatchmakingManagerService: Disconnection already in progress for {0}.", currentUsername);
-                    return;
-                }
-
-                isDisconnecting = true;
-                usernameToDisconnect = currentUsername;
-            }
-
-            if (string.IsNullOrWhiteSpace(usernameToDisconnect))
-            {
-                logger.Warn("MatchmakingManagerService: Cannot disconnect - username is null/empty.");
-                return;
-            }
-
-            Task.Run(async () =>
-            {
-                try
-                {
-                    logger.Info("MatchmakingManagerService: Executing full disconnection for {0}. Reason: {1}",
-                        usernameToDisconnect, reason);
-
-                    await disconnectionHandler.handleFullDisconnectionAsync(usernameToDisconnect, reason);
-
-                    logger.Info("MatchmakingManagerService: Full disconnection completed for {0}.", usernameToDisconnect);
-                }
-                catch (Exception ex)
-                {
-                    logger.Error(ex, "MatchmakingManagerService: Error during full disconnection for {0}.", usernameToDisconnect);
                 }
                 finally
                 {

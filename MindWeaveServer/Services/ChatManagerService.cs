@@ -18,7 +18,6 @@ namespace MindWeaveServer.Services
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly ChatLogic chatLogic;
-        private readonly IDisconnectionHandler disconnectionHandler;
 
         private IChatCallback currentUserCallback;
         private string currentUsername;
@@ -27,14 +26,11 @@ namespace MindWeaveServer.Services
         private volatile bool isDisconnecting;
         private readonly object disconnectLock = new object();
 
-        private const string DISCONNECT_REASON_SESSION_CLOSED = "ChatSessionClosed";
-        private const string DISCONNECT_REASON_SESSION_FAULTED = "ChatSessionFaulted";
-
         public ChatManagerService()
         {
             Bootstrapper.init();
             this.chatLogic = Bootstrapper.Container.Resolve<ChatLogic>();
-            this.disconnectionHandler = Bootstrapper.Container.Resolve<IDisconnectionHandler>();
+            Bootstrapper.Container.Resolve<IDisconnectionHandler>();
 
             subscribeToChannelEvents();
         }
@@ -42,7 +38,6 @@ namespace MindWeaveServer.Services
         public ChatManagerService(ChatLogic chatLogic, IDisconnectionHandler disconnectionHandler)
         {
             this.chatLogic = chatLogic;
-            this.disconnectionHandler = disconnectionHandler;
 
             subscribeToChannelEvents();
         }
@@ -68,7 +63,7 @@ namespace MindWeaveServer.Services
             logger.Warn("ChatManagerService: Channel FAULTED for user {0}. Initiating cleanup.",
                 currentUsername ?? "Unknown");
 
-            initiateCleanupAsync(DISCONNECT_REASON_SESSION_FAULTED);
+            initiateCleanupAsync();
         }
 
         private void onChannelClosed(object sender, EventArgs e)
@@ -76,10 +71,10 @@ namespace MindWeaveServer.Services
             logger.Info("ChatManagerService: Channel CLOSED for user {0}. Initiating cleanup.",
                 currentUsername ?? "Unknown");
 
-            initiateCleanupAsync(DISCONNECT_REASON_SESSION_CLOSED);
+            initiateCleanupAsync();
         }
 
-        private void initiateCleanupAsync(string reason)
+        private void initiateCleanupAsync()
         {
             string usernameToCleanup;
             string lobbyToLeave;
@@ -101,8 +96,6 @@ namespace MindWeaveServer.Services
             {
                 try
                 {
-                    // Solo limpiar del chat, NO llamar a handleFullDisconnectionAsync
-                    // porque el SocialManagerService o MatchmakingManagerService ya lo harán
                     if (!string.IsNullOrWhiteSpace(usernameToCleanup) && !string.IsNullOrWhiteSpace(lobbyToLeave))
                     {
                         logger.Info("ChatManagerService: Cleaning up chat for {0} from lobby {1}.",
@@ -215,7 +208,6 @@ namespace MindWeaveServer.Services
             {
                 return true;
             }
-
             if (currentUserCallback == null || (currentUserCallback as ICommunicationObject)?.State != CommunicationState.Opened)
             {
                 if (OperationContext.Current == null)
@@ -223,7 +215,6 @@ namespace MindWeaveServer.Services
                     logger.Error("OperationContext is null for lobby {LobbyId}.", lobbyId);
                     return false;
                 }
-
                 try
                 {
                     currentUserCallback = OperationContext.Current.GetCallbackChannel<IChatCallback>();
@@ -232,23 +223,21 @@ namespace MindWeaveServer.Services
                         logger.Error("GetCallbackChannel returned null for lobby {LobbyId}.", lobbyId);
                         return false;
                     }
-
                     setupCallbackEvents(currentUserCallback as ICommunicationObject);
                 }
-                catch (InvalidCastException)
+                catch (InvalidCastException ex)
                 {
-                    logger.Error("Callback channel casting failed.");
+                    logger.Error(ex, "Callback channel casting failed.");
                     currentUserCallback = null;
                     return false;
                 }
-                catch (InvalidOperationException)
+                catch (InvalidOperationException ex)
                 {
-                    logger.Error("Callback channel retrieval invalid op (Context closed?).");
+                    logger.Error(ex, "Callback channel retrieval invalid op (Context closed?).");
                     currentUserCallback = null;
                     return false;
                 }
             }
-
             currentUsername = username;
             currentLobbyId = lobbyId;
             return true;

@@ -6,13 +6,10 @@ namespace MindWeaveServer.BusinessLogic
 {
     public static class JigsawPathGenerator
     {
-        // Proporciones para una pestaña más elegante
-        private const float TAB_LENGTH_RATIO = 0.20f;    // Qué tan lejos sale la pestaña
         private const float TAB_WIDTH_RATIO = 0.35f;     // Ancho de la parte bulbosa
         private const float NECK_WIDTH_RATIO = 0.15f;    // Ancho del cuello (más estrecho)
-        private const float CURVE_SMOOTHNESS = 0.4f;     // Suavidad de las curvas
 
-        public static GraphicsPath CreateJigsawPath(
+        public static GraphicsPath createJigsawPath(
             int baseWidth,
             int baseHeight,
             JigsawPieceEdges edges,
@@ -42,23 +39,23 @@ namespace MindWeaveServer.BusinessLogic
             PointF currentPoint = new PointF(startX, startY);
 
             // Borde superior (izquierda a derecha)
-            currentPoint = AddHorizontalEdge(path, currentPoint, baseWidth, edges.Top, tabSize, false);
+            currentPoint = addHorizontalEdge(path, currentPoint, baseWidth, edges.Top, tabSize, false);
 
             // Borde derecho (arriba a abajo)
-            currentPoint = AddVerticalEdge(path, currentPoint, baseHeight, edges.Right, tabSize, false);
+            currentPoint = addVerticalEdge(path, currentPoint, baseHeight, edges.Right, tabSize, false);
 
             // Borde inferior (derecha a izquierda)
-            currentPoint = AddHorizontalEdge(path, currentPoint, baseWidth, edges.Bottom, tabSize, true);
+            currentPoint = addHorizontalEdge(path, currentPoint, baseWidth, edges.Bottom, tabSize, true);
 
             // Borde izquierdo (abajo a arriba)
-            currentPoint = AddVerticalEdge(path, currentPoint, baseHeight, edges.Left, tabSize, true);
+            currentPoint = addVerticalEdge(path, currentPoint, baseHeight, edges.Left, tabSize, true);
 
             path.CloseFigure();
 
             return path;
         }
 
-        private static PointF AddHorizontalEdge(GraphicsPath path, PointF start, int length, JigsawEdgeType edgeType, int tabSize, bool reverse)
+        private static PointF addHorizontalEdge(GraphicsPath path, PointF start, int length, JigsawEdgeType edgeType, int tabSize, bool reverse)
         {
             float direction = reverse ? -1 : 1;
             float endX = start.X + (length * direction);
@@ -131,7 +128,7 @@ namespace MindWeaveServer.BusinessLogic
             return end;
         }
 
-        private static PointF AddVerticalEdge(GraphicsPath path, PointF start, int length, JigsawEdgeType edgeType, int tabSize, bool reverse)
+        private static PointF addVerticalEdge(GraphicsPath path, PointF start, int length, JigsawEdgeType edgeType, int tabSize, bool reverse)
         {
             float direction = reverse ? -1 : 1;
             float endY = start.Y + (length * direction);

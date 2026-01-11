@@ -187,7 +187,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                     })
                     .Select(kvp => kvp.Key)
                     .ToList();
-
                 foreach (var lobbyCode in lobbiesToLeave)
                 {
                     try
@@ -199,18 +198,18 @@ namespace MindWeaveServer.BusinessLogic.Services
                         logger.Error(ex, "DisconnectionHandler: Error leaving lobby {0} for {1}.", lobbyCode, username);
                     }
                 }
-
                 // Limpiar de tracking de guests
-                foreach (var kvp in gameStateManager.GuestUsernamesInLobby.ToArray())
-                {
-                    if (kvp.Value.Remove(username))
-                    {
-                        logger.Debug("DisconnectionHandler: Removed {0} from guest tracking in lobby {1}.", username, kvp.Key);
+                var guestEntries = gameStateManager.GuestUsernamesInLobby
+                    .ToArray()
+                    .Where(kvp => kvp.Value.Contains(username));
 
-                        if (kvp.Value.Count == 0)
-                        {
-                            gameStateManager.GuestUsernamesInLobby.TryRemove(kvp.Key, out _);
-                        }
+                foreach (var kvp in guestEntries)
+                {
+                    kvp.Value.Remove(username);
+                    logger.Debug("DisconnectionHandler: Removed {0} from guest tracking in lobby {1}.", username, kvp.Key);
+                    if (kvp.Value.Count == 0)
+                    {
+                        gameStateManager.GuestUsernamesInLobby.TryRemove(kvp.Key, out _);
                     }
                 }
             }
@@ -312,9 +311,18 @@ namespace MindWeaveServer.BusinessLogic.Services
                     callback.updateLobbyState(lobby);
                 }
             }
-            catch (CommunicationException) { }
-            catch (TimeoutException) { }
-            catch (ObjectDisposedException) { }
+            catch (CommunicationException)
+            {
+                //ignored
+            }
+            catch (TimeoutException)
+            {
+                //ignored
+            }
+            catch (ObjectDisposedException)
+            {
+                //ignored
+            }
         }
 
         private void notifyPlayerKicked(string username, string reason)
@@ -329,7 +337,10 @@ namespace MindWeaveServer.BusinessLogic.Services
                         callback.kickedFromLobby(reason);
                     }
                 }
-                catch { }
+                catch
+                {
+                    //ignored
+                }
             }
         }
 
@@ -377,9 +388,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                     return;
                 }
 
-                // Notificar a amigos que el usuario se desconectó
-                await notifyFriendsOfDisconnectionAsync(username);
-
                 gameStateManager.removeConnectedUser(username);
 
                 logger.Debug("DisconnectionHandler: Removed {0} from social/connected users.", username);
@@ -388,12 +396,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Error(ex, "DisconnectionHandler: Error cleaning up social for {0}.", username);
             }
-        }
-
-        private async Task notifyFriendsOfDisconnectionAsync(string username)
-        {
-           
-            await Task.CompletedTask;
         }
 
         private void cleanupAuthenticationSession(string username)
