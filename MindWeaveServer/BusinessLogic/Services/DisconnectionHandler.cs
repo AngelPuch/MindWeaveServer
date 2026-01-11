@@ -379,13 +379,13 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private async Task cleanupFromSocialAsync(string username)
+        private Task cleanupFromSocialAsync(string username)
         {
             try
             {
                 if (!gameStateManager.isUserConnected(username))
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
 
                 gameStateManager.removeConnectedUser(username);
@@ -396,6 +396,8 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Error(ex, "DisconnectionHandler: Error cleaning up social for {0}.", username);
             }
+
+            return Task.CompletedTask;
         }
 
         private void cleanupAuthenticationSession(string username)

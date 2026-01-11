@@ -304,10 +304,7 @@ namespace MindWeaveServer.BusinessLogic
                 historySnapshot = history.ToList();
             }
 
-            foreach (var message in historySnapshot.Where(message => !trySendHistoryMessage(userCallback, message, lobbyId)))
-            {
-                break;
-            }
+            historySnapshot.All(message => trySendHistoryMessage(userCallback, message, lobbyId));
         }
 
         private static bool trySendHistoryMessage(IChatCallback callback, ChatMessageDto message, string lobbyId)
