@@ -364,6 +364,15 @@
       <DependentUpon>MindWeaveDB.edmx</DependentUpon>
       <LastGenOutput>MindWeaveDB.cs</LastGenOutput>
     </Content>
+    <Content Include="DefaultPuzzles\puzzleDefault.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DefaultPuzzles\puzzleDefault2.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="DefaultPuzzles\puzzleDefault3.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <Folder Include="BusinessLogic\Jigsaw\" />

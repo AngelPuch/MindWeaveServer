@@ -23,6 +23,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
         private readonly IPuzzleRepository puzzleRepository;
         private readonly StatsLogic statsLogic;
         private readonly IScoreCalculator scoreCalculator;
+        private const string DEFAULT_PUZZLES_FOLDER_NAME = "DefaultPuzzles";
 
         public GameSessionManager(
             IPuzzleRepository puzzleRepository,
@@ -199,12 +200,18 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
         private static byte[] getPuzzleBytes(string imagePath)
         {
+            // Intentamos resolver la ruta completa
             string fullPath = resolvePuzzlePath(imagePath);
 
-            if (!File.Exists(fullPath))
+            // Verificación final de existencia
+            if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
             {
-                logger.Error("Could not find puzzle image file: {Path}", fullPath);
-                throw new FileNotFoundException("Puzzle image not found.", fullPath);
+                // Logueamos la ruta original solicitada para depuración
+                logger.Error("FATAL: Could not find puzzle image file. Requested: '{0}'. Resolves to: '{1}'", imagePath, fullPath);
+
+                // Opcional: Podrías retornar un "Default de emergencia" aquí si quisieras evitar el crash total,
+                // pero lanzar la excepción es correcto si el juego no tiene sentido sin el puzzle.
+                throw new FileNotFoundException($"Puzzle image not found: {imagePath}", fullPath);
             }
 
             return File.ReadAllBytes(fullPath);
@@ -214,21 +221,36 @@ namespace MindWeaveServer.BusinessLogic.Manager
         {
             string basePath = AppDomain.CurrentDomain.BaseDirectory;
 
+            // 1. Intento en la carpeta de Puzzles Default (Lo que faltaba)
+            // Esto buscará en: .../bin/Debug/PuzzlesDefault/puzzleDefault.png
+            string defaultPuzzlePath = Path.Combine(basePath, DEFAULT_PUZZLES_FOLDER_NAME, imagePath);
+            if (File.Exists(defaultPuzzlePath))
+            {
+                return defaultPuzzlePath;
+            }
+
+            // 2. Intento para UploadedPuzzles
+            string uploadedPath = Path.Combine(basePath, "UploadedPuzzles", imagePath);
+            if (File.Exists(uploadedPath))
+            {
+                return uploadedPath;
+            }
+
+            // 3. Intento en Resources (Como respaldo legacy)
+            string resourcesPath = Path.Combine(basePath, "Resources", "Images", "Puzzles", imagePath);
+            if (File.Exists(resourcesPath))
+            {
+                return resourcesPath;
+            }
+
+            // 4. Intento directo (Último recurso)
             string directPath = Path.Combine(basePath, imagePath);
             if (File.Exists(directPath))
             {
                 return directPath;
             }
 
-            if (!imagePath.StartsWith("puzzleDefault", StringComparison.OrdinalIgnoreCase))
-            {
-                string uploadedPath = Path.Combine(basePath, "UploadedPuzzles", imagePath);
-                if (File.Exists(uploadedPath))
-                {
-                    return uploadedPath;
-                }
-            }
-
+            // Retornamos directPath para que la excepción muestre la ruta base intentada
             return directPath;
         }
 

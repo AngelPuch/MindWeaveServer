@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Data.Entity.Infrastructure;
 using System.IO;
 using System.Linq;
+using System.ServiceModel;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic.Services
@@ -231,7 +232,28 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
+                notifyOthersPlayerLeft(lobby, context.RequesterUsername);
                 notificationService.broadcastLobbyState(lobby);
+            }
+        }
+
+        private void notifyOthersPlayerLeft(LobbyStateDto lobby, string usernameLeft)
+        {
+            foreach (var player in lobby.Players)
+            {
+                if (gameStateManager.MatchmakingCallbacks.TryGetValue(player, out var callback))
+                {
+                    try
+                    {
+                        callback.onPlayerLeftMatch(usernameLeft);
+                    }
+                    catch (CommunicationException ex)
+                    {
+                        logger.Warn(ex, "Failed to notify {0} that {1} left.", player, usernameLeft);
+                    }
+                    catch (ObjectDisposedException) { }
+                    catch (TimeoutException) { }
+                }
             }
         }
 

@@ -7,6 +7,7 @@ using NLog;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic
@@ -25,9 +26,7 @@ namespace MindWeaveServer.BusinessLogic
         private const string LOG_PLACEHOLDER_NULL = "NULL";
         private const char FILENAME_SEPARATOR = '_';
 
-        public PuzzleLogic(
-            IPuzzleRepository puzzleRepository,
-            IPlayerRepository playerRepository)
+        public PuzzleLogic(IPuzzleRepository puzzleRepository, IPlayerRepository playerRepository)
         {
             this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
             this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
@@ -35,32 +34,24 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()
         {
-            logger.Info("getAvailablePuzzlesAsync logic started.");
-
             var puzzlesFromDb = await puzzleRepository.getAvailablePuzzlesAsync();
-
             var puzzles = new List<PuzzleInfoDto>();
-            string uploadPath = getUploadFolderPath();
 
             foreach (var p in puzzlesFromDb)
             {
+                bool isDefault = p.image_path.StartsWith(DEFAULT_PUZZLE_PREFIX, StringComparison.OrdinalIgnoreCase);
+                string targetFolder = isDefault ? getDefaultPuzzlesPath() : getUploadFolderPath();
+
+                byte[] imageBytes = tryLoadFileWithExtensions(targetFolder, p.image_path);
+
                 var dto = new PuzzleInfoDto
                 {
                     PuzzleId = p.puzzle_id,
                     Name = Path.GetFileNameWithoutExtension(p.image_path ?? DEFAULT_PUZZLE_NAME_FALLBACK),
                     ImagePath = p.image_path,
-                    IsUploaded = !p.image_path.StartsWith(DEFAULT_PUZZLE_PREFIX, StringComparison.OrdinalIgnoreCase)
+                    IsUploaded = !isDefault,
+                    ImageBytes = imageBytes
                 };
-
-                if (dto.IsUploaded)
-                {
-                    string filePath = Path.Combine(uploadPath, p.image_path);
-
-                    if (File.Exists(filePath))
-                    {
-                        dto.ImageBytes = File.ReadAllBytes(filePath);
-                    }
-                }
 
                 puzzles.Add(dto);
             }
@@ -70,14 +61,10 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName)
         {
-            logger.Info("uploadPuzzleImageAsync logic started for user: {0}, fileName: {1}",
-                username ?? LOG_PLACEHOLDER_NULL, fileName ?? LOG_PLACEHOLDER_NULL);
-
             if (imageBytes == null || imageBytes.Length == 0 ||
                 string.IsNullOrWhiteSpace(fileName) ||
                 string.IsNullOrWhiteSpace(username))
             {
-                logger.Warn("uploadPuzzleImageAsync logic failed for {0}: Invalid data provided.", username ?? LOG_PLACEHOLDER_NULL);
                 return new UploadResultDto
                 {
                     Success = false,
@@ -88,20 +75,24 @@ namespace MindWeaveServer.BusinessLogic
             byte[] optimizedBytes = ImageUtilities.optimizeImage(imageBytes);
             string uploadPath = getUploadFolderPath();
 
-            if (!Directory.Exists(uploadPath))
-            {
-                Directory.CreateDirectory(uploadPath);
-            }
+            ensureDirectoryExists(uploadPath);
 
             string uniqueFileName = generateUniqueFileName(fileName);
             string filePath = Path.Combine(uploadPath, uniqueFileName);
 
-            File.WriteAllBytes(filePath, optimizedBytes);
+            try
+            {
+                File.WriteAllBytes(filePath, optimizedBytes);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Failed to write uploaded file to disk: {0}", filePath);
+                return new UploadResultDto { Success = false, MessageCode = MessageCodes.PUZZLE_UPLOAD_FAILED };
+            }
 
             var player = await playerRepository.getPlayerByUsernameAsync(username);
             if (player == null)
             {
-                logger.Warn("Upload Error: Player {0} not found. Cleaning up file.", username);
                 tryDeleteFileForCleanup(filePath);
                 return new UploadResultDto
                 {
@@ -129,33 +120,85 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<PuzzleDefinitionDto> getPuzzleDefinitionAsync(int puzzleId, int difficultyId)
         {
-            logger.Info("getPuzzleDefinitionAsync started for puzzleId: {0}, difficultyId: {1}",
-                puzzleId, difficultyId);
-
             var puzzleData = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
             if (puzzleData == null)
             {
-                logger.Warn("Puzzle definition requested for non-existent puzzleId: {0}", puzzleId);
                 return null;
             }
 
             var difficulty = await puzzleRepository.getDifficultyByIdAsync(difficultyId);
             if (difficulty == null)
             {
-                logger.Warn("Invalid difficultyId {0} requested.", difficultyId);
                 return null;
             }
 
-            byte[] imageBytes = loadPuzzleImageBytes(puzzleData);
-            if (imageBytes == null || imageBytes.Length == 0)
-            {
-                logger.Error("Puzzle file not found for puzzleId: {0}", puzzleId);
-                throw new FileNotFoundException(
-                    $"Puzzle image file not found for puzzle {puzzleId}",
-                    puzzleData.image_path);
-            }
+            byte[] imageBytes = loadPuzzleImageBytesOrThrow(puzzleData);
 
             return PuzzleGenerator.generatePuzzle(imageBytes, difficulty);
+        }
+
+        private static byte[] loadPuzzleImageBytesOrThrow(Puzzles puzzleData)
+        {
+            bool isDefaultPuzzle = puzzleData.image_path.StartsWith(DEFAULT_PUZZLE_PREFIX, StringComparison.OrdinalIgnoreCase);
+            string folderPath = isDefaultPuzzle ? getDefaultPuzzlesPath() : getUploadFolderPath();
+
+            byte[] bytes = tryLoadFileWithExtensions(folderPath, puzzleData.image_path);
+
+            if (bytes == null || bytes.Length == 0)
+            {
+                string msg = $"CRITICAL: Puzzle image file NOT FOUND on server. ID: {puzzleData.puzzle_id}, Name: {puzzleData.image_path}. Search Path: {folderPath}";
+                logger.Error(msg);
+                throw new FileNotFoundException(msg, puzzleData.image_path);
+            }
+
+            return bytes;
+        }
+
+        private static byte[] tryLoadFileWithExtensions(string folderPath, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName)) return null;
+
+            string fullPath = Path.Combine(folderPath, fileName);
+            if (File.Exists(fullPath))
+            {
+                return readFileSafe(fullPath);
+            }
+
+            if (!Path.HasExtension(fullPath))
+            {
+                string[] extensions = { ".png", ".jpg", ".jpeg" };
+                foreach (var ext in extensions)
+                {
+                    string testPath = fullPath + ext;
+                    if (File.Exists(testPath))
+                    {
+                        return readFileSafe(testPath);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static byte[] readFileSafe(string path)
+        {
+            try
+            {
+                return File.ReadAllBytes(path);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error reading file from disk: {0}", path);
+                return null;
+            }
+        }
+
+        private static void ensureDirectoryExists(string path)
+        {
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
         }
 
         private static string getUploadFolderPath()
@@ -171,48 +214,22 @@ namespace MindWeaveServer.BusinessLogic
         private static string generateUniqueFileName(string originalFileName)
         {
             string safeName = Path.GetFileName(originalFileName);
-
             foreach (char c in Path.GetInvalidFileNameChars())
             {
                 safeName = safeName.Replace(c, FILENAME_SEPARATOR);
             }
-
             return $"{Guid.NewGuid()}{FILENAME_SEPARATOR}{safeName}";
-        }
-
-        private static byte[] loadPuzzleImageBytes(Puzzles puzzleData)
-        {
-            bool isDefaultPuzzle = puzzleData.image_path.StartsWith(DEFAULT_PUZZLE_PREFIX, StringComparison.OrdinalIgnoreCase);
-
-            var filePath = Path.Combine(isDefaultPuzzle ? getDefaultPuzzlesPath() : getUploadFolderPath(), puzzleData.image_path);
-
-            if (!File.Exists(filePath))
-            {
-                logger.Error("Puzzle file not found at path: {0}", filePath);
-                return Array.Empty<byte>();
-            }
-
-            return File.ReadAllBytes(filePath);
         }
 
         private static void tryDeleteFileForCleanup(string filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath)) return;
-
             try
             {
-                if (File.Exists(filePath))
-                {
-                    File.Delete(filePath);
-                }
+                if (File.Exists(filePath)) File.Delete(filePath);
             }
-            catch (IOException ex)
+            catch
             {
-                logger.Warn(ex, "Failed to clean up file (IO): {0}", filePath);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                logger.Warn(ex, "Failed to clean up file (Access): {0}", filePath);
             }
         }
     }
