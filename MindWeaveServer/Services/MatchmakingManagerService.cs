@@ -92,7 +92,7 @@ namespace MindWeaveServer.Services
             logger.Warn("MatchmakingManagerService: Channel FAULTED for user {0}. Initiating disconnection.",
                 currentUsername ?? "Unknown");
 
-            initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_FAULTED);
+            initiateGameCleanupAsync();
         }
 
         private void onChannelClosed(object sender, EventArgs e)
@@ -100,7 +100,38 @@ namespace MindWeaveServer.Services
             logger.Info("MatchmakingManagerService: Channel CLOSED for user {0}. Initiating disconnection.",
                 currentUsername ?? "Unknown");
 
-            initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_CLOSED);
+            initiateGameCleanupAsync();
+        }
+
+        private void initiateGameCleanupAsync()
+        {
+            string usernameToDisconnect;
+
+            lock (disconnectLock)
+            {
+                if (isDisconnecting) return;
+                isDisconnecting = true;
+                usernameToDisconnect = currentUsername;
+            }
+
+            if (string.IsNullOrWhiteSpace(usernameToDisconnect)) return;
+
+            Task.Run(async () =>
+            {
+                try
+                {
+                    // AQUI ESTA LA CLAVE: Llamamos a handleGameDisconnectionAsync en lugar de handleFull...
+                    await disconnectionHandler.handleGameDisconnectionAsync(usernameToDisconnect);
+                }
+                catch (Exception ex)
+                {
+                    logger.Error(ex, "Error during matchmaking cleanup for {0}.", usernameToDisconnect);
+                }
+                finally
+                {
+                    cleanupLocalState();
+                }
+            });
         }
 
         private void initiateDisconnectionAsync(string reason)

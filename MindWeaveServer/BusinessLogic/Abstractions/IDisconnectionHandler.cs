@@ -5,5 +5,7 @@ namespace MindWeaveServer.BusinessLogic.Abstractions
     public interface IDisconnectionHandler
     {
         Task handleFullDisconnectionAsync(string username, string reason);
+
+        Task handleGameDisconnectionAsync(string username);
     }
 }

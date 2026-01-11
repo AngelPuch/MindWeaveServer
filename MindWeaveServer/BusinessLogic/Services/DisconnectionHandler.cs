@@ -90,6 +90,53 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
+        // En MindWeaveServer.BusinessLogic.Services.DisconnectionHandler
+
+        public async Task handleGameDisconnectionAsync(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return;
+
+            // Usamos el mismo lock para evitar conflictos
+            lock (disconnectionLock)
+            {
+                if (usersBeingDisconnected.Contains(username)) return;
+                usersBeingDisconnected.Add(username);
+            }
+
+            try
+            {
+                logger.Info("===== GAME SERVICE DISCONNECTION: {0} =====", username);
+
+                // SOLO pasos relacionados con el juego (1, 2, 3 y 4)
+                // OMITIMOS Social y Auth (5 y 6)
+
+                // 1. Limpiar de partidas activas
+                await cleanupFromActiveGamesAsync(username);
+
+                // 2. Limpiar de lobbies
+                await cleanupFromLobbiesAsync(username);
+
+                // 3. Limpiar de chats de lobby
+                cleanupFromLobbyChats(username);
+
+                // 4. Limpiar callbacks de matchmaking
+                cleanupMatchmakingCallbacks(username);
+
+                logger.Info("===== GAME DISCONNECTION COMPLETE: {0} =====", username);
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex, "Error during game disconnection of {0}.", username);
+            }
+            finally
+            {
+                lock (disconnectionLock)
+                {
+                    usersBeingDisconnected.Remove(username);
+                }
+            }
+        }
+
         private async Task cleanupFromActiveGamesAsync(string username)
         {
             try
@@ -345,9 +392,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task notifyFriendsOfDisconnectionAsync(string username)
         {
-            // TODO: Si quieres notificar a los amigos que el usuario se desconectó,
-            // implementa la lógica aquí usando SocialLogic.getFriendsListAsync
-            // y enviando notificaciones a cada amigo conectado.
+           
             await Task.CompletedTask;
         }
 
