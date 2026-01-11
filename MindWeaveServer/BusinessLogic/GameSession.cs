@@ -22,7 +22,7 @@ namespace MindWeaveServer.BusinessLogic
     public class GameSession : IDisposable
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
+        private readonly object sessionLock = new object();
         private const double SNAP_TOLERANCE = 30.0;
         private const double PENALTY_TOLERANCE = 60.0;
         private const int HOARDING_LIMIT_SECONDS = 10;
@@ -55,7 +55,7 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IPuzzleRepository puzzleRepository;
         private readonly Action<string> onSessionEndedCleanup;
         private readonly IScoreCalculator scoreCalculator;
-
+        
         private readonly Timer hoardingTimer;
         private Timer gameDurationTimer;
         private bool isGameEnded;
@@ -266,29 +266,6 @@ namespace MindWeaveServer.BusinessLogic
             return true;
         }
 
-        
-
-        
-        private bool isClosestToCorrectPosition(int pieceId, double dropX, double dropY, double distanceToOwn)
-        {
-            foreach (var otherState in PieceStates.Values)
-            {
-                if (otherState.PieceId == pieceId) continue;
-                if (otherState.IsPlaced) continue; 
-
-                double distanceToOther = calculateDistance(dropX, dropY, otherState.FinalX, otherState.FinalY);
-
-                if (distanceToOther < distanceToOwn)
-                {
-                    logger.Debug("Piece {PieceId} dropped closer to position of piece {OtherId} ({DistOther:F1}) than own ({DistOwn:F1})",
-                        pieceId, otherState.PieceId, distanceToOther, distanceToOwn);
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        
         public void handlePieceRelease(int playerId, int pieceId)
         {
             if (isGameEnded) return;
@@ -486,29 +463,65 @@ namespace MindWeaveServer.BusinessLogic
 
         private void checkHoarding(object sender, ElapsedEventArgs e)
         {
-            if (isGameEnded) return;
-
-            var now = DateTime.UtcNow;
-            var hoardingPieces = PieceStates.Values
-                .Where(p => p.HeldByPlayerId.HasValue && p.GrabTime.HasValue &&
-                            (now - p.GrabTime.Value).TotalSeconds > HOARDING_LIMIT_SECONDS)
-                .ToList();
-
-            foreach (var piece in hoardingPieces)
+            try
             {
-                int playerId = piece.HeldByPlayerId.Value;
-
-                piece.HeldByPlayerId = null;
-                piece.GrabTime = null;
-
-                if (Players.TryGetValue(playerId, out var player))
+                if (isGameEnded)
                 {
-                    player.Score -= PENALTY_HOARDING;
-                    player.CurrentStreak = 0;
-
-                    broadcast(cb => cb.onPieceDragReleased(piece.PieceId, player.Username));
-                    broadcast(cb => cb.onPlayerPenalty(player.Username, PENALTY_HOARDING, player.Score, PENALTY_REASON_HOARDING));
+                    return;
                 }
+
+                lock (sessionLock)
+                {
+                    var now = DateTime.UtcNow;
+
+                    var hoardingPieces = PieceStates.Values
+                        .Where(p => p.HeldByPlayerId.HasValue &&
+                                    p.GrabTime.HasValue &&
+                                    (now - p.GrabTime.Value).TotalSeconds > HOARDING_LIMIT_SECONDS)
+                        .ToList();
+
+                    if (hoardingPieces.Count == 0)
+                    {
+                        return;
+                    }
+
+                    var piecesByPlayer = hoardingPieces
+                        .GroupBy(p => p.HeldByPlayerId.Value);
+
+                    foreach (var group in piecesByPlayer)
+                    {
+                        int playerId = group.Key;
+                        var piecesToRelease = group.ToList();
+
+                        if (Players.TryGetValue(playerId, out var player))
+                        {
+                            int totalPenalty = PENALTY_HOARDING * piecesToRelease.Count;
+
+                            player.Score -= totalPenalty;
+                            player.CurrentStreak = 0;
+
+                            foreach (var piece in piecesToRelease)
+                            {
+                                piece.HeldByPlayerId = null;
+                                piece.GrabTime = null;
+
+                                broadcast(cb => cb.onPieceDragReleased(piece.PieceId, player.Username));
+                            }
+
+                            broadcast(cb => cb.onPlayerPenalty(
+                                player.Username,
+                                totalPenalty,
+                                player.Score,
+                                PENALTY_REASON_HOARDING));
+
+                            Console.WriteLine($"Hoarding detected for {player.Username}. Released {piecesToRelease.Count} pieces.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in checkHoarding: {ex.Message}");
             }
         }
 
@@ -577,6 +590,7 @@ namespace MindWeaveServer.BusinessLogic
 
             broadcast(cb => cb.onPlayerPenalty(player.Username, penaltyPoints, player.Score, reason));
         }
+        
         private bool isNearAnyPiecePosition(double x, double y)
         {
             foreach (var state in PieceStates.Values)
@@ -600,8 +614,6 @@ namespace MindWeaveServer.BusinessLogic
                    pieceDef.LeftNeighborId == null ||
                    pieceDef.RightNeighborId == null;
         }
-
-     
 
         private static double calculateDistance(double x1, double y1, double x2, double y2)
         {
