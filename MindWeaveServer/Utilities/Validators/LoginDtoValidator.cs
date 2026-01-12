@@ -1,6 +1,6 @@
 ﻿using FluentValidation;
 using MindWeaveServer.Contracts.DataContracts.Authentication;
-using MindWeaveServer.Contracts.DataContracts.Shared; // Importante
+using MindWeaveServer.Contracts.DataContracts.Shared;
 
 namespace MindWeaveServer.Utilities.Validators
 {

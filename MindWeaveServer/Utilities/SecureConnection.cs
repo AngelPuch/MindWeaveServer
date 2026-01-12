@@ -49,7 +49,7 @@ namespace MindWeaveServer.Utilities
             {
                 Provider = PROVIDER_NAME,
                 ProviderConnectionString = sqlBuilder.ToString(),
-                Metadata = "res://*/DataAccess.MindWeaveDB.csdl|res://*/DataAccess.MindWeaveDB.ssdl|res://*/DataAccess.MindWeaveDB.msl"
+                Metadata = efMetadata
             };
 
             return entityBuilder.ToString();

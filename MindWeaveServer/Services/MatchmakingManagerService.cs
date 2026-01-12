@@ -68,8 +68,6 @@ namespace MindWeaveServer.Services
             subscribeToChannelEvents();
         }
 
-        #region Channel Event Handlers (Reliable Session Detection)
-
         private void subscribeToChannelEvents()
         {
             if (OperationContext.Current?.Channel == null)
@@ -117,7 +115,6 @@ namespace MindWeaveServer.Services
             {
                 try
                 {
-                    // AQUI ESTA LA CLAVE: Llamamos a handleGameDisconnectionAsync en lugar de handleFull...
                     await disconnectionHandler.handleGameDisconnectionAsync(usernameToDisconnect);
                 }
                 catch (Exception ex)
@@ -149,10 +146,6 @@ namespace MindWeaveServer.Services
                 commObject.Closed -= onChannelClosed;
             }
         }
-
-        #endregion
-
-        #region Service Operations
 
         private void preloadPlayerId()
         {
@@ -648,9 +641,6 @@ namespace MindWeaveServer.Services
             }
         }
 
-        #endregion
-
-        #region Private Methods
 
         private int getPlayerIdFromContext(string lobbyCode = null)
         {
@@ -789,7 +779,5 @@ namespace MindWeaveServer.Services
                 logger.Warn(ex, "ObjectDisposedException sending callback.");
             }
         }
-
-        #endregion
     }
 }

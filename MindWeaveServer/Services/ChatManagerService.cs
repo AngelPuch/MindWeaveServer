@@ -42,8 +42,6 @@ namespace MindWeaveServer.Services
             subscribeToChannelEvents();
         }
 
-        #region Channel Event Handlers (Reliable Session Detection)
-
         private void subscribeToChannelEvents()
         {
             if (OperationContext.Current?.Channel == null)
@@ -134,10 +132,6 @@ namespace MindWeaveServer.Services
             }
         }
 
-        #endregion
-
-        #region Service Operations
-
         public void joinLobbyChat(string username, string lobbyId)
         {
             logger.Info("joinLobbyChat request for lobby {LobbyId}", lobbyId ?? "NULL");
@@ -198,9 +192,6 @@ namespace MindWeaveServer.Services
             });
         }
 
-        #endregion
-
-        #region Private Helper Methods
 
         private bool tryRegisterSession(string username, string lobbyId)
         {
@@ -295,6 +286,5 @@ namespace MindWeaveServer.Services
             }
         }
 
-        #endregion
     }
 }

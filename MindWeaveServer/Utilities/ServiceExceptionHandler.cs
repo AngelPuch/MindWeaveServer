@@ -14,7 +14,8 @@ namespace MindWeaveServer.Utilities
     public class ServiceExceptionHandler : IServiceExceptionHandler
     {
         private readonly Logger logger = LogManager.GetCurrentClassLogger();
-        private const string DatabaseSource = "Database";
+        private const string DATABASE_SOURCE = "Database";
+        private const string UNKNOWN_OPERATION = "UnknownOperation";
 
         public FaultException<ServiceFaultDto> handleException(Exception exception, string operationContext)
         {
@@ -23,7 +24,7 @@ namespace MindWeaveServer.Utilities
                 throw new ArgumentNullException(nameof(exception));
             }
 
-            string safeContext = operationContext ?? "UnknownOperation";
+            string safeContext = operationContext ?? UNKNOWN_OPERATION;
 
             if (exception is EntityException entityEx)
             {
@@ -118,7 +119,7 @@ namespace MindWeaveServer.Utilities
             return createFault(
                 ServiceErrorType.DatabaseError,
                 MessageCodes.ERROR_DATABASE,
-                DatabaseSource,
+                DATABASE_SOURCE,
                 "Database Error");
         }
 
@@ -152,7 +153,7 @@ namespace MindWeaveServer.Utilities
             return createFault(
                 ServiceErrorType.DatabaseError,
                 MessageCodes.ERROR_DATABASE,
-                DatabaseSource,
+                DATABASE_SOURCE,
                 "Database Update Failed");
         }
 
@@ -164,7 +165,7 @@ namespace MindWeaveServer.Utilities
                 return createFault(
                     ServiceErrorType.DatabaseError,
                     MessageCodes.ERROR_DATABASE,
-                    DatabaseSource,
+                    DATABASE_SOURCE,
                     "Database Connection Failed");
             }
 
@@ -174,7 +175,7 @@ namespace MindWeaveServer.Utilities
                 return createFault(
                     ServiceErrorType.DatabaseError,
                     MessageCodes.ERROR_DATABASE,
-                    DatabaseSource,
+                    DATABASE_SOURCE,
                     "Query Timeout");
             }
 
@@ -182,7 +183,7 @@ namespace MindWeaveServer.Utilities
             return createFault(
                 ServiceErrorType.DatabaseError,
                 MessageCodes.ERROR_DATABASE,
-                DatabaseSource,
+                DATABASE_SOURCE,
                 "Database Error");
         }
 

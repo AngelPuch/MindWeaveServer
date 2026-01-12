@@ -221,8 +221,6 @@ namespace MindWeaveServer.Services
             }
         }
 
-        #region Channel Event Handlers (Reliable Session Detection)
-
         private void subscribeToChannelEvents()
         {
             if (OperationContext.Current?.Channel == null)
@@ -275,7 +273,6 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            // Ejecutar la desconexión completa en un hilo separado
             Task.Run(async () =>
             {
                 try
@@ -283,7 +280,6 @@ namespace MindWeaveServer.Services
                     logger.Info("SocialManagerService: Executing full disconnection for {0}. Reason: {1}",
                         usernameToDisconnect, reason);
 
-                    // Llamar al DisconnectionHandler centralizado
                     await disconnectionHandler.handleFullDisconnectionAsync(usernameToDisconnect, reason);
 
                     logger.Info("SocialManagerService: Full disconnection completed for {0}.", usernameToDisconnect);
@@ -307,10 +303,6 @@ namespace MindWeaveServer.Services
             currentUsername = null;
             currentUserCallback = null;
         }
-
-        #endregion
-
-        #region Private Helper Methods
 
         private static ISocialCallback tryGetCallbackChannel(string username)
         {
@@ -494,7 +486,5 @@ namespace MindWeaveServer.Services
                     new FaultReason(MessageCodes.ERROR_SESSION_MISMATCH));
             }
         }
-
-        #endregion
     }
 }
