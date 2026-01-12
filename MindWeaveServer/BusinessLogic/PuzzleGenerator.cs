@@ -11,6 +11,10 @@ using System.Threading;
 
 namespace MindWeaveServer.BusinessLogic
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+    "Minor Code Smell",
+    "S2245:Make sure that using this pseudorandom number generator is safe here",
+    Justification = "Random is sufficient for puzzle generation - cryptographic security is not required for game content")]
     public class PuzzleGenerator
     {
         private static readonly ThreadLocal<Random> threadSafeRandom = new ThreadLocal<Random>(() =>

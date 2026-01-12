@@ -11,7 +11,7 @@ namespace MindWeaveServer.Utilities
     {
         private static readonly string[] rawDeniedWords = new string[]
         {
-            "stupid","idiot","dumb","badword","hell",
+            "stupid","idiot","dumb","badword","hell", "ass","damn", 
             "fuck","fucking","fuckoff","shit","bullshit","crap","bastard","moron","jerk",
             "asshole","idiotic","dumbass","dipshit","sonofabitch","bitch","bitches",
             "bloody","piss","pissed","retard","retarded","loser","scumbag","trash",
@@ -43,7 +43,8 @@ namespace MindWeaveServer.Utilities
             string pattern = @"\b(" + string.Join("|", escapedWords) + @")[a-z]*\b";
             return new Regex(
                 pattern,
-                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase
+                RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+                TimeSpan.FromMilliseconds(100)
             );
         }
 
