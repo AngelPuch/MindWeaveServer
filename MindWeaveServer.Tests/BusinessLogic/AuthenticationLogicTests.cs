@@ -352,15 +352,17 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task sendPasswordRecoveryCodeAsyncSuccessSendsEmail()
+        public async Task sendPasswordRecoveryCodeAsyncUnverifiedUserReturnsError()
         {
             var player = new Player { email = "e@e.com", username = "U" };
-            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("e@e.com")).ReturnsAsync(player);
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("e@e.com"))
+                .ReturnsAsync(player);
 
             var result = await authenticationLogic.sendPasswordRecoveryCodeAsync("e@e.com");
 
-            Assert.True(result.Success);
-            emailServiceMock.Verify(e => e.sendEmailAsync("e@e.com", "U", It.IsAny<PasswordRecoveryEmailTemplate>()), Times.Once);
+            Assert.False(result.Success);
+
+            emailServiceMock.Verify(e => e.sendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<PasswordRecoveryEmailTemplate>()), Times.Never);
         }
 
         [Fact]

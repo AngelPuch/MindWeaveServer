@@ -77,6 +77,19 @@ namespace MindWeaveServer.Tests.Services
             var result = await service.login(dto);
 
             Assert.True(result.OperationResult.Success);
+        }
+
+        [Fact]
+        public async Task loginReturnsCorrectUsername()
+        {
+            var dto = new LoginDto { Email = "user@test.com", Password = "Pwd" };
+            playerRepoMock.Setup(x => x.getPlayerByEmailAsync("user@test.com"))
+                .ReturnsAsync(new Player { username = "User", password_hash = "Hash", is_verified = true, idPlayer = 1 });
+            passwordServiceMock.Setup(x => x.verifyPassword("Pwd", "Hash")).Returns(true);
+            sessionManagerMock.Setup(x => x.isUserLoggedIn("User")).Returns(false);
+
+            var result = await service.login(dto);
+
             Assert.Equal("User", result.Username);
         }
 
@@ -100,7 +113,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task registerDelegatesToLogic()
+        public async Task registerReturnsSuccess()
         {
             var profile = new UserProfileDto { Username = "NewUser", Email = "new@test.com", FirstName = "F" };
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("NewUser")).ReturnsAsync((Player)null!);
@@ -110,6 +123,18 @@ namespace MindWeaveServer.Tests.Services
             var result = await service.register(profile, "Password123");
 
             Assert.True(result.Success);
+        }
+
+        [Fact]
+        public async Task registerCallsAddPlayer()
+        {
+            var profile = new UserProfileDto { Username = "NewUser", Email = "new@test.com", FirstName = "F" };
+            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("NewUser")).ReturnsAsync((Player)null!);
+            playerRepoMock.Setup(x => x.getPlayerByEmailAsync("new@test.com")).ReturnsAsync((Player)null!);
+            verificationMock.Setup(x => x.generateVerificationCode()).Returns("123456");
+
+            await service.register(profile, "Password123");
+
             playerRepoMock.Verify(x => x.addPlayer(It.IsAny<Player>()), Times.Once);
         }
 
@@ -176,7 +201,8 @@ namespace MindWeaveServer.Tests.Services
         public async Task sendPasswordRecoveryCodeDelegates()
         {
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("mail"))
-                .ReturnsAsync(new Player { email = "mail", username = "u" });
+                .ReturnsAsync(new Player { email = "mail", username = "u", is_verified = true });
+
             verificationMock.Setup(x => x.generateVerificationCode()).Returns("123456");
 
             var result = await service.sendPasswordRecoveryCodeAsync("mail");

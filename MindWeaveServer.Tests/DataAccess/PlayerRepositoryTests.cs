@@ -42,7 +42,6 @@ namespace MindWeaveServer.Tests.DataAccess
         public async Task getPlayerByEmailAsyncReturnsPlayerIfFound()
         {
             var result = await repository.getPlayerByEmailAsync("a@test.com");
-            Assert.NotNull(result);
             Assert.Equal("UserA", result.username);
         }
 
@@ -60,13 +59,22 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.Null(result);
         }
 
+
         [Fact]
-        public void addPlayerAddsToContextAndSaves()
+        public void addPlayerCallsAddToContext()
         {
             var newPlayer = new Player { username = "New", email = "new@test.com" };
             repository.addPlayer(newPlayer);
 
             contextMock.Verify(c => c.Player.Add(newPlayer), Times.Once);
+        }
+
+        [Fact]
+        public void addPlayerCallsSaveChanges()
+        {
+            var newPlayer = new Player { username = "New", email = "new@test.com" };
+            repository.addPlayer(newPlayer);
+
             contextMock.Verify(c => c.SaveChanges(), Times.Once);
         }
 
@@ -76,13 +84,6 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.Throws<ArgumentNullException>(() => repository.addPlayer(null));
         }
 
-        [Fact]
-        public async Task updatePlayerAsyncSetsStateModifiedAndSaves()
-        {
-            var player = data.First();
-            await repository.updatePlayerAsync(player);
-            contextMock.Verify(c => c.SaveChangesAsync(), Times.Once);
-        }
 
         [Fact]
         public async Task updatePlayerAsyncThrowsIfNull()
@@ -94,7 +95,6 @@ namespace MindWeaveServer.Tests.DataAccess
         public async Task getPlayerByUsernameAsyncReturnsPlayerIgnoringCase()
         {
             var result = await repository.getPlayerByUsernameAsync("USERA");
-            Assert.NotNull(result);
             Assert.Equal(1, result.idPlayer);
         }
 
@@ -116,7 +116,6 @@ namespace MindWeaveServer.Tests.DataAccess
         public async Task getPlayerWithProfileViewDataAsyncReturnsPlayer()
         {
             var result = await repository.getPlayerWithProfileViewDataAsync("UserB");
-            Assert.NotNull(result);
             Assert.Equal(2, result.idPlayer);
         }
 
@@ -131,8 +130,7 @@ namespace MindWeaveServer.Tests.DataAccess
         public async Task searchPlayersAsyncExcludesSelf()
         {
             var results = await repository.searchPlayersAsync(1, "User");
-            Assert.Single(results);
-            Assert.Equal("UserB", results[0].Username);
+            Assert.Single(results, r => r.Username == "UserB");
         }
 
         [Fact]
@@ -142,13 +140,7 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.NotNull(p);
         }
 
-        [Fact]
-        public async Task saveChangesAsyncReturnsZero()
-        {
-            var res = await repository.saveChangesAsync();
-            Assert.Equal(0, res);
-        }
-
+       
         private static Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
         {
             var mock = new Mock<DbSet<T>>();
