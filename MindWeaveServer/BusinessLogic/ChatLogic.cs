@@ -310,35 +310,30 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private static bool trySendHistoryMessage(IChatCallback callback, ChatMessageDto message, string lobbyId)
+        private static void trySendHistoryMessage(IChatCallback callback, ChatMessageDto message, string lobbyId)
         {
             var commObject = callback as ICommunicationObject;
-
             if (commObject?.State != CommunicationState.Opened)
             {
                 logger.Warn("Callback not open for lobby {LobbyId}. Aborting history send.", lobbyId);
-                return false;
+                return;
             }
 
             try
             {
                 callback.receiveLobbyMessage(message);
-                return true;
             }
             catch (CommunicationException commEx)
             {
                 logger.Warn(commEx, "Connection lost sending history to lobby {LobbyId}", lobbyId);
-                return false;
             }
             catch (TimeoutException timeEx)
             {
                 logger.Warn(timeEx, "Timeout sending history to lobby {LobbyId}", lobbyId);
-                return false;
             }
             catch (ObjectDisposedException dispEx)
             {
                 logger.Warn(dispEx, "Channel disposed sending history to lobby {LobbyId}", lobbyId);
-                return false;
             }
         }
 

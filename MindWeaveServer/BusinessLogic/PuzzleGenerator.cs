@@ -169,7 +169,7 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     edges[r, c] = new JigsawEdgeType[4];
 
-                    edges[r, c][0] = getTopEdge(r, c, edges, dim);
+                    edges[r, c][0] = getTopEdge(r, c, edges);
                     edges[r, c][1] = getRightEdge(c, random, dim);
                     edges[r, c][2] = getBottomEdge(r, random, dim);
                     edges[r, c][3] = getLeftEdge(r, c, edges);
@@ -179,7 +179,7 @@ namespace MindWeaveServer.BusinessLogic
             return edges;
         }
 
-        private static JigsawEdgeType getTopEdge(int row, int col, JigsawEdgeType[,][] edges, GridDimensions dim)
+        private static JigsawEdgeType getTopEdge(int row, int col, JigsawEdgeType[,][] edges)
         {
             if (row == 0)
             {
