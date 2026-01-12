@@ -82,7 +82,7 @@ namespace MindWeaveServer.DataAccess.Repositories
                     .Include(p => p.PlayerStats)
                     .Include(p => p.Achievements)
                     .Include(p => p.Gender)
-                    .Include(p => p.PlayerSocialMedias.Select(sm => sm.SocialMediaPlatforms)) // Added Include
+                    .Include(p => p.PlayerSocialMedias.Select(sm => sm.SocialMediaPlatforms))
                     .AsNoTracking()
                     .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
             }
@@ -140,7 +140,7 @@ namespace MindWeaveServer.DataAccess.Repositories
             using (var context = contextFactory())
             {
                 return await context.Player
-                    .Include(p => p.PlayerSocialMedias)
+                    .Include(p => p.PlayerSocialMedias.Select(sm => sm.SocialMediaPlatforms))
                     .FirstOrDefaultAsync(p => p.username.Equals(username, StringComparison.OrdinalIgnoreCase));
             }
         }
@@ -151,11 +151,6 @@ namespace MindWeaveServer.DataAccess.Repositories
             {
                 return await context.SocialMediaPlatforms.ToListAsync();
             }
-        }
-
-        public async Task<int> saveChangesAsync()
-        {
-            return await Task.FromResult(0);
         }
     }
 }

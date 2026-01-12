@@ -69,7 +69,9 @@ namespace MindWeaveServer.BusinessLogic
                 return null;
             }
 
-            var player = await playerRepository.getPlayerByUsernameAsync(username);
+            // FIX: Usar getPlayerByUsernameWithTrackingAsync en lugar de getPlayerByUsernameAsync
+            // para incluir PlayerSocialMedias y evitar lazy loading después de dispose
+            var player = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
 
             if (player == null)
             {
@@ -269,7 +271,6 @@ namespace MindWeaveServer.BusinessLogic
                     IconPath = ach.icon_path
                 }).ToList() ?? new List<AchievementDto>(),
 
-                // Mapeo Social Media
                 SocialMedia = player.PlayerSocialMedias?.Select(sm => new PlayerSocialMediaDto
                 {
                     IdSocialMediaPlatform = sm.IdSocialMediaPlatform,
@@ -324,8 +325,6 @@ namespace MindWeaveServer.BusinessLogic
                 SocialMedia = socialMediaList
             };
         }
-
-
 
         private static void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
         {
