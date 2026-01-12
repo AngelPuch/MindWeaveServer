@@ -85,6 +85,22 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
+        public void broadcastLobbyDestroyed(LobbyStateDto lobbyState, string reason)
+        {
+            if (lobbyState == null) return;
+
+            List<string> playersSnapshot;
+            lock (lobbyState)
+            {
+                playersSnapshot = lobbyState.Players.ToList();
+            }
+
+            foreach (var player in playersSnapshot)
+            {
+                sendToUser(player, cb => cb.lobbyDestroyed(reason));
+            }
+        }
+
         private void executeCallbackSafe<T>(T callback, string username, Action<T> action, bool isMatchmaking) where T : class
         {
             var commObject = callback as ICommunicationObject;

@@ -12,6 +12,8 @@ using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
+using System.ServiceModel;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic.Services
@@ -91,6 +93,9 @@ namespace MindWeaveServer.BusinessLogic.Services
         public async Task kickPlayerAsync(LobbyActionContext context)
         {
             var lobby = getLobby(context.LobbyCode);
+
+            if (lobby == null) return;
+
             var validation = validationService.canKickPlayer(lobby, context.RequesterUsername, context.TargetUsername);
 
             if (!validation.IsSuccess)
@@ -209,7 +214,8 @@ namespace MindWeaveServer.BusinessLogic.Services
         private async Task kickFromLobbyStateAsync(LobbyStateDto lobby, int targetId, int hostId, string targetUsername)
         {
             var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobby.LobbyId);
-            if (match != null)
+
+            if (match != null && targetId > 0)
             {
                 await matchmakingRepository.registerExpulsionAsync(new ExpulsionDto
                 {

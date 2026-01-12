@@ -130,7 +130,30 @@ namespace MindWeaveServer.BusinessLogic
         {
             logger.Info("ExpelPlayerAsync (System) for {0} in {1}. Reason: {2}", username, lobbyCode, reasonText);
 
-            var (reasonId, messageCode) = determineExpulsionDetails(reasonText);
+            if (gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var lobbyState))
+            {
+                if (lobbyState.HostUsername == username)
+                {
+                    logger.Info("Host {0} expelled from lobby {1} by System (Profanity). Destroying lobby.", username, lobbyCode);
+
+                    moderationManager.banUser(lobbyCode, username, reasonText);
+
+                    notificationService.broadcastLobbyDestroyed(lobbyState, MessageCodes.NOTIFY_HOST_LEFT);
+
+                    gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
+                    gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
+
+                    return;
+                }
+            }
+            else
+            {
+                return;
+            }
+
+            int reasonId = ID_REASON_PROFANITY;
+            string messageCode = MessageCodes.NOTIFY_KICKED_PROFANITY;
+
             int hostId = await getHostIdAsync(lobbyCode);
 
             moderationManager.banUser(lobbyCode, username, reasonText);
@@ -146,17 +169,6 @@ namespace MindWeaveServer.BusinessLogic
             {
                 await expelFromLobbyStateAsync(lobbyCode, username, reasonId, hostId, messageCode);
             }
-        }
-
-        private static (int reasonId, string messageCode) determineExpulsionDetails(string reasonText)
-        {
-            int reasonId = (reasonText == PROFANITY_REASON_TEXT) ? ID_REASON_PROFANITY : ID_REASON_HOST_DECISION;
-
-            string messageCode = (reasonId == ID_REASON_PROFANITY)
-                ? MessageCodes.NOTIFY_KICKED_PROFANITY
-                : MessageCodes.NOTIFY_KICKED_BY_HOST;
-
-            return (reasonId, messageCode);
         }
 
         private async Task<int> getHostIdAsync(string lobbyCode)

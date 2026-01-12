@@ -17,5 +17,6 @@ namespace MindWeaveServer.BusinessLogic.Abstractions
         void sendToUser(string username, Action<IMatchmakingCallback> action);
 
         void sendSocialNotification(string username, Action<ISocialCallback> action);
+        void broadcastLobbyDestroyed(LobbyStateDto lobbyState, string reason);
     }
 }
