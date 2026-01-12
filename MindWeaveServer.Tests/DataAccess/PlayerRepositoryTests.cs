@@ -39,21 +39,21 @@ namespace MindWeaveServer.Tests.DataAccess
         }
 
         [Fact]
-        public async Task getPlayerByEmailAsyncReturnsPlayerIfFound()
+        public async Task GetPlayerByEmailAsync_ValidEmail_ReturnsPlayer()
         {
             var result = await repository.getPlayerByEmailAsync("a@test.com");
             Assert.Equal("UserA", result.username);
         }
 
         [Fact]
-        public async Task getPlayerByEmailAsyncReturnsNullIfNotFound()
+        public async Task GetPlayerByEmailAsync_InvalidEmail_ReturnsNull()
         {
             var result = await repository.getPlayerByEmailAsync("z@test.com");
             Assert.Null(result);
         }
 
         [Fact]
-        public async Task getPlayerByEmailAsyncReturnsNullIfInputEmpty()
+        public async Task GetPlayerByEmailAsync_EmptyEmail_ReturnsNull()
         {
             var result = await repository.getPlayerByEmailAsync("");
             Assert.Null(result);
@@ -61,7 +61,7 @@ namespace MindWeaveServer.Tests.DataAccess
 
 
         [Fact]
-        public void addPlayerCallsAddToContext()
+        public void AddPlayer_ValidPlayer_CallsAdd()
         {
             var newPlayer = new Player { username = "New", email = "new@test.com" };
             repository.addPlayer(newPlayer);
@@ -70,7 +70,7 @@ namespace MindWeaveServer.Tests.DataAccess
         }
 
         [Fact]
-        public void addPlayerCallsSaveChanges()
+        public void AddPlayer_ValidPlayer_CallsSaveChanges()
         {
             var newPlayer = new Player { username = "New", email = "new@test.com" };
             repository.addPlayer(newPlayer);
@@ -79,62 +79,62 @@ namespace MindWeaveServer.Tests.DataAccess
         }
 
         [Fact]
-        public void addPlayerThrowsIfNull()
+        public void AddPlayer_NullPlayer_ThrowsException()
         {
             Assert.Throws<ArgumentNullException>(() => repository.addPlayer(null));
         }
 
 
         [Fact]
-        public async Task updatePlayerAsyncThrowsIfNull()
+        public async Task UpdatePlayerAsync_NullPlayer_ThrowsException()
         {
             await Assert.ThrowsAsync<ArgumentNullException>(() => repository.updatePlayerAsync(null));
         }
 
         [Fact]
-        public async Task getPlayerByUsernameAsyncReturnsPlayerIgnoringCase()
+        public async Task GetPlayerByUsernameAsync_ValidUsername_ReturnsPlayer()
         {
             var result = await repository.getPlayerByUsernameAsync("USERA");
             Assert.Equal(1, result.idPlayer);
         }
 
         [Fact]
-        public async Task getPlayerByUsernameAsyncReturnsNullIfEmpty()
+        public async Task GetPlayerByUsernameAsync_EmptyUsername_ReturnsNull()
         {
             var result = await repository.getPlayerByUsernameAsync(" ");
             Assert.Null(result);
         }
 
         [Fact]
-        public async Task getPlayerWithProfileViewDataAsyncReturnsNullIfUserMissing()
+        public async Task GetPlayerWithProfileViewDataAsync_InvalidUser_ReturnsNull()
         {
             var result = await repository.getPlayerWithProfileViewDataAsync("Ghost");
             Assert.Null(result);
         }
 
         [Fact]
-        public async Task getPlayerWithProfileViewDataAsyncReturnsPlayer()
+        public async Task GetPlayerWithProfileViewDataAsync_ValidUser_ReturnsPlayer()
         {
             var result = await repository.getPlayerWithProfileViewDataAsync("UserB");
             Assert.Equal(2, result.idPlayer);
         }
 
         [Fact]
-        public async Task searchPlayersAsyncReturnsMatches()
+        public async Task SearchPlayersAsync_ValidQuery_ReturnsMatches()
         {
             var results = await repository.searchPlayersAsync(99, "User");
             Assert.Equal(2, results.Count);
         }
 
         [Fact]
-        public async Task searchPlayersAsyncExcludesSelf()
+        public async Task SearchPlayersAsync_ExcludeSelf_FiltersOutSelf()
         {
             var results = await repository.searchPlayersAsync(1, "User");
             Assert.Single(results, r => r.Username == "UserB");
         }
 
         [Fact]
-        public async Task getPlayerByUsernameWithTrackingAsyncReturnsResult()
+        public async Task GetPlayerByUsernameWithTrackingAsync_ValidUsername_ReturnsPlayer()
         {
             var p = await repository.getPlayerByUsernameWithTrackingAsync("UserA");
             Assert.NotNull(p);

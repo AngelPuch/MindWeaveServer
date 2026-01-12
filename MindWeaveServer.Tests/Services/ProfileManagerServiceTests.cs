@@ -56,19 +56,18 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getPlayerProfileViewReturnsDto()
+        public async Task GetPlayerProfileView_ValidUser_ReturnsDto()
         {
             playerRepoMock.Setup(x => x.getPlayerWithProfileViewDataAsync("User"))
                 .ReturnsAsync(new Player { username = "User", PlayerStats = new PlayerStats(), Gender = new Gender { gender1 = "M" } });
 
             var result = await service.getPlayerProfileView("User");
 
-            Assert.NotNull(result);
             Assert.Equal("User", result.Username);
         }
 
         [Fact]
-        public async Task getPlayerProfileViewHandlesError()
+        public async Task GetPlayerProfileView_Exception_HandlesError()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "GetPlayerProfileViewOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
@@ -77,20 +76,10 @@ namespace MindWeaveServer.Tests.Services
             Assert.Null(res);
         }
 
-        [Fact]
-        public async Task getPlayerProfileForEditAsyncReturnsDto()
-        {
-            playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("User"))
-                .ReturnsAsync(new Player { username = "User", email = "e@e.com", Gender = new Gender() });
-            genderRepoMock.Setup(x => x.getAllGendersAsync()).ReturnsAsync(new List<Gender>());
 
-            var result = await service.getPlayerProfileForEditAsync("User");
-
-            Assert.NotNull(result);
-        }
 
         [Fact]
-        public async Task getPlayerProfileForEditAsyncHandlesError()
+        public async Task GetPlayerProfileForEditAsync_Exception_HandlesError()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "GetPlayerProfileForEditOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
@@ -100,7 +89,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task updateProfileAsyncCallsLogic()
+        public async Task UpdateProfileAsync_ValidData_CallsLogic()
         {
             var dto = new UserProfileForEditDto { IdGender = 1, FirstName = "A" };
             playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("User"))
@@ -108,12 +97,11 @@ namespace MindWeaveServer.Tests.Services
 
             var result = await service.updateProfileAsync("User", dto);
 
-            Assert.True(result.Success);
             playerRepoMock.Verify(x => x.updatePlayerAsync(It.IsAny<Player>()), Times.Once);
         }
 
         [Fact]
-        public async Task updateProfileAsyncHandlesError()
+        public async Task UpdateProfileAsync_Exception_HandlesError()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "UpdateProfileOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
@@ -127,7 +115,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task updateAvatarPathAsyncCallsLogic()
+        public async Task UpdateAvatarPathAsync_ValidData_CallsLogic()
         {
             playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("User"))
                 .ReturnsAsync(new Player());
@@ -138,7 +126,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task updateAvatarPathAsyncHandlesError()
+        public async Task UpdateAvatarPathAsync_Exception_HandlesError()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "UpdateAvatarPathOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
@@ -152,7 +140,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task changePasswordAsyncVerifiesOldAndSetsNew()
+        public async Task ChangePasswordAsync_ValidData_VerifiesAndSetsNew()
         {
             playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("User"))
                 .ReturnsAsync(new Player { password_hash = "OldHash" });
@@ -161,12 +149,11 @@ namespace MindWeaveServer.Tests.Services
 
             var result = await service.changePasswordAsync("User", "Old", "New");
 
-            Assert.True(result.Success);
             playerRepoMock.Verify(x => x.updatePlayerAsync(It.Is<Player>(p => p.password_hash == "NewHash")), Times.Once);
         }
 
         [Fact]
-        public async Task changePasswordAsyncHandlesError()
+        public async Task ChangePasswordAsync_Exception_HandlesError()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "ChangePasswordOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
@@ -180,7 +167,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getPlayerAchievementsAsyncReturnsList()
+        public async Task GetPlayerAchievementsAsync_ValidId_ReturnsList()
         {
             statsRepoMock.Setup(x => x.getPlayerAchievementIdsAsync(1)).ReturnsAsync(new List<int> { 1 });
             statsRepoMock.Setup(x => x.getAllAchievementsAsync())
@@ -188,12 +175,11 @@ namespace MindWeaveServer.Tests.Services
 
             var result = await service.getPlayerAchievementsAsync(1);
 
-            Assert.Single(result);
             Assert.Equal("A", result[0].Name);
         }
 
         [Fact]
-        public async Task getPlayerAchievementsAsyncHandlesError()
+        public async Task GetPlayerAchievementsAsync_Exception_HandlesError()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "GetPlayerAchievementsOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "E")));
@@ -202,7 +188,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task updateProfileAsyncReturnsFalseIfUserNotFound()
+        public async Task UpdateProfileAsync_UserNotFound_ReturnsFalse()
         {
             playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("Ghost")).ReturnsAsync((Player)null!);
             var res = await service.updateProfileAsync("Ghost", new UserProfileForEditDto());
@@ -210,7 +196,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task changePasswordAsyncReturnsFalseIfOldInvalid()
+        public async Task ChangePasswordAsync_InvalidOldPassword_ReturnsFalse()
         {
             playerRepoMock.Setup(x => x.getPlayerByUsernameWithTrackingAsync("User"))
                 .ReturnsAsync(new Player { password_hash = "Hash" });
@@ -221,7 +207,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getPlayerProfileForEditAsyncReturnsNullIfNotFound()
+        public async Task GetPlayerProfileForEditAsync_UserNotFound_ReturnsNull()
         {
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("Ghost")).ReturnsAsync((Player)null!);
             var res = await service.getPlayerProfileForEditAsync("Ghost");

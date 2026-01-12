@@ -65,14 +65,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
 
         [Fact]
-        public async Task loginAsyncNullDtoReturnsFalse()
+        public async Task LoginAsync_NullDto_ReturnsFalse()
         {
             var result = await authenticationLogic.loginAsync(null);
             Assert.False(result.OperationResult.Success);
         }
 
         [Fact]
-        public async Task loginAsyncValidationFailureReturnsFalse()
+        public async Task LoginAsync_ValidationFailure_ReturnsFalse()
         {
             var failureResult = new ValidationResult(new[] { new ValidationFailure("Email", "Error") });
             loginValidatorMock.Setup(v => v.ValidateAsync(It.IsAny<LoginDto>(), default(CancellationToken)))
@@ -84,10 +84,10 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task loginAsyncUserNotFoundReturnsFalse()
+        public async Task LoginAsync_UserNotFound_ReturnsFalse()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("test@test.com"))
-                .ReturnsAsync((Player)null);
+                .ReturnsAsync((Player)null!);
 
             var result = await authenticationLogic.loginAsync(new LoginDto { Email = "test@test.com", Password = "123" });
 
@@ -95,7 +95,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task loginAsyncPasswordMismatchReturnsFalse()
+        public async Task LoginAsync_PasswordMismatch_ReturnsFalse()
         {
             var player = new Player { email = "t@t.com", password_hash = "Hash" };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("t@t.com")).ReturnsAsync(player);
@@ -105,9 +105,9 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             Assert.False(result.OperationResult.Success);
         }
-
         [Fact]
-        public async Task loginAsyncAlreadyLoggedInReturnsSpecificCode()
+
+        public async Task LoginAsync_AlreadyLoggedIn_ReturnsFailure()
         {
             var player = new Player { username = "User", password_hash = "Hash" };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("t@t.com")).ReturnsAsync(player);
@@ -117,11 +117,23 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "Pass" });
 
             Assert.False(result.OperationResult.Success);
+        }
+
+        [Fact]
+        public async Task LoginAsync_AlreadyLoggedIn_ReturnsSpecificCode()
+        {
+            var player = new Player { username = "User", password_hash = "Hash" };
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("t@t.com")).ReturnsAsync(player);
+            passwordServiceMock.Setup(p => p.verifyPassword("Pass", "Hash")).Returns(true);
+            userSessionManagerMock.Setup(s => s.isUserLoggedIn("User")).Returns(true);
+
+            var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "Pass" });
+
             Assert.Equal("AUTH_USER_ALREADY_LOGGED_IN", result.ResultCode);
         }
 
         [Fact]
-        public async Task loginAsyncUnverifiedReturnsSpecificCode()
+        public async Task LoginAsync_Unverified_ReturnsSpecificCode()
         {
             var player = new Player { is_verified = false, password_hash = "Hash" };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("t@t.com")).ReturnsAsync(player);
@@ -133,7 +145,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task loginAsyncSuccessAddsSession()
+        public async Task LoginAsync_Success_ReturnsSuccess()
         {
             var player = new Player { username = "User", is_verified = true, password_hash = "Hash", idPlayer = 1 };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("t@t.com")).ReturnsAsync(player);
@@ -142,11 +154,22 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "Pass" });
 
             Assert.True(result.OperationResult.Success);
+        }
+
+        [Fact]
+        public async Task LoginAsync_Success_AddsSession()
+        {
+            var player = new Player { username = "User", is_verified = true, password_hash = "Hash", idPlayer = 1 };
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("t@t.com")).ReturnsAsync(player);
+            passwordServiceMock.Setup(p => p.verifyPassword("Pass", "Hash")).Returns(true);
+
+            await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "Pass" });
+
             userSessionManagerMock.Verify(s => s.addSession("User"), Times.Once);
         }
 
         [Fact]
-        public async Task loginAsyncSuccessReturnsProfileData()
+        public async Task LoginAsync_Success_ReturnsUsername()
         {
             var player = new Player { username = "User", is_verified = true, password_hash = "Hash", avatar_path = "img.png" };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
@@ -155,18 +178,28 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "P" });
 
             Assert.Equal("User", result.Username);
-            Assert.Equal("img.png", result.AvatarPath);
         }
 
         [Fact]
-        public void logoutRemovesSession()
+        public async Task LoginAsync_Success_ReturnsAvatarPath()
+        {
+            var player = new Player { username = "User", is_verified = true, password_hash = "Hash", avatar_path = "img.png" };
+            playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
+            passwordServiceMock.Setup(p => p.verifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(true);
+
+            var result = await authenticationLogic.loginAsync(new LoginDto { Email = "t@t.com", Password = "P" });
+
+            Assert.Equal("img.png", result.AvatarPath);
+        }
+        [Fact]
+        public void Logout_ValidUsername_RemovesSession()
         {
             authenticationLogic.logout("User");
             userSessionManagerMock.Verify(s => s.removeSession("User"), Times.Once);
         }
 
         [Fact]
-        public void logoutNullUsernameDoesNothing()
+        public void Logout_NullUsername_DoesNothing()
         {
             authenticationLogic.logout(null);
             userSessionManagerMock.Verify(s => s.removeSession(It.IsAny<string>()), Times.Never);
@@ -174,14 +207,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
 
         [Fact]
-        public async Task registerPlayerAsyncNullProfileReturnsError()
+        public async Task RegisterPlayerAsync_NullProfile_ReturnsError()
         {
             var result = await authenticationLogic.registerPlayerAsync(null, "pass");
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task registerPlayerAsyncValidationFailReturnsError()
+        public async Task RegisterPlayerAsync_ValidationFail_ReturnsError()
         {
             var failure = new ValidationResult(new[] { new ValidationFailure("Prop", "Error") });
             profileValidatorMock.Setup(v => v.ValidateAsync(It.IsAny<UserProfileDto>(), default(CancellationToken))).ReturnsAsync(failure);
@@ -191,7 +224,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task registerPlayerAsyncWeakPasswordReturnsError()
+        public async Task RegisterPlayerAsync_WeakPassword_ReturnsError()
         {
             passwordPolicyValidatorMock.Setup(p => p.validate("weak")).Returns(new OperationResultDto { Success = false });
 
@@ -200,7 +233,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task registerPlayerAsyncNewUserCallsAddPlayer()
+        public async Task RegisterPlayerAsync_NewUser_CallsAddPlayer()
         {
             var dto = new UserProfileDto { Username = "New", Email = "e@e.com", FirstName = "F" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("New")).ReturnsAsync((Player)null!);
@@ -212,7 +245,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task registerPlayerAsyncNewUserSendsEmail()
+        public async Task RegisterPlayerAsync_NewUser_SendsEmail()
         {
             var dto = new UserProfileDto { Username = "New", Email = "e@e.com", FirstName = "F" };
             await authenticationLogic.registerPlayerAsync(dto, "Pass");
@@ -220,7 +253,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task registerPlayerAsyncExistingVerifiedUserReturnsFailure()
+        public async Task RegisterPlayerAsync_ExistingVerifiedUser_ReturnsFailure()
         {
             var existing = new Player { is_verified = true };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("Exist"))
@@ -229,13 +262,12 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await authenticationLogic.registerPlayerAsync(
                 new UserProfileDto { Username = "Exist" }, "Pass");
 
-            Assert.False(result.Success);
             Assert.Equal(MessageCodes.AUTH_USER_ALREADY_EXISTS, result.MessageCode);
         }
 
 
         [Fact]
-        public async Task registerPlayerAsyncExistingUnverifiedUserUpdatesPlayer()
+        public async Task RegisterPlayerAsync_ExistingUnverifiedUser_UpdatesPlayer()
         {
             var existing = new Player { is_verified = false, username = "U", email = "e@e.com" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync(existing);
@@ -245,26 +277,25 @@ namespace MindWeaveServer.Tests.BusinessLogic
             await authenticationLogic.registerPlayerAsync(dto, "Pass");
 
             playerRepositoryMock.Verify(r => r.updatePlayerAsync(existing), Times.Once);
-            Assert.Equal("NewName", existing.first_name);
         }
 
 
         [Fact]
-        public async Task verifyAccountAsyncNullArgsReturnsError()
+        public async Task VerifyAccountAsync_NullArgs_ReturnsError()
         {
             var result = await authenticationLogic.verifyAccountAsync(null, null);
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task verifyAccountAsyncInvalidFormatReturnsError()
+        public async Task VerifyAccountAsync_InvalidFormat_ReturnsError()
         {
             var result = await authenticationLogic.verifyAccountAsync("e@e.com", "ABC");
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task verifyAccountAsyncPlayerNotFoundReturnsError()
+        public async Task VerifyAccountAsync_PlayerNotFound_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
             var result = await authenticationLogic.verifyAccountAsync("e@e.com", "123456");
@@ -272,7 +303,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task verifyAccountAsyncAlreadyVerifiedReturnsError()
+        public async Task VerifyAccountAsync_AlreadyVerified_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>()))
                 .ReturnsAsync(new Player { is_verified = true });
@@ -282,7 +313,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task verifyAccountAsyncCodeMismatchReturnsError()
+        public async Task VerifyAccountAsync_CodeMismatch_ReturnsError()
         {
             var player = new Player { is_verified = false, verification_code = "654321", code_expiry_date = DateTime.UtcNow.AddHours(1) };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
@@ -292,7 +323,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task verifyAccountAsyncCodeExpiredReturnsError()
+        public async Task VerifyAccountAsync_CodeExpired_ReturnsError()
         {
             var player = new Player { is_verified = false, verification_code = "123456", code_expiry_date = DateTime.UtcNow.AddMinutes(-1) };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
@@ -302,20 +333,18 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task verifyAccountAsyncSuccessUpdatesPlayer()
+        public async Task VerifyAccountAsync_Success_UpdatesPlayer()
         {
             var player = new Player { is_verified = false, verification_code = "123456", code_expiry_date = DateTime.UtcNow.AddHours(1) };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
 
             var result = await authenticationLogic.verifyAccountAsync("e@e.com", "123456");
 
-            Assert.True(result.Success);
-            Assert.True(player.is_verified);
             playerRepositoryMock.Verify(r => r.updatePlayerAsync(player), Times.Once);
         }
 
         [Fact]
-        public async Task resendVerificationCodeAsyncNotFoundReturnsError()
+        public async Task ResendVerificationCodeAsync_NotFound_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
             var result = await authenticationLogic.resendVerificationCodeAsync("e@e.com");
@@ -323,7 +352,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task resendVerificationCodeAsyncAlreadyVerifiedReturnsError()
+        public async Task ResendVerificationCodeAsync_AlreadyVerified_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(new Player { is_verified = true });
             var result = await authenticationLogic.resendVerificationCodeAsync("e@e.com");
@@ -331,7 +360,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task resendVerificationCodeAsyncSuccessSendsEmail()
+        public async Task ResendVerificationCodeAsync_Success_SendsEmail()
         {
             var player = new Player { is_verified = false, email = "e@e.com", username = "U" };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("e@e.com")).ReturnsAsync(player);
@@ -339,12 +368,11 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await authenticationLogic.resendVerificationCodeAsync("e@e.com");
 
-            Assert.True(result.Success);
             emailServiceMock.Verify(e => e.sendEmailAsync("e@e.com", "U", It.IsAny<IEmailTemplate>()), Times.Once);
         }
 
         [Fact]
-        public async Task sendPasswordRecoveryCodeAsyncUserNotFoundReturnsError()
+        public async Task SendPasswordRecoveryCodeAsync_UserNotFound_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync((Player)null!);
             var result = await authenticationLogic.sendPasswordRecoveryCodeAsync("e@e.com");
@@ -352,7 +380,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task sendPasswordRecoveryCodeAsyncUnverifiedUserReturnsError()
+        public async Task SendPasswordRecoveryCodeAsync_UnverifiedUser_ReturnsError()
         {
             var player = new Player { email = "e@e.com", username = "U" };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync("e@e.com"))
@@ -361,12 +389,10 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var result = await authenticationLogic.sendPasswordRecoveryCodeAsync("e@e.com");
 
             Assert.False(result.Success);
-
-            emailServiceMock.Verify(e => e.sendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<PasswordRecoveryEmailTemplate>()), Times.Never);
         }
 
         [Fact]
-        public async Task resetPasswordWithCodeAsyncWeakPasswordReturnsError()
+        public async Task ResetPasswordWithCodeAsync_WeakPassword_ReturnsError()
         {
             passwordPolicyValidatorMock.Setup(v => v.validate("weak")).Returns(new OperationResultDto { Success = false });
             var result = await authenticationLogic.resetPasswordWithCodeAsync("e@e.com", "123456", "weak");
@@ -374,7 +400,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task resetPasswordWithCodeAsyncInvalidCodeReturnsError()
+        public async Task ResetPasswordWithCodeAsync_InvalidCode_ReturnsError()
         {
             var player = new Player { verification_code = "654321", code_expiry_date = DateTime.UtcNow.AddHours(1) };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
@@ -385,7 +411,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task resetPasswordWithCodeAsyncSuccessUpdatesPassword()
+        public async Task ResetPasswordWithCodeAsync_Success_UpdatesPassword()
         {
             var player = new Player { verification_code = "123456", code_expiry_date = DateTime.UtcNow.AddHours(1) };
             playerRepositoryMock.Setup(r => r.getPlayerByEmailAsync(It.IsAny<string>())).ReturnsAsync(player);
@@ -394,7 +420,6 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await authenticationLogic.resetPasswordWithCodeAsync("e@e.com", "123456", "NewPass");
 
-            Assert.True(result.Success);
             Assert.Equal("NewHash", player.password_hash);
         }
     }

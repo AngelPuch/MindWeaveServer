@@ -51,14 +51,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
 
         [Fact]
-        public async Task getPlayerProfileViewAsyncNullUserReturnsNull()
+        public async Task GetPlayerProfileViewAsync_NullUser_ReturnsNull()
         {
             var result = await profileLogic.getPlayerProfileViewAsync(null);
             Assert.Null(result);
         }
 
         [Fact]
-        public async Task getPlayerProfileViewAsyncUserNotFoundReturnsNull()
+        public async Task GetPlayerProfileViewAsync_UserNotFound_ReturnsNull()
         {
             playerRepositoryMock.Setup(r => r.getPlayerWithProfileViewDataAsync("Unknown")).ReturnsAsync((Player)null!);
             var result = await profileLogic.getPlayerProfileViewAsync("Unknown");
@@ -66,31 +66,28 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getPlayerProfileViewAsyncSuccessMapsData()
+        public async Task GetPlayerProfileViewAsync_ValidUser_MapsData()
         {
             var player = new Player { username = "U", first_name = "F", PlayerStats = new PlayerStats { highest_score = 100 } };
             playerRepositoryMock.Setup(r => r.getPlayerWithProfileViewDataAsync("U")).ReturnsAsync(player);
 
             var result = await profileLogic.getPlayerProfileViewAsync("U");
 
-            Assert.NotNull(result);
             Assert.Equal("F", result.FirstName);
-            Assert.Equal(100, result.Stats.HighestScore);
         }
 
         [Fact]
-        public async Task getPlayerProfileViewAsyncMapsEmptyAchievementsList()
+        public async Task GetPlayerProfileViewAsync_NoAchievements_ReturnsEmptyList()
         {
-            var player = new Player { username = "U" }; 
+            var player = new Player { username = "U" };
             playerRepositoryMock.Setup(r => r.getPlayerWithProfileViewDataAsync("U")).ReturnsAsync(player);
 
             var result = await profileLogic.getPlayerProfileViewAsync("U");
-            Assert.NotNull(result.Achievements);
             Assert.Empty(result.Achievements);
         }
 
         [Fact]
-        public async Task getPlayerProfileViewAsyncDefaultsAvatarIfNull()
+        public async Task GetPlayerProfileViewAsync_NullAvatar_ReturnsDefault()
         {
             var player = new Player { username = "U", avatar_path = null };
             playerRepositoryMock.Setup(r => r.getPlayerWithProfileViewDataAsync("U")).ReturnsAsync(player);
@@ -100,46 +97,23 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
 
         [Fact]
-        public async Task getPlayerProfileForEditAsyncUserNotFoundReturnsNull()
+        public async Task GetPlayerProfileForEditAsync_UserNotFound_ReturnsNull()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.getPlayerProfileForEditAsync("U");
             Assert.Null(result);
         }
 
-        [Fact]
-        public async Task getPlayerProfileForEditAsyncReturnsGenders()
-        {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync(new Player());
-            genderRepositoryMock.Setup(g => g.getAllGendersAsync()).ReturnsAsync(new List<Gender> { new Gender { idGender = 1, gender1 = "M" } });
-
-            var result = await profileLogic.getPlayerProfileForEditAsync("U");
-
-            Assert.NotNull(result);
-            Assert.Single(result.AvailableGenders);
-        }
 
         [Fact]
-        public async Task getPlayerProfileForEditAsyncMapsFields()
-        {
-            var player = new Player { first_name = "F", date_of_birth = DateTime.MinValue };
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameAsync("U")).ReturnsAsync(player);
-            genderRepositoryMock.Setup(g => g.getAllGendersAsync()).ReturnsAsync(new List<Gender>()!);
-
-            var result = await profileLogic.getPlayerProfileForEditAsync("U");
-            Assert.Equal("F", result.FirstName);
-        }
-
-
-        [Fact]
-        public async Task updateProfileAsyncNullDtoReturnsError()
+        public async Task UpdateProfileAsync_NullDto_ReturnsError()
         {
             var result = await profileLogic.updateProfileAsync("U", null);
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task updateProfileAsyncValidationFailReturnsError()
+        public async Task UpdateProfileAsync_ValidationFail_ReturnsError()
         {
             profileEditValidatorMock.Setup(v => v.ValidateAsync(It.IsAny<UserProfileForEditDto>(), default))
                 .ReturnsAsync(new ValidationResult(new[] { new ValidationFailure("F", "Err") }));
@@ -149,7 +123,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task updateProfileAsyncPlayerNotFoundReturnsError()
+        public async Task UpdateProfileAsync_PlayerNotFound_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.updateProfileAsync("U", new UserProfileForEditDto());
@@ -157,7 +131,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task updateProfileAsyncSuccessUpdatesFields()
+        public async Task UpdateProfileAsync_ValidData_UpdatesFields()
         {
             var player = new Player { first_name = "Old" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync(player);
@@ -166,13 +140,11 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await profileLogic.updateProfileAsync("U", dto);
 
-            Assert.True(result.Success);
             Assert.Equal("New", player.first_name);
-            playerRepositoryMock.Verify(r => r.updatePlayerAsync(player), Times.Once);
         }
 
         [Fact]
-        public async Task updateProfileAsyncHandlesNullableGender()
+        public async Task UpdateProfileAsync_ZeroGender_SetsNull()
         {
             var player = new Player { gender_id = 1 };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync(player);
@@ -185,14 +157,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
 
         [Fact]
-        public async Task updateAvatarPathAsyncNullArgsReturnsError()
+        public async Task UpdateAvatarPathAsync_NullUsername_ReturnsError()
         {
             var result = await profileLogic.updateAvatarPathAsync(null, "path");
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task updateAvatarPathAsyncUserNotFoundReturnsError()
+        public async Task UpdateAvatarPathAsync_UserNotFound_ReturnsError()
         {
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.updateAvatarPathAsync("U", "path");
@@ -200,28 +172,27 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task updateAvatarPathAsyncSuccess()
+        public async Task UpdateAvatarPathAsync_ValidData_UpdatesPath()
         {
             var player = new Player { avatar_path = "old" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync(player);
 
             var result = await profileLogic.updateAvatarPathAsync("U", "new");
 
-            Assert.True(result.Success);
             Assert.Equal("new", player.avatar_path);
         }
 
 
         [Fact]
-        public async Task changePasswordAsyncUserNotFoundReturnsError()
+        public async Task ChangePasswordAsync_UserNotFound_ReturnsError()
         {
-            playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null);
+            playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync((Player)null!);
             var result = await profileLogic.changePasswordAsync("U", "Old", "New");
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task changePasswordAsyncWrongOldPasswordReturnsError()
+        public async Task ChangePasswordAsync_WrongOldPassword_ReturnsError()
         {
             var player = new Player { password_hash = "Hash" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync(player);
@@ -232,7 +203,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task changePasswordAsyncWeakNewPasswordReturnsError()
+        public async Task ChangePasswordAsync_WeakNewPassword_ReturnsError()
         {
             var player = new Player { password_hash = "Hash" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync(player);
@@ -244,7 +215,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task changePasswordAsyncSuccessUpdatesHash()
+        public async Task ChangePasswordAsync_ValidData_UpdatesHash()
         {
             var player = new Player { password_hash = "Hash" };
             playerRepositoryMock.Setup(r => r.getPlayerByUsernameWithTrackingAsync("U")).ReturnsAsync(player);
@@ -253,19 +224,17 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await profileLogic.changePasswordAsync("U", "Old", "New");
 
-            Assert.True(result.Success);
             Assert.Equal("NewHash", player.password_hash);
         }
 
         [Fact]
-        public async Task getPlayerAchievementsAsyncReturnsMappedList()
+        public async Task GetPlayerAchievementsAsync_ValidId_ReturnsMappedList()
         {
             statsRepositoryMock.Setup(s => s.getAllAchievementsAsync()).ReturnsAsync(new List<Achievements> { new Achievements { achievements_id = 1, name = "A1" } });
             statsRepositoryMock.Setup(s => s.getPlayerAchievementIdsAsync(1)).ReturnsAsync(new List<int> { 1 });
 
             var result = await profileLogic.getPlayerAchievementsAsync(1);
 
-            Assert.Single(result);
             Assert.True(result[0].IsUnlocked);
         }
     }

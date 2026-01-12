@@ -66,7 +66,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task loginReturnsSuccessForValidCredentials()
+        public async Task Login_ValidCredentials_ReturnsSuccess()
         {
             var dto = new LoginDto { Email = "user@test.com", Password = "Pwd" };
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("user@test.com"))
@@ -80,7 +80,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task loginReturnsCorrectUsername()
+        public async Task Login_ValidCredentials_ReturnsCorrectUsername()
         {
             var dto = new LoginDto { Email = "user@test.com", Password = "Pwd" };
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("user@test.com"))
@@ -94,7 +94,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task loginHandlesExceptionGracefully()
+        public async Task Login_Exception_HandlesGracefully()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "LoginOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "Error")));
@@ -113,7 +113,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task registerReturnsSuccess()
+        public async Task Register_ValidData_ReturnsSuccess()
         {
             var profile = new UserProfileDto { Username = "NewUser", Email = "new@test.com", FirstName = "F" };
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("NewUser")).ReturnsAsync((Player)null!);
@@ -126,7 +126,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task registerCallsAddPlayer()
+        public async Task Register_ValidData_CallsAddPlayer()
         {
             var profile = new UserProfileDto { Username = "NewUser", Email = "new@test.com", FirstName = "F" };
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("NewUser")).ReturnsAsync((Player)null!);
@@ -139,7 +139,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task verifyAccountCallsLogic()
+        public async Task VerifyAccount_ValidCode_CallsLogic()
         {
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("mail"))
                 .ReturnsAsync(new Player
@@ -155,7 +155,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task verifyAccountHandlesException()
+        public async Task VerifyAccount_Exception_HandlesGracefully()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "VerifyAccountOperation"))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "Error")));
@@ -172,7 +172,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task resendVerificationCodeDelegates()
+        public async Task ResendVerificationCode_ValidEmail_Delegates()
         {
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("mail"))
                 .ReturnsAsync(new Player { is_verified = false, email = "mail", username = "u" });
@@ -184,7 +184,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task resendVerificationCodeHandlesException()
+        public async Task ResendVerificationCode_Exception_HandlesGracefully()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "ResendVerificationOperation"))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "Error")));
@@ -198,7 +198,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task sendPasswordRecoveryCodeDelegates()
+        public async Task SendPasswordRecoveryCodeAsync_ValidEmail_Delegates()
         {
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("mail"))
                 .ReturnsAsync(new Player { email = "mail", username = "u", is_verified = true });
@@ -211,7 +211,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task sendPasswordRecoveryCodeHandlesException()
+        public async Task SendPasswordRecoveryCodeAsync_Exception_HandlesGracefully()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "SendRecoveryCodeOperation"))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "Error")));
@@ -225,7 +225,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task resetPasswordWithCodeDelegates()
+        public async Task ResetPasswordWithCodeAsync_ValidCode_Delegates()
         {
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("mail"))
                 .ReturnsAsync(new Player
@@ -240,7 +240,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task resetPasswordWithCodeHandlesException()
+        public async Task ResetPasswordWithCodeAsync_Exception_HandlesGracefully()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), "ResetPasswordOperation"))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.OperationFailed, "Error")));
@@ -254,7 +254,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public void logOutCallsLogicAndIgnoresContainerError()
+        public void LogOut_ValidUser_CallsLogic()
         {
 
             try
@@ -269,7 +269,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public void logOutPropagatesExceptionFromLogic()
+        public void LogOut_Exception_PropagatesFromLogic()
         {
             sessionManagerMock.Setup(x => x.removeSession(It.IsAny<string>())).Throws(new Exception("Logic Fail"));
 
@@ -277,7 +277,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task registerReturnsFailIfValidatorFails()
+        public async Task Register_ValidatorFails_ReturnsFail()
         {
             var failure = new ValidationResult(new[] { new ValidationFailure("Prop", "Error") });
             profileValidatorMock.Setup(x => x.ValidateAsync(It.IsAny<UserProfileDto>(), default))
@@ -288,7 +288,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task loginReturnsFailIfAlreadyLoggedIn()
+        public async Task Login_AlreadyLoggedIn_ReturnsFail()
         {
             var dto = new LoginDto { Email = "u@t.com", Password = "p" };
             playerRepoMock.Setup(x => x.getPlayerByEmailAsync("u@t.com"))

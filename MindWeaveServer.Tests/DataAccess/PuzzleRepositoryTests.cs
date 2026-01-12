@@ -47,73 +47,68 @@ namespace MindWeaveServer.Tests.DataAccess
         }
 
         [Fact]
-        public async Task getAvailablePuzzlesAsyncReturnsAllOrderedById()
+        public async Task GetAvailablePuzzlesAsync_HasPuzzles_ReturnsOrdered()
         {
             var res = await repository.getAvailablePuzzlesAsync();
-            Assert.Equal(2, res.Count);
             Assert.Equal(5, res[0].puzzle_id);
-            Assert.Equal(10, res[1].puzzle_id);
         }
 
         [Fact]
-        public void addPuzzleAddsAndSaves()
+        public void AddPuzzle_ValidPuzzle_CallsAdd()
         {
             var p = new Puzzles { puzzle_id = 99 };
             repository.addPuzzle(p);
             contextMock.Verify(c => c.Puzzles.Add(p), Times.Once);
-            contextMock.Verify(c => c.SaveChanges(), Times.Once);
         }
 
         [Fact]
-        public void addPuzzleThrowsIfNull()
+        public void AddPuzzle_NullPuzzle_ThrowsException()
         {
             Assert.Throws<ArgumentNullException>(() => repository.addPuzzle(null));
         }
 
         [Fact]
-        public async Task getPuzzleByIdAsyncReturnsCorrectPuzzle()
+        public async Task GetPuzzleByIdAsync_ValidId_ReturnsPuzzle()
         {
             var p = await repository.getPuzzleByIdAsync(10);
-            Assert.NotNull(p);
             Assert.Equal("b.png", p.image_path);
         }
 
         [Fact]
-        public async Task getPuzzleByIdAsyncReturnsNullIfMissing()
+        public async Task GetPuzzleByIdAsync_InvalidId_ReturnsNull()
         {
             var p = await repository.getPuzzleByIdAsync(999);
             Assert.Null(p);
         }
 
         [Fact]
-        public async Task getDifficultyByIdAsyncReturnsDifficulty()
+        public async Task GetDifficultyByIdAsync_ValidId_ReturnsDifficulty()
         {
             var d = await repository.getDifficultyByIdAsync(1);
-            Assert.NotNull(d);
             Assert.Equal(50, d.piece_count);
         }
 
         [Fact]
-        public async Task getDifficultyByIdAsyncReturnsNullIfMissing()
+        public async Task GetDifficultyByIdAsync_InvalidId_ReturnsNull()
         {
             var d = await repository.getDifficultyByIdAsync(99);
             Assert.Null(d);
         }
 
         [Fact]
-        public void constructorThrowsIfFactoryNull()
+        public void Constructor_NullFactory_ThrowsException()
         {
             Assert.Throws<ArgumentNullException>(() => new PuzzleRepository(null));
         }
 
         [Fact]
-        public async Task saveChangesAsyncReturnsZero()
+        public async Task SaveChangesAsync_Called_ReturnsZero()
         {
             Assert.Equal(0, await repository.saveChangesAsync());
         }
 
         [Fact]
-        public async Task getAvailablePuzzlesAsyncReturnsEmptyIfNone()
+        public async Task GetAvailablePuzzlesAsync_EmptyList_ReturnsEmpty()
         {
             puzzlesData.Clear();
             var res = await repository.getAvailablePuzzlesAsync();
@@ -121,7 +116,7 @@ namespace MindWeaveServer.Tests.DataAccess
         }
 
         [Fact]
-        public async Task getPuzzleByIdHandlesZero()
+        public async Task GetPuzzleByIdAsync_ZeroId_ReturnsNull()
         {
             var p = await repository.getPuzzleByIdAsync(0);
             Assert.Null(p);

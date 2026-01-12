@@ -50,7 +50,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task searchPlayersThrowsIfSessionInvalid()
+        public async Task SearchPlayers_InvalidSession_ThrowsFault()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.SecurityError, "E")));
@@ -59,7 +59,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task searchPlayersDelegatesIfSessionValid()
+        public async Task SearchPlayers_ValidSession_Delegates()
         {
             SetServiceSession("User");
             playerRepoMock.Setup(x => x.searchPlayersAsync(It.IsAny<int>(), "query", 10))
@@ -71,7 +71,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task sendFriendRequestThrowsIfSessionInvalid()
+        public async Task SendFriendRequest_InvalidSession_ThrowsFault()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                 .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.SecurityError, "E")));
@@ -79,7 +79,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task sendFriendRequestDelegates()
+        public async Task SendFriendRequest_ValidSession_Delegates()
         {
             SetServiceSession("Requester");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
@@ -91,7 +91,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task respondToFriendRequestThrowsIfSessionInvalid()
+        public async Task RespondToFriendRequest_InvalidSession_ThrowsFault()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.SecurityError, "E")));
@@ -99,7 +99,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task respondToFriendRequestDelegates()
+        public async Task RespondToFriendRequest_ValidSession_Delegates()
         {
             SetServiceSession("Me");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
@@ -111,7 +111,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task removeFriendThrowsIfSessionInvalid()
+        public async Task RemoveFriend_InvalidSession_ThrowsFault()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.SecurityError, "E")));
@@ -119,7 +119,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task removeFriendDelegates()
+        public async Task RemoveFriend_ValidSession_Delegates()
         {
             SetServiceSession("Me");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
@@ -132,7 +132,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getFriendsListThrowsIfSessionInvalid()
+        public async Task GetFriendsList_InvalidSession_ThrowsFault()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.SecurityError, "E")));
@@ -140,7 +140,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getFriendsListDelegates()
+        public async Task GetFriendsList_ValidSession_Delegates()
         {
             SetServiceSession("Me");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
@@ -153,7 +153,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getFriendRequestsThrowsIfSessionInvalid()
+        public async Task GetFriendRequests_InvalidSession_ThrowsFault()
         {
             exceptionHandlerMock.Setup(x => x.handleException(It.IsAny<Exception>(), It.IsAny<string>()))
                .Returns(new FaultException<ServiceFaultDto>(new ServiceFaultDto(ServiceErrorType.SecurityError, "E")));
@@ -161,7 +161,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getFriendRequestsDelegates()
+        public async Task GetFriendRequests_ValidSession_Delegates()
         {
             SetServiceSession("Me");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync("Me"))
@@ -174,7 +174,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task searchPlayersHandlesException()
+        public async Task SearchPlayers_Exception_HandlesGracefully()
         {
             SetServiceSession("User");
             playerRepoMock.Setup(x => x.searchPlayersAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<int>()))
@@ -188,7 +188,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task sendFriendRequestHandlesException()
+        public async Task SendFriendRequest_Exception_HandlesGracefully()
         {
             SetServiceSession("A");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).Throws(new Exception());
@@ -204,7 +204,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task respondToFriendRequestHandlesException()
+        public async Task RespondToFriendRequest_Exception_HandlesGracefully()
         {
             SetServiceSession("A");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).Throws(new Exception());
@@ -220,7 +220,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task removeFriendHandlesException()
+        public async Task RemoveFriend_Exception_HandlesGracefully()
         {
             SetServiceSession("A");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).Throws(new Exception());
@@ -236,7 +236,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getFriendsListHandlesException()
+        public async Task GetFriendsList_Exception_ThrowsFault()
         {
             SetServiceSession("A");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).Throws(new Exception());
@@ -248,7 +248,7 @@ namespace MindWeaveServer.Tests.Services
         }
 
         [Fact]
-        public async Task getFriendRequestsHandlesException()
+        public async Task GetFriendRequests_Exception_ThrowsFault()
         {
             SetServiceSession("A");
             playerRepoMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>())).Throws(new Exception());
@@ -258,10 +258,10 @@ namespace MindWeaveServer.Tests.Services
             await Assert.ThrowsAsync<FaultException<ServiceFaultDto>>(() => service.getFriendRequests("A"));
         }
 
-        
+
 
         [Fact]
-        public void constructorInitializes()
+        public void Constructor_ValidParams_Initializes()
         {
             Assert.NotNull(service);
         }

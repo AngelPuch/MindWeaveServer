@@ -7,7 +7,7 @@ namespace MindWeaveServer.Tests.Utilities
     public class ValidatorTests
     {
         [Fact]
-        public void passwordValidatorTooShortReturnsFalse()
+        public void PasswordValidator_TooShort_ReturnsFalse()
         {
             var validator = new PasswordPolicyValidator();
             var result = validator.validate("Short1!");
@@ -15,7 +15,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void passwordValidatorNoUpperCaseReturnsFalse()
+        public void PasswordValidator_NoUpperCase_ReturnsFalse()
         {
             var validator = new PasswordPolicyValidator();
             var result = validator.validate("password123!");
@@ -23,7 +23,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void passwordValidatorNoNumberReturnsFalse()
+        public void PasswordValidator_NoNumber_ReturnsFalse()
         {
             var validator = new PasswordPolicyValidator();
             var result = validator.validate("Password!");
@@ -31,7 +31,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void passwordValidatorNoSpecialCharReturnsFalse()
+        public void PasswordValidator_NoSpecialChar_ReturnsFalse()
         {
             var validator = new PasswordPolicyValidator();
             var result = validator.validate("Password123");
@@ -39,7 +39,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void passwordValidatorValidPasswordReturnsTrue()
+        public void PasswordValidator_ValidPassword_ReturnsTrue()
         {
             var validator = new PasswordPolicyValidator();
             var result = validator.validate("StrongPass1!");
@@ -47,7 +47,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorInvalidEmailReturnsFalse()
+        public void UserProfileValidator_InvalidEmail_ReturnsFalse()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto { Email = "bad-email", Username = "User" };
@@ -58,7 +58,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorInvalidUsernameTooShortReturnsFalse()
+        public void UserProfileValidator_UsernameTooShort_ReturnsFalse()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto { Email = "test@test.com", Username = "ab" };
@@ -69,7 +69,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorInvalidUsernameTooLongReturnsFalse()
+        public void UserProfileValidator_UsernameTooLong_ReturnsFalse()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto { Email = "test@test.com", Username = "thisusernameistoolongfor" };
@@ -80,7 +80,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorInvalidUsernameWithSpecialCharsReturnsFalse()
+        public void UserProfileValidator_UsernameWithSpecialChars_ReturnsFalse()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto { Email = "test@test.com", Username = "User@123" };
@@ -91,7 +91,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorMinorAgeReturnsFalse()
+        public void UserProfileValidator_MinorAge_ReturnsFalse()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto
@@ -108,7 +108,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorUnrealisticAgeReturnsFalse()
+        public void UserProfileValidator_UnrealisticAge_ReturnsFalse()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto
@@ -125,7 +125,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void userProfileValidatorValidDtoReturnsTrue()
+        public void UserProfileValidator_ValidDto_ReturnsTrue()
         {
             var validator = new UserProfileDtoValidator();
             var dto = new UserProfileDto
@@ -142,7 +142,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void loginValidatorNullFieldsReturnsFalse()
+        public void LoginValidator_NullFields_ReturnsFalse()
         {
             var validator = new LoginDtoValidator();
             var dto = new LoginDto { Email = null, Password = null };
@@ -153,7 +153,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void loginValidatorEmptyFieldsReturnsFalse()
+        public void LoginValidator_EmptyFields_ReturnsFalse()
         {
             var validator = new LoginDtoValidator();
             var dto = new LoginDto { Email = "", Password = "" };
@@ -164,7 +164,7 @@ namespace MindWeaveServer.Tests.Utilities
         }
 
         [Fact]
-        public void loginValidatorValidDtoReturnsTrue()
+        public void LoginValidator_ValidDto_ReturnsTrue()
         {
             var validator = new LoginDtoValidator();
             var dto = new LoginDto { Email = "valid@test.com", Password = "StrongPass1!" };

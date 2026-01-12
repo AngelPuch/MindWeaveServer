@@ -59,7 +59,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getAvailablePuzzlesAsyncReturnsEmptyListWhenRepoIsEmpty()
+        public async Task GetAvailablePuzzlesAsync_EmptyRepo_ReturnsEmptyList()
         {
             puzzleRepositoryMock.Setup(x => x.getAvailablePuzzlesAsync())
                 .ReturnsAsync(new List<Puzzles>());
@@ -70,7 +70,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getAvailablePuzzlesAsyncReturnsCorrectCount()
+        public async Task GetAvailablePuzzlesAsync_MultiplePuzzles_ReturnsCorrectCount()
         {
             var puzzles = new List<Puzzles>
     {
@@ -87,7 +87,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getAvailablePuzzlesAsyncIncludesDefaultPuzzle()
+        public async Task GetAvailablePuzzlesAsync_DefaultPuzzle_MarkedAsNotUploaded()
         {
             var puzzles = new List<Puzzles>
     {
@@ -101,7 +101,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getAvailablePuzzlesAsyncIncludesUploadedPuzzle()
+        public async Task GetAvailablePuzzlesAsync_CustomPuzzle_MarkedAsUploaded()
         {
             var puzzles = new List<Puzzles>
     {
@@ -118,14 +118,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncNullInputReturnsFailure()
+        public async Task UploadPuzzleImageAsync_NullInput_ReturnsFailure()
         {
             var result = await puzzleLogic.uploadPuzzleImageAsync("user1", null, "file.png");
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncNullInputReturnsUploadFailedCode()
+        public async Task UploadPuzzleImageAsync_NullInput_ReturnsUploadFailedCode()
         {
             var result = await puzzleLogic.uploadPuzzleImageAsync("user1", null, "file.png");
 
@@ -133,7 +133,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncPlayerNotFoundReturnsFailure()
+        public async Task UploadPuzzleImageAsync_PlayerNotFound_ReturnsFailure()
         {
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
                 .ReturnsAsync((Player)null!);
@@ -144,7 +144,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncPlayerNotFoundReturnsUserNotFoundCode()
+        public async Task UploadPuzzleImageAsync_PlayerNotFound_ReturnsUserNotFoundCode()
         {
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync(It.IsAny<string>()))
                 .ReturnsAsync((Player)null!);
@@ -155,7 +155,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncReturnsSuccess()
+        public async Task UploadPuzzleImageAsync_ValidData_ReturnsSuccess()
         {
             var player = new Player { idPlayer = 10, username = "validUser" };
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync("validUser")).ReturnsAsync(player);
@@ -166,7 +166,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncReturnsCorrectPuzzleId()
+        public async Task UploadPuzzleImageAsync_ValidData_ReturnsPuzzleId()
         {
             var player = new Player { idPlayer = 10, username = "validUser" };
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync("validUser")).ReturnsAsync(player);
@@ -180,7 +180,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncCreatesFileOnDisk()
+        public async Task UploadPuzzleImageAsync_ValidData_CreatesFile()
         {
             var player = new Player { idPlayer = 10, username = "validUser" };
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync("validUser")).ReturnsAsync(player);
@@ -191,7 +191,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getPuzzleDefinitionAsyncThrowsFileNotFoundWhenImageMissingOnDisk()
+        public async Task GetPuzzleDefinitionAsync_MissingImage_ThrowsException()
         {
             var puzzle = new Puzzles { puzzle_id = 1, image_path = "missing_file.png" };
             var difficulty = new DifficultyLevels { idDifficulty = 1, piece_count = 25 };
@@ -204,11 +204,10 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var exception = await Assert.ThrowsAsync<FileNotFoundException>(() =>
                 puzzleLogic.getPuzzleDefinitionAsync(1, 1));
 
-            
             Assert.Contains("ID: 1", exception.Message);
         }
         [Fact]
-        public async Task getPuzzleDefinitionAsyncReturnsDefinitionWhenValid()
+        public async Task GetPuzzleDefinitionAsync_ValidData_ReturnsDefinition()
         {
             string fileName = "valid_puzzle.png";
             string fullPath = Path.Combine(testUploadPath, fileName);
@@ -222,12 +221,11 @@ namespace MindWeaveServer.Tests.BusinessLogic
 
             var result = await puzzleLogic.getPuzzleDefinitionAsync(1, 1);
 
-      
             Assert.NotEmpty(result.Pieces);
         }
 
         [Fact]
-        public async Task getPuzzleDefinitionAsyncReturnsNullWhenPuzzleNotFoundInDb()
+        public async Task GetPuzzleDefinitionAsync_PuzzleNotFound_ReturnsNull()
         {
             puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(99)).ReturnsAsync((Puzzles)null!);
             var result = await puzzleLogic.getPuzzleDefinitionAsync(99, 1);
@@ -235,7 +233,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task getPuzzleDefinitionAsyncReturnsNullWhenDifficultyNotFound()
+        public async Task GetPuzzleDefinitionAsync_DifficultyNotFound_ReturnsNull()
         {
             string fileName = "valid_puzzle_diff.png";
             string fullPath = Path.Combine(testUploadPath, fileName);
@@ -250,7 +248,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncWithUnsafeNameCreatesSingleFile()
+        public async Task UploadPuzzleImageAsync_UnsafeName_CreatesSingleFile()
         {
             var player = new Player { idPlayer = 1, username = "u" };
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync("u")).ReturnsAsync(player);
@@ -263,7 +261,7 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncRemovesInvalidCharsFromFileName()
+        public async Task UploadPuzzleImageAsync_UnsafeName_RemovesInvalidChars()
         {
             var player = new Player { idPlayer = 1, username = "u" };
             playerRepositoryMock.Setup(x => x.getPlayerByUsernameAsync("u")).ReturnsAsync(player);
@@ -279,14 +277,14 @@ namespace MindWeaveServer.Tests.BusinessLogic
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncHandlesEmptyFileName()
+        public async Task UploadPuzzleImageAsync_EmptyFileName_ReturnsFailure()
         {
             var result = await puzzleLogic.uploadPuzzleImageAsync("u", getValidImageBytes(), "");
             Assert.False(result.Success);
         }
 
         [Fact]
-        public async Task uploadPuzzleImageAsyncEmptyFileNameReturnsUploadFailedCode()
+        public async Task UploadPuzzleImageAsync_EmptyFileName_ReturnsUploadFailedCode()
         {
             var result = await puzzleLogic.uploadPuzzleImageAsync("u", getValidImageBytes(), "");
 
