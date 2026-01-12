@@ -49,14 +49,57 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
         }
 
-        public async Task updatePlayerAsync(Player player)
+        public async Task updatePlayerAsync(Player playerWithChanges)
         {
-            if (player == null) throw new ArgumentNullException(nameof(player));
+            if (playerWithChanges == null)
+            {
+                throw new ArgumentNullException(nameof(playerWithChanges));
+            }
 
             using (var context = contextFactory())
             {
-                context.Entry(player).State = EntityState.Modified;
-                await context.SaveChangesAsync();
+                var existingPlayer = await context.Player
+                    .Include(p => p.PlayerSocialMedias)
+                    .FirstOrDefaultAsync(p => p.idPlayer == playerWithChanges.idPlayer);
+
+                if (existingPlayer != null)
+                {
+                    context.Entry(existingPlayer).CurrentValues.SetValues(playerWithChanges);
+                    existingPlayer.avatar_path = playerWithChanges.avatar_path;
+                    existingPlayer.password_hash = playerWithChanges.password_hash;
+                    existingPlayer.gender_id = playerWithChanges.gender_id;
+
+                    var socialMediasToDelete = existingPlayer.PlayerSocialMedias
+                        .Where(existing => playerWithChanges.PlayerSocialMedias.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
+                        .ToList();
+
+                    foreach (var deletedSocial in socialMediasToDelete)
+                    {
+                        context.PlayerSocialMedias.Remove(deletedSocial);
+                    }
+
+                    foreach (var newSocial in playerWithChanges.PlayerSocialMedias)
+                    {
+                        var existingSocial = existingPlayer.PlayerSocialMedias
+                            .FirstOrDefault(e => e.IdSocialMediaPlatform == newSocial.IdSocialMediaPlatform);
+
+                        if (existingSocial != null)
+                        {
+                            existingSocial.Username = newSocial.Username;
+                        }
+                        else
+                        {
+                            var socialToAdd = new PlayerSocialMedias
+                            {
+                                IdPlayer = existingPlayer.idPlayer,
+                                IdSocialMediaPlatform = newSocial.IdSocialMediaPlatform,
+                                Username = newSocial.Username
+                            };
+                            existingPlayer.PlayerSocialMedias.Add(socialToAdd);
+                        }
+                    }
+                    await context.SaveChangesAsync();
+                }
             }
         }
 
