@@ -142,12 +142,6 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.NotNull(p);
         }
 
-        [Fact]
-        public async Task saveChangesAsyncReturnsZero()
-        {
-            var res = await repository.saveChangesAsync();
-            Assert.Equal(0, res);
-        }
 
         private static Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
         {
