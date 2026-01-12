@@ -19,7 +19,6 @@ namespace MindWeaveServer.DataAccess
         {
             this.MatchExpulsions = new HashSet<MatchExpulsions>();
             this.MatchParticipants = new HashSet<MatchParticipants>();
-            this.MatchReports = new HashSet<MatchReports>();
             this.GuestInvitations = new HashSet<GuestInvitations>();
         }
     
@@ -39,8 +38,6 @@ namespace MindWeaveServer.DataAccess
         public virtual ICollection<MatchExpulsions> MatchExpulsions { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<MatchParticipants> MatchParticipants { get; set; }
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
-        public virtual ICollection<MatchReports> MatchReports { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<GuestInvitations> GuestInvitations { get; set; }
     }

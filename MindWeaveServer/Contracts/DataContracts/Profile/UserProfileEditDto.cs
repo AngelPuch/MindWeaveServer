@@ -22,6 +22,9 @@ namespace MindWeaveServer.Contracts.DataContracts.Profile
 
         [DataMember]
         public List<GenderDto> AvailableGenders { get; set; }
+
+        [DataMember]
+        public List<PlayerSocialMediaDto> SocialMedia { get; set; }
     }
 
    

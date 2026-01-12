@@ -80,8 +80,9 @@ namespace MindWeaveServer.BusinessLogic
             var allGendersData = await genderRepository.getAllGendersAsync();
             var allGendersDto = allGendersData.Select
                 (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList();
+            var allPlatforms = await playerRepository.getAllSocialMediaPlatformsAsync();
 
-            return mapToUserProfileForEditDto(player, allGendersDto);
+            return mapToUserProfileForEditDto(player, allGendersDto, allPlatforms);
         }
 
         public async Task<OperationResultDto> updateProfileAsync(string username, UserProfileForEditDto updatedProfileData)
@@ -253,6 +254,7 @@ namespace MindWeaveServer.BusinessLogic
                 LastName = player.last_name,
                 DateOfBirth = player.date_of_birth,
                 Gender = player.Gender?.gender1,
+
                 Stats = new PlayerStatsDto
                 {
                     PuzzlesCompleted = player.PlayerStats?.puzzles_completed ?? 0,
@@ -265,29 +267,107 @@ namespace MindWeaveServer.BusinessLogic
                     Name = ach.name,
                     Description = ach.description,
                     IconPath = ach.icon_path
-                }).ToList() ?? new List<AchievementDto>()
+                }).ToList() ?? new List<AchievementDto>(),
+
+                // Mapeo Social Media
+                SocialMedia = player.PlayerSocialMedias?.Select(sm => new PlayerSocialMediaDto
+                {
+                    IdSocialMediaPlatform = sm.IdSocialMediaPlatform,
+                    PlatformName = sm.SocialMediaPlatforms?.Name ?? "Unknown",
+                    Username = sm.Username
+                }).ToList() ?? new List<PlayerSocialMediaDto>()
             };
         }
 
-        private static UserProfileForEditDto mapToUserProfileForEditDto(Player player, List<GenderDto> allGendersDto)
+        private static UserProfileForEditDto mapToUserProfileForEditDto(Player player, List<GenderDto> allGendersDto, List<SocialMediaPlatforms> allPlatforms)
         {
+            var socialMediaList = new List<PlayerSocialMediaDto>();
+
+            if (player.PlayerSocialMedias != null)
+            {
+                foreach (var userMedia in player.PlayerSocialMedias)
+                {
+                    socialMediaList.Add(new PlayerSocialMediaDto
+                    {
+                        IdSocialMediaPlatform = userMedia.IdSocialMediaPlatform,
+                        PlatformName = userMedia.SocialMediaPlatforms?.Name ?? "Unknown",
+                        Username = userMedia.Username
+                    });
+                }
+            }
+
+            if (allPlatforms != null)
+            {
+                foreach (var platform in allPlatforms)
+                {
+                    if (socialMediaList.All(sm => sm.IdSocialMediaPlatform != platform.IdSocialMediaPlatform))
+                    {
+                        socialMediaList.Add(new PlayerSocialMediaDto
+                        {
+                            IdSocialMediaPlatform = platform.IdSocialMediaPlatform,
+                            PlatformName = platform.Name,
+                            Username = string.Empty
+                        });
+                    }
+                }
+            }
+
+            socialMediaList = socialMediaList.OrderBy(sm => sm.PlatformName).ToList();
+
             return new UserProfileForEditDto
             {
                 FirstName = player.first_name,
                 LastName = player.last_name,
                 DateOfBirth = player.date_of_birth,
                 IdGender = player.gender_id ?? 0,
-                AvailableGenders = allGendersDto
+                AvailableGenders = allGendersDto,
+                SocialMedia = socialMediaList
             };
         }
+
+
 
         private static void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
         {
             player.first_name = updatedProfileData.FirstName.Trim();
             player.last_name = updatedProfileData.LastName?.Trim();
             player.date_of_birth = updatedProfileData.DateOfBirth;
-
             player.gender_id = updatedProfileData.IdGender > 0 ? updatedProfileData.IdGender : (int?)null;
+
+            if (updatedProfileData.SocialMedia != null)
+            {
+                foreach (var mediaDto in updatedProfileData.SocialMedia)
+                {
+                    var existingMedia = player.PlayerSocialMedias
+                        .FirstOrDefault(pm => pm.IdSocialMediaPlatform == mediaDto.IdSocialMediaPlatform);
+
+                    bool inputIsEmpty = string.IsNullOrWhiteSpace(mediaDto.Username);
+
+                    if (existingMedia != null)
+                    {
+                        if (inputIsEmpty)
+                        {
+                            player.PlayerSocialMedias.Remove(existingMedia);
+                        }
+                        else
+                        {
+                            existingMedia.Username = mediaDto.Username.Trim();
+                        }
+                    }
+                    else
+                    {
+                        if (!inputIsEmpty)
+                        {
+                            player.PlayerSocialMedias.Add(new PlayerSocialMedias
+                            {
+                                IdPlayer = player.idPlayer,
+                                IdSocialMediaPlatform = mediaDto.IdSocialMediaPlatform,
+                                Username = mediaDto.Username.Trim()
+                            });
+                        }
+                    }
+                }
+            }
         }
     }
 }

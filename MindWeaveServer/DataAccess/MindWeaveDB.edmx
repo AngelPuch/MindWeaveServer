@@ -54,7 +54,7 @@
           </Key>
           <Property Name="invitation_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="match_id" Type="int" Nullable="false" />
-          <Property Name="guest_email" Type="varchar" MaxLength="255" Nullable="false" />
+          <Property Name="guest_email" Type="varchar" MaxLength="45" Nullable="false" />
           <Property Name="inviter_player_id" Type="int" Nullable="false" />
           <Property Name="sent_timestamp" Type="datetime" Nullable="false" />
           <Property Name="expiry_timestamp" Type="datetime" Nullable="false" />
@@ -96,16 +96,6 @@
           <Property Name="pieces_placed" Type="int" />
           <Property Name="final_rank" Type="int" />
         </EntityType>
-        <EntityType Name="MatchReports">
-          <Key>
-            <PropertyRef Name="report_id" />
-          </Key>
-          <Property Name="report_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
-          <Property Name="reporter_player_id" Type="int" Nullable="false" />
-          <Property Name="reported_player_id" Type="int" Nullable="false" />
-          <Property Name="match_id" Type="int" Nullable="false" />
-          <Property Name="report_time" Type="datetime" Nullable="false" />
-        </EntityType>
         <EntityType Name="MatchStatus">
           <Key>
             <PropertyRef Name="status_id" />
@@ -138,6 +128,15 @@
           <Property Name="achievements_id" Type="int" Nullable="false" />
           <Property Name="player_id" Type="int" Nullable="false" />
         </EntityType>
+        <EntityType Name="PlayerSocialMedias">
+          <Key>
+            <PropertyRef Name="IdPlayerSocialMedia" />
+          </Key>
+          <Property Name="IdPlayerSocialMedia" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="IdPlayer" Type="int" Nullable="false" />
+          <Property Name="IdSocialMediaPlatform" Type="int" Nullable="false" />
+          <Property Name="Username" Type="nvarchar" MaxLength="100" Nullable="false" />
+        </EntityType>
         <EntityType Name="PlayerStats">
           <Key>
             <PropertyRef Name="player_id" />
@@ -163,6 +162,23 @@
           </Key>
           <Property Name="status_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
           <Property Name="status" Type="varchar" MaxLength="45" Nullable="false" />
+        </EntityType>
+        <EntityType Name="SocialMediaPlatforms">
+          <Key>
+            <PropertyRef Name="IdSocialMediaPlatform" />
+          </Key>
+          <Property Name="IdSocialMediaPlatform" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="Name" Type="nvarchar" MaxLength="50" Nullable="false" />
+        </EntityType>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="nvarchar" MaxLength="128" Nullable="false" />
+          <Property Name="principal_id" Type="int" Nullable="false" />
+          <Property Name="diagram_id" Type="int" StoreGeneratedPattern="Identity" Nullable="false" />
+          <Property Name="version" Type="int" />
+          <Property Name="definition" Type="varbinary(max)" />
         </EntityType>
         <Association Name="FK_Achievements_has_Player_Achievements">
           <End Role="Achievements" Type="Self.Achievements" Multiplicity="1">
@@ -364,44 +380,6 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
-        <Association Name="FK_MatchReports_Matches">
-          <End Role="Matches" Type="Self.Matches" Multiplicity="1">
-            <OnDelete Action="Cascade" />
-          </End>
-          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
-          <ReferentialConstraint>
-            <Principal Role="Matches">
-              <PropertyRef Name="matches_id" />
-            </Principal>
-            <Dependent Role="MatchReports">
-              <PropertyRef Name="match_id" />
-            </Dependent>
-          </ReferentialConstraint>
-        </Association>
-        <Association Name="FK_MatchReports_Reported">
-          <End Role="Player" Type="Self.Player" Multiplicity="1" />
-          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
-          <ReferentialConstraint>
-            <Principal Role="Player">
-              <PropertyRef Name="idPlayer" />
-            </Principal>
-            <Dependent Role="MatchReports">
-              <PropertyRef Name="reported_player_id" />
-            </Dependent>
-          </ReferentialConstraint>
-        </Association>
-        <Association Name="FK_MatchReports_Reporter">
-          <End Role="Player" Type="Self.Player" Multiplicity="1" />
-          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
-          <ReferentialConstraint>
-            <Principal Role="Player">
-              <PropertyRef Name="idPlayer" />
-            </Principal>
-            <Dependent Role="MatchReports">
-              <PropertyRef Name="reporter_player_id" />
-            </Dependent>
-          </ReferentialConstraint>
-        </Association>
         <Association Name="FK_Player_Gender">
           <End Role="Gender" Type="Self.Gender" Multiplicity="0..1" />
           <End Role="Player" Type="Self.Player" Multiplicity="*" />
@@ -411,6 +389,30 @@
             </Principal>
             <Dependent Role="Player">
               <PropertyRef Name="gender_id" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerSocialMedias_Platform">
+          <End Role="SocialMediaPlatforms" Type="Self.SocialMediaPlatforms" Multiplicity="1" />
+          <End Role="PlayerSocialMedias" Type="Self.PlayerSocialMedias" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SocialMediaPlatforms">
+              <PropertyRef Name="IdSocialMediaPlatform" />
+            </Principal>
+            <Dependent Role="PlayerSocialMedias">
+              <PropertyRef Name="IdSocialMediaPlatform" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerSocialMedias_Player">
+          <End Role="Player" Type="Self.Player" Multiplicity="1" />
+          <End Role="PlayerSocialMedias" Type="Self.PlayerSocialMedias" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="PlayerSocialMedias">
+              <PropertyRef Name="IdPlayer" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -452,13 +454,15 @@
           <EntitySet Name="Matches" EntityType="Self.Matches" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="MatchExpulsions" EntityType="Self.MatchExpulsions" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="MatchParticipants" EntityType="Self.MatchParticipants" Schema="dbo" store:Type="Tables" />
-          <EntitySet Name="MatchReports" EntityType="Self.MatchReports" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="MatchStatus" EntityType="Self.MatchStatus" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Player" EntityType="Self.Player" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="PlayerAchievements" EntityType="Self.PlayerAchievements" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="PlayerSocialMedias" EntityType="Self.PlayerSocialMedias" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="PlayerStats" EntityType="Self.PlayerStats" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="Puzzles" EntityType="Self.Puzzles" Schema="dbo" store:Type="Tables" />
           <EntitySet Name="RequestStatus" EntityType="Self.RequestStatus" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="SocialMediaPlatforms" EntityType="Self.SocialMediaPlatforms" Schema="dbo" store:Type="Tables" />
+          <EntitySet Name="sysdiagrams" EntityType="Self.sysdiagrams" Schema="dbo" store:Type="Tables" />
           <AssociationSet Name="FK_Achievements_has_Player_Achievements" Association="Self.FK_Achievements_has_Player_Achievements">
             <End Role="Achievements" EntitySet="Achievements" />
             <End Role="PlayerAchievements" EntitySet="PlayerAchievements" />
@@ -523,21 +527,17 @@
             <End Role="Player" EntitySet="Player" />
             <End Role="MatchParticipants" EntitySet="MatchParticipants" />
           </AssociationSet>
-          <AssociationSet Name="FK_MatchReports_Matches" Association="Self.FK_MatchReports_Matches">
-            <End Role="Matches" EntitySet="Matches" />
-            <End Role="MatchReports" EntitySet="MatchReports" />
-          </AssociationSet>
-          <AssociationSet Name="FK_MatchReports_Reported" Association="Self.FK_MatchReports_Reported">
-            <End Role="Player" EntitySet="Player" />
-            <End Role="MatchReports" EntitySet="MatchReports" />
-          </AssociationSet>
-          <AssociationSet Name="FK_MatchReports_Reporter" Association="Self.FK_MatchReports_Reporter">
-            <End Role="Player" EntitySet="Player" />
-            <End Role="MatchReports" EntitySet="MatchReports" />
-          </AssociationSet>
           <AssociationSet Name="FK_Player_Gender" Association="Self.FK_Player_Gender">
             <End Role="Gender" EntitySet="Gender" />
             <End Role="Player" EntitySet="Player" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerSocialMedias_Platform" Association="Self.FK_PlayerSocialMedias_Platform">
+            <End Role="SocialMediaPlatforms" EntitySet="SocialMediaPlatforms" />
+            <End Role="PlayerSocialMedias" EntitySet="PlayerSocialMedias" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerSocialMedias_Player" Association="Self.FK_PlayerSocialMedias_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="PlayerSocialMedias" EntitySet="PlayerSocialMedias" />
           </AssociationSet>
           <AssociationSet Name="FK_PlayerStats_Player" Association="Self.FK_PlayerStats_Player">
             <End Role="Player" EntitySet="Player" />
@@ -618,7 +618,6 @@
           <NavigationProperty Name="Puzzles" Relationship="Self.FK_Matches_Puzzles" FromRole="Matches" ToRole="Puzzles" />
           <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_Matches" FromRole="Matches" ToRole="MatchExpulsions" />
           <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Matches" FromRole="Matches" ToRole="MatchParticipants" />
-          <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Matches" FromRole="Matches" ToRole="MatchReports" />
           <Property Name="lobby_code" Type="String" MaxLength="6" FixedLength="false" Unicode="false" Nullable="false" />
           <NavigationProperty Name="GuestInvitations" Relationship="MindWeaveDBModel.fk_guest_invitations_matches" FromRole="Matches" ToRole="GuestInvitations" />
         </EntityType>
@@ -651,19 +650,6 @@
           <NavigationProperty Name="Matches" Relationship="Self.FK_MatchParticipants_Matches" FromRole="MatchParticipants" ToRole="Matches" />
           <NavigationProperty Name="Player" Relationship="Self.FK_MatchParticipants_Player" FromRole="MatchParticipants" ToRole="Player" />
         </EntityType>
-        <EntityType Name="MatchReports">
-          <Key>
-            <PropertyRef Name="report_id" />
-          </Key>
-          <Property Name="report_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
-          <Property Name="reporter_player_id" Type="Int32" Nullable="false" />
-          <Property Name="reported_player_id" Type="Int32" Nullable="false" />
-          <Property Name="match_id" Type="Int32" Nullable="false" />
-          <Property Name="report_time" Type="DateTime" Nullable="false" Precision="3" />
-          <NavigationProperty Name="Matches" Relationship="Self.FK_MatchReports_Matches" FromRole="MatchReports" ToRole="Matches" />
-          <NavigationProperty Name="Player" Relationship="Self.FK_MatchReports_Reported" FromRole="MatchReports" ToRole="Player" />
-          <NavigationProperty Name="Player1" Relationship="Self.FK_MatchReports_Reporter" FromRole="MatchReports" ToRole="Player" />
-        </EntityType>
         <EntityType Name="MatchStatus">
           <Key>
             <PropertyRef Name="status_id" />
@@ -694,12 +680,11 @@
           <NavigationProperty Name="MatchExpulsions" Relationship="Self.FK_MatchExpulsions_ExpelledPlayer" FromRole="Player" ToRole="MatchExpulsions" />
           <NavigationProperty Name="MatchExpulsions1" Relationship="Self.FK_MatchExpulsions_HostPlayer" FromRole="Player" ToRole="MatchExpulsions" />
           <NavigationProperty Name="MatchParticipants" Relationship="Self.FK_MatchParticipants_Player" FromRole="Player" ToRole="MatchParticipants" />
-          <NavigationProperty Name="MatchReports" Relationship="Self.FK_MatchReports_Reported" FromRole="Player" ToRole="MatchReports" />
-          <NavigationProperty Name="MatchReports1" Relationship="Self.FK_MatchReports_Reporter" FromRole="Player" ToRole="MatchReports" />
           <NavigationProperty Name="PlayerStats" Relationship="Self.FK_PlayerStats_Player" FromRole="Player" ToRole="PlayerStats" />
           <NavigationProperty Name="Puzzles" Relationship="Self.FK_Puzzles_Player" FromRole="Player" ToRole="Puzzles" />
           <NavigationProperty Name="Achievements" Relationship="Self.PlayerAchievements" FromRole="Player" ToRole="Achievements" />
           <NavigationProperty Name="GuestInvitations" Relationship="MindWeaveDBModel.fk_guest_invitations_player" FromRole="Player" ToRole="GuestInvitations" />
+          <NavigationProperty Name="PlayerSocialMedias" Relationship="MindWeaveDBModel.FK_PlayerSocialMedias_Player" FromRole="Player" ToRole="PlayerSocialMedias" />
         </EntityType>
         <EntityType Name="PlayerStats">
           <Key>
@@ -853,20 +838,6 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
-        <Association Name="FK_MatchReports_Matches">
-          <End Role="Matches" Type="Self.Matches" Multiplicity="1">
-            <OnDelete Action="Cascade" />
-          </End>
-          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
-          <ReferentialConstraint>
-            <Principal Role="Matches">
-              <PropertyRef Name="matches_id" />
-            </Principal>
-            <Dependent Role="MatchReports">
-              <PropertyRef Name="match_id" />
-            </Dependent>
-          </ReferentialConstraint>
-        </Association>
         <Association Name="FK_MatchExpulsions_ExpelledPlayer">
           <End Role="Player" Type="Self.Player" Multiplicity="1" />
           <End Role="MatchExpulsions" Type="Self.MatchExpulsions" Multiplicity="*" />
@@ -902,30 +873,6 @@
             </Principal>
             <Dependent Role="MatchParticipants">
               <PropertyRef Name="player_id" />
-            </Dependent>
-          </ReferentialConstraint>
-        </Association>
-        <Association Name="FK_MatchReports_Reported">
-          <End Role="Player" Type="Self.Player" Multiplicity="1" />
-          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
-          <ReferentialConstraint>
-            <Principal Role="Player">
-              <PropertyRef Name="idPlayer" />
-            </Principal>
-            <Dependent Role="MatchReports">
-              <PropertyRef Name="reported_player_id" />
-            </Dependent>
-          </ReferentialConstraint>
-        </Association>
-        <Association Name="FK_MatchReports_Reporter">
-          <End Role="Player" Type="Self.Player" Multiplicity="1" />
-          <End Role="MatchReports" Type="Self.MatchReports" Multiplicity="*" />
-          <ReferentialConstraint>
-            <Principal Role="Player">
-              <PropertyRef Name="idPlayer" />
-            </Principal>
-            <Dependent Role="MatchReports">
-              <PropertyRef Name="reporter_player_id" />
             </Dependent>
           </ReferentialConstraint>
         </Association>
@@ -970,7 +917,6 @@
           <EntitySet Name="Matches" EntityType="Self.Matches" />
           <EntitySet Name="MatchExpulsions" EntityType="Self.MatchExpulsions" />
           <EntitySet Name="MatchParticipants" EntityType="Self.MatchParticipants" />
-          <EntitySet Name="MatchReports" EntityType="Self.MatchReports" />
           <EntitySet Name="MatchStatus" EntityType="Self.MatchStatus" />
           <EntitySet Name="Player" EntityType="Self.Player" />
           <EntitySet Name="PlayerStats" EntityType="Self.PlayerStats" />
@@ -1016,10 +962,6 @@
             <End Role="Matches" EntitySet="Matches" />
             <End Role="MatchParticipants" EntitySet="MatchParticipants" />
           </AssociationSet>
-          <AssociationSet Name="FK_MatchReports_Matches" Association="Self.FK_MatchReports_Matches">
-            <End Role="Matches" EntitySet="Matches" />
-            <End Role="MatchReports" EntitySet="MatchReports" />
-          </AssociationSet>
           <AssociationSet Name="FK_MatchExpulsions_ExpelledPlayer" Association="Self.FK_MatchExpulsions_ExpelledPlayer">
             <End Role="Player" EntitySet="Player" />
             <End Role="MatchExpulsions" EntitySet="MatchExpulsions" />
@@ -1031,14 +973,6 @@
           <AssociationSet Name="FK_MatchParticipants_Player" Association="Self.FK_MatchParticipants_Player">
             <End Role="Player" EntitySet="Player" />
             <End Role="MatchParticipants" EntitySet="MatchParticipants" />
-          </AssociationSet>
-          <AssociationSet Name="FK_MatchReports_Reported" Association="Self.FK_MatchReports_Reported">
-            <End Role="Player" EntitySet="Player" />
-            <End Role="MatchReports" EntitySet="MatchReports" />
-          </AssociationSet>
-          <AssociationSet Name="FK_MatchReports_Reporter" Association="Self.FK_MatchReports_Reporter">
-            <End Role="Player" EntitySet="Player" />
-            <End Role="MatchReports" EntitySet="MatchReports" />
           </AssociationSet>
           <AssociationSet Name="FK_PlayerStats_Player" Association="Self.FK_PlayerStats_Player">
             <End Role="Player" EntitySet="Player" />
@@ -1061,6 +995,17 @@
             <End Role="Player" EntitySet="Player" />
             <End Role="GuestInvitations" EntitySet="GuestInvitations" />
           </AssociationSet>
+          <EntitySet Name="PlayerSocialMedias" EntityType="MindWeaveDBModel.PlayerSocialMedias" />
+          <EntitySet Name="SocialMediaPlatforms" EntityType="MindWeaveDBModel.SocialMediaPlatforms" />
+          <AssociationSet Name="FK_PlayerSocialMedias_Player" Association="MindWeaveDBModel.FK_PlayerSocialMedias_Player">
+            <End Role="Player" EntitySet="Player" />
+            <End Role="PlayerSocialMedias" EntitySet="PlayerSocialMedias" />
+          </AssociationSet>
+          <AssociationSet Name="FK_PlayerSocialMedias_Platform" Association="MindWeaveDBModel.FK_PlayerSocialMedias_Platform">
+            <End Role="SocialMediaPlatforms" EntitySet="SocialMediaPlatforms" />
+            <End Role="PlayerSocialMedias" EntitySet="PlayerSocialMedias" />
+          </AssociationSet>
+          <EntitySet Name="sysdiagrams" EntityType="MindWeaveDBModel.sysdiagrams" />
         </EntityContainer>
         <EntityType Name="GuestInvitations">
           <Key>
@@ -1068,7 +1013,7 @@
           </Key>
           <Property Name="invitation_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
           <Property Name="match_id" Type="Int32" Nullable="false" />
-          <Property Name="guest_email" Type="String" Nullable="false" MaxLength="255" FixedLength="false" Unicode="false" />
+          <Property Name="guest_email" Type="String" Nullable="false" MaxLength="45" FixedLength="false" Unicode="false" />
           <Property Name="inviter_player_id" Type="Int32" Nullable="false" />
           <Property Name="sent_timestamp" Type="DateTime" Nullable="false" Precision="3" />
           <Property Name="expiry_timestamp" Type="DateTime" Nullable="false" Precision="3" />
@@ -1100,6 +1045,59 @@
             </Dependent>
           </ReferentialConstraint>
         </Association>
+        <EntityType Name="PlayerSocialMedias">
+          <Key>
+            <PropertyRef Name="IdPlayerSocialMedia" />
+          </Key>
+          <Property Name="IdPlayerSocialMedia" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="IdPlayer" Type="Int32" Nullable="false" />
+          <Property Name="IdSocialMediaPlatform" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Player" Relationship="MindWeaveDBModel.FK_PlayerSocialMedias_Player" FromRole="PlayerSocialMedias" ToRole="Player" />
+          <NavigationProperty Name="SocialMediaPlatforms" Relationship="MindWeaveDBModel.FK_PlayerSocialMedias_Platform" FromRole="PlayerSocialMedias" ToRole="SocialMediaPlatforms" />
+          <Property Name="Username" Type="String" Nullable="false" MaxLength="100" FixedLength="false" Unicode="true" />
+        </EntityType>
+        <EntityType Name="SocialMediaPlatforms">
+          <Key>
+            <PropertyRef Name="IdSocialMediaPlatform" />
+          </Key>
+          <Property Name="IdSocialMediaPlatform" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="Name" Type="String" Nullable="false" MaxLength="50" FixedLength="false" Unicode="true" />
+          <NavigationProperty Name="PlayerSocialMedias" Relationship="MindWeaveDBModel.FK_PlayerSocialMedias_Platform" FromRole="SocialMediaPlatforms" ToRole="PlayerSocialMedias" />
+        </EntityType>
+        <Association Name="FK_PlayerSocialMedias_Player">
+          <End Type="MindWeaveDBModel.Player" Role="Player" Multiplicity="1" />
+          <End Type="MindWeaveDBModel.PlayerSocialMedias" Role="PlayerSocialMedias" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Player">
+              <PropertyRef Name="idPlayer" />
+            </Principal>
+            <Dependent Role="PlayerSocialMedias">
+              <PropertyRef Name="IdPlayer" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_PlayerSocialMedias_Platform">
+          <End Type="MindWeaveDBModel.SocialMediaPlatforms" Role="SocialMediaPlatforms" Multiplicity="1" />
+          <End Type="MindWeaveDBModel.PlayerSocialMedias" Role="PlayerSocialMedias" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="SocialMediaPlatforms">
+              <PropertyRef Name="IdSocialMediaPlatform" />
+            </Principal>
+            <Dependent Role="PlayerSocialMedias">
+              <PropertyRef Name="IdSocialMediaPlatform" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <EntityType Name="sysdiagrams">
+          <Key>
+            <PropertyRef Name="diagram_id" />
+          </Key>
+          <Property Name="name" Type="String" Nullable="false" MaxLength="128" FixedLength="false" Unicode="true" />
+          <Property Name="principal_id" Type="Int32" Nullable="false" />
+          <Property Name="diagram_id" Type="Int32" Nullable="false" annotation:StoreGeneratedPattern="Identity" />
+          <Property Name="version" Type="Int32" />
+          <Property Name="definition" Type="Binary" MaxLength="Max" FixedLength="false" />
+        </EntityType>
       </Schema>
     </edmx:ConceptualModels>
     <!-- C-S mapping content -->
@@ -1193,17 +1191,6 @@
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>
-          <EntitySetMapping Name="MatchReports">
-            <EntityTypeMapping TypeName="MindWeaveDBModel.MatchReports">
-              <MappingFragment StoreEntitySet="MatchReports">
-                <ScalarProperty Name="report_id" ColumnName="report_id" />
-                <ScalarProperty Name="reporter_player_id" ColumnName="reporter_player_id" />
-                <ScalarProperty Name="reported_player_id" ColumnName="reported_player_id" />
-                <ScalarProperty Name="match_id" ColumnName="match_id" />
-                <ScalarProperty Name="report_time" ColumnName="report_time" />
-              </MappingFragment>
-            </EntityTypeMapping>
-          </EntitySetMapping>
           <EntitySetMapping Name="MatchStatus">
             <EntityTypeMapping TypeName="MindWeaveDBModel.MatchStatus">
               <MappingFragment StoreEntitySet="MatchStatus">
@@ -1277,6 +1264,35 @@
                 <ScalarProperty Name="guest_email" ColumnName="guest_email" />
                 <ScalarProperty Name="match_id" ColumnName="match_id" />
                 <ScalarProperty Name="invitation_id" ColumnName="invitation_id" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="PlayerSocialMedias">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.PlayerSocialMedias">
+              <MappingFragment StoreEntitySet="PlayerSocialMedias">
+                <ScalarProperty Name="Username" ColumnName="Username" />
+                <ScalarProperty Name="IdSocialMediaPlatform" ColumnName="IdSocialMediaPlatform" />
+                <ScalarProperty Name="IdPlayer" ColumnName="IdPlayer" />
+                <ScalarProperty Name="IdPlayerSocialMedia" ColumnName="IdPlayerSocialMedia" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SocialMediaPlatforms">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.SocialMediaPlatforms">
+              <MappingFragment StoreEntitySet="SocialMediaPlatforms">
+                <ScalarProperty Name="Name" ColumnName="Name" />
+                <ScalarProperty Name="IdSocialMediaPlatform" ColumnName="IdSocialMediaPlatform" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="sysdiagrams">
+            <EntityTypeMapping TypeName="MindWeaveDBModel.sysdiagrams">
+              <MappingFragment StoreEntitySet="sysdiagrams">
+                <ScalarProperty Name="definition" ColumnName="definition" />
+                <ScalarProperty Name="version" ColumnName="version" />
+                <ScalarProperty Name="diagram_id" ColumnName="diagram_id" />
+                <ScalarProperty Name="principal_id" ColumnName="principal_id" />
+                <ScalarProperty Name="name" ColumnName="name" />
               </MappingFragment>
             </EntityTypeMapping>
           </EntitySetMapping>

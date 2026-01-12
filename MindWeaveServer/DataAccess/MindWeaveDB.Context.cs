@@ -9,7 +9,6 @@
 
 namespace MindWeaveServer.DataAccess
 {
-    using MindWeaveServer.Utilities;
     using System;
     using System.Data.Entity;
     using System.Data.Entity.Infrastructure;
@@ -17,7 +16,7 @@ namespace MindWeaveServer.DataAccess
     public partial class MindWeaveDBEntities1 : DbContext
     {
         public MindWeaveDBEntities1()
-            : base(SecureConnection.getConnectionString())
+            : base("name=MindWeaveDBEntities1")
         {
         }
     
@@ -34,12 +33,14 @@ namespace MindWeaveServer.DataAccess
         public virtual DbSet<Matches> Matches { get; set; }
         public virtual DbSet<MatchExpulsions> MatchExpulsions { get; set; }
         public virtual DbSet<MatchParticipants> MatchParticipants { get; set; }
-        public virtual DbSet<MatchReports> MatchReports { get; set; }
         public virtual DbSet<MatchStatus> MatchStatus { get; set; }
         public virtual DbSet<Player> Player { get; set; }
         public virtual DbSet<PlayerStats> PlayerStats { get; set; }
         public virtual DbSet<Puzzles> Puzzles { get; set; }
         public virtual DbSet<RequestStatus> RequestStatus { get; set; }
         public virtual DbSet<GuestInvitations> GuestInvitations { get; set; }
+        public virtual DbSet<PlayerSocialMedias> PlayerSocialMedias { get; set; }
+        public virtual DbSet<SocialMediaPlatforms> SocialMediaPlatforms { get; set; }
+        public virtual DbSet<sysdiagrams> sysdiagrams { get; set; }
     }
 }

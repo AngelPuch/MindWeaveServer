@@ -12,16 +12,12 @@ namespace MindWeaveServer.DataAccess
     using System;
     using System.Collections.Generic;
     
-    public partial class MatchReports
+    public partial class sysdiagrams
     {
-        public int report_id { get; set; }
-        public int reporter_player_id { get; set; }
-        public int reported_player_id { get; set; }
-        public int match_id { get; set; }
-        public System.DateTime report_time { get; set; }
-    
-        public virtual Matches Matches { get; set; }
-        public virtual Player Player { get; set; }
-        public virtual Player Player1 { get; set; }
+        public string name { get; set; }
+        public int principal_id { get; set; }
+        public int diagram_id { get; set; }
+        public Nullable<int> version { get; set; }
+        public byte[] definition { get; set; }
     }
 }

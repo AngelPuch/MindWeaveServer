@@ -22,11 +22,10 @@ namespace MindWeaveServer.DataAccess
             this.MatchExpulsions = new HashSet<MatchExpulsions>();
             this.MatchExpulsions1 = new HashSet<MatchExpulsions>();
             this.MatchParticipants = new HashSet<MatchParticipants>();
-            this.MatchReports = new HashSet<MatchReports>();
-            this.MatchReports1 = new HashSet<MatchReports>();
             this.Puzzles = new HashSet<Puzzles>();
             this.Achievements = new HashSet<Achievements>();
             this.GuestInvitations = new HashSet<GuestInvitations>();
+            this.PlayerSocialMedias = new HashSet<PlayerSocialMedias>();
         }
     
         public int idPlayer { get; set; }
@@ -53,10 +52,6 @@ namespace MindWeaveServer.DataAccess
         public virtual ICollection<MatchExpulsions> MatchExpulsions1 { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<MatchParticipants> MatchParticipants { get; set; }
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
-        public virtual ICollection<MatchReports> MatchReports { get; set; }
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
-        public virtual ICollection<MatchReports> MatchReports1 { get; set; }
         public virtual PlayerStats PlayerStats { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<Puzzles> Puzzles { get; set; }
@@ -64,5 +59,7 @@ namespace MindWeaveServer.DataAccess
         public virtual ICollection<Achievements> Achievements { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public virtual ICollection<GuestInvitations> GuestInvitations { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public virtual ICollection<PlayerSocialMedias> PlayerSocialMedias { get; set; }
     }
 }

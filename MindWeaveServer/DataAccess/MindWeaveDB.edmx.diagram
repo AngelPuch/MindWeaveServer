@@ -13,7 +13,6 @@
         <EntityTypeShape EntityType="MindWeaveDBModel.Matches" Width="1.5" PointX="7.5" PointY="25.5" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.MatchExpulsions" Width="1.5" PointX="8.25" PointY="10.5" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.MatchParticipants" Width="1.5" PointX="5.25" PointY="6.625" IsExpanded="true" />
-        <EntityTypeShape EntityType="MindWeaveDBModel.MatchReports" Width="1.5" PointX="5.25" PointY="14.625" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.MatchStatus" Width="1.5" PointX="5.25" PointY="31.75" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.Player" Width="1.5" PointX="3" PointY="9.25" IsExpanded="true" />
         <EntityTypeShape EntityType="MindWeaveDBModel.PlayerStats" Width="1.5" PointX="5.25" PointY="23.25" IsExpanded="true" />
@@ -29,18 +28,20 @@
         <AssociationConnector Association="MindWeaveDBModel.FK_Matches_Puzzles" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_MatchExpulsions_Matches" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_MatchParticipants_Matches" ManuallyRouted="false" />
-        <AssociationConnector Association="MindWeaveDBModel.FK_MatchReports_Matches" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_MatchExpulsions_ExpelledPlayer" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_MatchExpulsions_HostPlayer" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_MatchParticipants_Player" ManuallyRouted="false" />
-        <AssociationConnector Association="MindWeaveDBModel.FK_MatchReports_Reported" ManuallyRouted="false" />
-        <AssociationConnector Association="MindWeaveDBModel.FK_MatchReports_Reporter" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_PlayerStats_Player" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.FK_Puzzles_Player" ManuallyRouted="false" />
         <AssociationConnector Association="MindWeaveDBModel.PlayerAchievements" ManuallyRouted="false" />
         <EntityTypeShape EntityType="MindWeaveDBModel.GuestInvitations" Width="1.5" PointX="9.75" PointY="18" />
         <AssociationConnector Association="MindWeaveDBModel.fk_guest_invitations_matches" />
         <AssociationConnector Association="MindWeaveDBModel.fk_guest_invitations_player" />
+        <EntityTypeShape EntityType="MindWeaveDBModel.PlayerSocialMedias" Width="1.5" PointX="8.25" PointY="14.125" />
+        <EntityTypeShape EntityType="MindWeaveDBModel.SocialMediaPlatforms" Width="1.5" PointX="6" PointY="3.375" />
+        <AssociationConnector Association="MindWeaveDBModel.FK_PlayerSocialMedias_Player" />
+        <AssociationConnector Association="MindWeaveDBModel.FK_PlayerSocialMedias_Platform" />
+        <EntityTypeShape EntityType="MindWeaveDBModel.sysdiagrams" Width="1.5" PointX="0.75" PointY="0.75" />
       </Diagram>
     </edmx:Diagrams>
   </edmx:Designer>

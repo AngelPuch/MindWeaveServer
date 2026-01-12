@@ -189,6 +189,7 @@
     <Compile Include="Contracts\DataContracts\Matchmaking\MatchmakingParticipantsStatusUpdateDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\AvatarUpdateResultDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\GenderDto.cs" />
+    <Compile Include="Contracts\DataContracts\Profile\PlayerSocialMediaDto.cs" />
     <Compile Include="Contracts\DataContracts\Profile\UserProfileEditDto.cs" />
     <Compile Include="Contracts\DataContracts\Puzzle\PuzzleDefinitionDto.cs" />
     <Compile Include="Contracts\DataContracts\Puzzle\PuzzleInfoDto.cs" />
@@ -249,9 +250,6 @@
     <Compile Include="DataAccess\MatchParticipants.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
-    <Compile Include="DataAccess\MatchReports.cs">
-      <DependentUpon>MindWeaveDB.tt</DependentUpon>
-    </Compile>
     <Compile Include="DataAccess\MatchStatus.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
@@ -273,6 +271,9 @@
     <Compile Include="DataAccess\Player.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
+    <Compile Include="DataAccess\PlayerSocialMedias.cs">
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
+    </Compile>
     <Compile Include="DataAccess\PlayerStats.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
@@ -287,6 +288,12 @@
     <Compile Include="DataAccess\Repositories\PuzzleRepository.cs" />
     <Compile Include="DataAccess\Repositories\StatsRepository.cs" />
     <Compile Include="DataAccess\RequestStatus.cs">
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataAccess\SocialMediaPlatforms.cs">
+      <DependentUpon>MindWeaveDB.tt</DependentUpon>
+    </Compile>
+    <Compile Include="DataAccess\sysdiagrams.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />

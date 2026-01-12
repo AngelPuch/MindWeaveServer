@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using MindWeaveServer.Contracts.DataContracts.Profile;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace MindWeaveServer.Contracts.DataContracts.Stats
@@ -29,5 +30,8 @@ namespace MindWeaveServer.Contracts.DataContracts.Stats
 
         [DataMember]
         public List<AchievementDto> Achievements { get; set; }
+
+        [DataMember]
+        public List<PlayerSocialMediaDto> SocialMedia { get; set; }
     }
 }

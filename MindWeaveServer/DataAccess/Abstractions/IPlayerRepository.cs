@@ -13,6 +13,7 @@ namespace MindWeaveServer.DataAccess.Abstractions
         Task<Player> getPlayerWithProfileViewDataAsync(string username);
         Task<List<PlayerSearchResultDto>> searchPlayersAsync(int requesterId, string query, int maxResults = 10);
         Task<Player> getPlayerByUsernameWithTrackingAsync(string username);
+        Task<List<SocialMediaPlatforms>> getAllSocialMediaPlatformsAsync();
         Task<int> saveChangesAsync();
     }
 }
