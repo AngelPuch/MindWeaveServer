@@ -169,53 +169,62 @@ namespace MindWeaveServer.BusinessLogic
                 {
                     edges[r, c] = new JigsawEdgeType[4];
 
-                    if (r == 0)
-                    {
-                        edges[r, c][0] = JigsawEdgeType.Flat;
-                    }
-                    else
-                    {
-                        edges[r, c][0] = edges[r - 1, c][2] == JigsawEdgeType.Tab
-                            ? JigsawEdgeType.Blank
-                            : JigsawEdgeType.Tab;
-                    }
-
-                    if (c == dim.Columns - 1)
-                    {
-                        edges[r, c][1] = JigsawEdgeType.Flat;
-                    }
-                    else
-                    {
-                        edges[r, c][1] = random.Next(2) == 0
-                            ? JigsawEdgeType.Tab
-                            : JigsawEdgeType.Blank;
-                    }
-
-                    if (r == dim.Rows - 1)
-                    {
-                        edges[r, c][2] = JigsawEdgeType.Flat;
-                    }
-                    else
-                    {
-                        edges[r, c][2] = random.Next(2) == 0
-                            ? JigsawEdgeType.Tab
-                            : JigsawEdgeType.Blank;
-                    }
-
-                    if (c == 0)
-                    {
-                        edges[r, c][3] = JigsawEdgeType.Flat;
-                    }
-                    else
-                    {
-                        edges[r, c][3] = edges[r, c - 1][1] == JigsawEdgeType.Tab
-                            ? JigsawEdgeType.Blank
-                            : JigsawEdgeType.Tab;
-                    }
+                    edges[r, c][0] = getTopEdge(r, c, edges, dim);
+                    edges[r, c][1] = getRightEdge(c, random, dim);
+                    edges[r, c][2] = getBottomEdge(r, random, dim);
+                    edges[r, c][3] = getLeftEdge(r, c, edges);
                 }
             }
 
             return edges;
+        }
+
+        private static JigsawEdgeType getTopEdge(int row, int col, JigsawEdgeType[,][] edges, GridDimensions dim)
+        {
+            if (row == 0)
+            {
+                return JigsawEdgeType.Flat;
+            }
+
+            return edges[row - 1, col][2] == JigsawEdgeType.Tab
+                ? JigsawEdgeType.Blank
+                : JigsawEdgeType.Tab;
+        }
+
+        private static JigsawEdgeType getRightEdge(int col, Random random, GridDimensions dim)
+        {
+            if (col == dim.Columns - 1)
+            {
+                return JigsawEdgeType.Flat;
+            }
+
+            return random.Next(2) == 0
+                ? JigsawEdgeType.Tab
+                : JigsawEdgeType.Blank;
+        }
+
+        private static JigsawEdgeType getBottomEdge(int row, Random random, GridDimensions dim)
+        {
+            if (row == dim.Rows - 1)
+            {
+                return JigsawEdgeType.Flat;
+            }
+
+            return random.Next(2) == 0
+                ? JigsawEdgeType.Tab
+                : JigsawEdgeType.Blank;
+        }
+
+        private static JigsawEdgeType getLeftEdge(int row, int col, JigsawEdgeType[,][] edges)
+        {
+            if (col == 0)
+            {
+                return JigsawEdgeType.Flat;
+            }
+
+            return edges[row, col - 1][1] == JigsawEdgeType.Tab
+                ? JigsawEdgeType.Blank
+                : JigsawEdgeType.Tab;
         }
 
         private static PuzzlePieceDefinitionDto[,] generatePieces(

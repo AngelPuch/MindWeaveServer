@@ -40,9 +40,12 @@ namespace MindWeaveServer.BusinessLogic.Services
         private const int GUEST_EXPIRY_MINUTES = 10;
         private const int INVALID_ID = 0;
         private const int MAX_PLAYERS_PER_LOBBY = 4;
-        private const string BAN_REASON_HOST_KICK = "KickedByHost"; 
+        private const string BAN_REASON_HOST_KICK = "KickedByHost";
 
-
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
         public LobbyInteractionService(
             IGameStateManager gameStateManager,
             ILobbyValidationService validationService,

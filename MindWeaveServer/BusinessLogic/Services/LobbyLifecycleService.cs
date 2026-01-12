@@ -39,6 +39,10 @@ namespace MindWeaveServer.BusinessLogic.Services
         private const int DEFAULT_DIFFICULTY_ID = 1;
         private const int MAX_GUEST_NAME_COUNTER = 99;
         private const int MAX_GUEST_USERNAME_LENGTH = 16;
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
 
         public LobbyLifecycleService(
             IGameStateManager gameStateManager,
@@ -193,7 +197,6 @@ namespace MindWeaveServer.BusinessLogic.Services
             };
         }
 
-        // En MindWeaveServer.BusinessLogic.Services.LobbyLifecycleService
 
         public async Task leaveLobbyAsync(LobbyActionContext context)
         {
@@ -207,10 +210,8 @@ namespace MindWeaveServer.BusinessLogic.Services
             bool isLobbyClosed = false;
             List<string> remainingPlayers = null;
 
-            // 1. ACTUALIZACIÓN EN MEMORIA (CRÍTICO: Hacer esto primero)
             lock (lobby)
             {
-                // Asegúrate de usar OrdinalIgnoreCase para evitar problemas de mayúsculas/minúsculas
                 lobby.Players.RemoveAll(p => p.Equals(context.RequesterUsername, StringComparison.OrdinalIgnoreCase));
 
                 bool isHost = lobby.HostUsername.Equals(context.RequesterUsername, StringComparison.OrdinalIgnoreCase);
@@ -227,31 +228,24 @@ namespace MindWeaveServer.BusinessLogic.Services
                 }
             }
 
-            // 2. NOTIFICACIÓN INMEDIATA (CRÍTICO: Antes de tocar la BD)
-            // Esto asegura que los clientes se actualicen visualmente pase lo que pase con la BD.
             if (isLobbyClosed)
             {
-                // Si el host se va, avisamos a todos que se destruye la sala
                 closeLobby(context.LobbyCode, remainingPlayers);
             }
             else
             {
-                // Si es un jugador normal, mandamos la lista actualizada YA
                 notificationService.broadcastLobbyState(lobby);
                 notifyOthersPlayerLeft(lobby, context.RequesterUsername);
             }
 
-            // 3. LIMPIEZA DE CALLBACK DEL QUE SE VA
             removeMatchmakingCallback(context.RequesterUsername);
 
-            // 4. SINCRONIZACIÓN CON BD (SECUNDARIO: Protegido contra fallos)
             try
             {
                 await SyncDbOnLeaveAsync(context.LobbyCode, context.RequesterUsername, wasGuest, isLobbyClosed);
             }
             catch (Exception ex)
             {
-                // Logueamos el error pero NO detenemos el flujo, ya que la UI ya se actualizó
                 logger.Error(ex, "Error syncing DB on leave lobby for user {0}", context.RequesterUsername);
             }
         }
@@ -398,7 +392,6 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private void closeLobby(string lobbyCode, List<string> playersToKick)
         {
-            // 1. Eliminar el lobby de la memoria primero para evitar que nadie más entre
             gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
             gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
             if (playersToKick != null)
@@ -409,7 +402,6 @@ namespace MindWeaveServer.BusinessLogic.Services
                     {
                         try
                         {
-                            // Usamos el código de mensaje correcto para "El host se fue"
                             callback.lobbyDestroyed(MessageCodes.NOTIFY_HOST_LEFT);
                         }
                         catch (CommunicationException ex)
@@ -418,10 +410,9 @@ namespace MindWeaveServer.BusinessLogic.Services
                         }
                         catch (Exception)
                         {
-                            // Ignorar errores de comunicación al cerrar
+                            // ignored
                         }
                     }
-                    // Limpiar el callback de la memoria
                     removeMatchmakingCallback(p);
                 }
             }

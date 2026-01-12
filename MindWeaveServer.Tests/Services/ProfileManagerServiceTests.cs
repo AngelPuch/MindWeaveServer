@@ -97,7 +97,7 @@ namespace MindWeaveServer.Tests.Services
 
             var result = await service.updateProfileAsync("User", dto);
 
-            playerRepoMock.Verify(x => x.updatePlayerAsync(It.IsAny<Player>()), Times.Once);
+            playerRepoMock.Verify(x => x.updatePlayerProfileWithSocialsAsync(It.IsAny<Player>()), Times.Once);
         }
 
         [Fact]

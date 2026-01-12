@@ -62,7 +62,10 @@ namespace MindWeaveServer.BusinessLogic
         private bool isFirstBloodClaimed;
         private bool isDisposed;
         private readonly object endGameLock = new object();
-
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Major Code Smell",
+        "S107:Methods should not have too many parameters",
+        Justification = "Constructor combines session configuration with dependency injection - this is necessary for the session lifecycle pattern")]
         public GameSession(
             string lobbyCode,
             int matchId,

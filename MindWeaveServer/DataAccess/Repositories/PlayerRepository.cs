@@ -59,31 +59,31 @@ namespace MindWeaveServer.DataAccess.Repositories
                 await context.SaveChangesAsync();
             }
         }
-        public async Task updatePlayerProfileWithSocialsAsync(Player playerWithChanges)
+        public async Task updatePlayerProfileWithSocialsAsync(Player player)
         {
-            if (playerWithChanges == null) throw new ArgumentNullException(nameof(playerWithChanges));
+            if (player == null) throw new ArgumentNullException(nameof(player));
 
             using (var context = contextFactory())
             {
                 var existingPlayer = await context.Player
                     .Include(p => p.PlayerSocialMedias)
-                    .FirstOrDefaultAsync(p => p.idPlayer == playerWithChanges.idPlayer);
+                    .FirstOrDefaultAsync(p => p.idPlayer == player.idPlayer);
 
                 if (existingPlayer != null)
                 {
-                    context.Entry(existingPlayer).CurrentValues.SetValues(playerWithChanges);
+                    context.Entry(existingPlayer).CurrentValues.SetValues(player);
 
-                    if (playerWithChanges.PlayerSocialMedias != null)
+                    if (player.PlayerSocialMedias != null)
                     {
                         var socialMediasToDelete = existingPlayer.PlayerSocialMedias
-                            .Where(existing => playerWithChanges.PlayerSocialMedias.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
+                            .Where(existing => player.PlayerSocialMedias.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
                             .ToList();
 
                         foreach (var deletedSocial in socialMediasToDelete)
                         {
                             context.PlayerSocialMedias.Remove(deletedSocial);
                         }
-                        foreach (var newSocial in playerWithChanges.PlayerSocialMedias)
+                        foreach (var newSocial in player.PlayerSocialMedias)
                         {
                             var existingSocial = existingPlayer.PlayerSocialMedias
                                 .FirstOrDefault(e => e.IdSocialMediaPlatform == newSocial.IdSocialMediaPlatform);

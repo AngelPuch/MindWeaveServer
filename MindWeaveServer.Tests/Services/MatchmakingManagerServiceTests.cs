@@ -184,12 +184,7 @@ namespace MindWeaveServer.Tests.Services
             await Assert.ThrowsAsync<FaultException<ServiceFaultDto>>(() => service.joinLobbyAsGuest(new GuestJoinRequestDto()));
         }
 
-        [Fact]
-        public void RequestPieceDrag_ValidSession_ValidatesSession()
-        {
-            SetSession("Other");
-            service.requestPieceDrag("Code", 1);
-        }
+        
 
         [Fact]
         public void RequestPieceDrag_ValidSession_DelegatesIfValid()

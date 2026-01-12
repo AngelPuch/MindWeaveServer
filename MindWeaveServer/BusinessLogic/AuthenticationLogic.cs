@@ -34,7 +34,10 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IUserSessionManager userSessionManager;
         private readonly IValidator<UserProfileDto> profileValidator;
         private readonly IValidator<LoginDto> loginValidator;
-
+        [System.Diagnostics.CodeAnalysis.SuppressMessage(
+            "Major Code Smell",
+            "S107:Methods should not have too many parameters",
+            Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
         public AuthenticationLogic(
             IPlayerRepository playerRepository,
             IEmailService emailService,

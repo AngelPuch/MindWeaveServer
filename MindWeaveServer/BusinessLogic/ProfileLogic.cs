@@ -69,8 +69,6 @@ namespace MindWeaveServer.BusinessLogic
                 return null;
             }
 
-            // FIX: Usar getPlayerByUsernameWithTrackingAsync en lugar de getPlayerByUsernameAsync
-            // para incluir PlayerSocialMedias y evitar lazy loading después de dispose
             var player = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
 
             if (player == null)
@@ -298,18 +296,16 @@ namespace MindWeaveServer.BusinessLogic
 
             if (allPlatforms != null)
             {
-                foreach (var platform in allPlatforms)
-                {
-                    if (socialMediaList.All(sm => sm.IdSocialMediaPlatform != platform.IdSocialMediaPlatform))
+                var missingPlatforms = allPlatforms
+                    .Where(platform => socialMediaList.All(sm => sm.IdSocialMediaPlatform != platform.IdSocialMediaPlatform))
+                    .Select(platform => new PlayerSocialMediaDto
                     {
-                        socialMediaList.Add(new PlayerSocialMediaDto
-                        {
-                            IdSocialMediaPlatform = platform.IdSocialMediaPlatform,
-                            PlatformName = platform.Name,
-                            Username = string.Empty
-                        });
-                    }
-                }
+                        IdSocialMediaPlatform = platform.IdSocialMediaPlatform,
+                        PlatformName = platform.Name,
+                        Username = string.Empty
+                    });
+
+                socialMediaList.AddRange(missingPlatforms);
             }
 
             socialMediaList = socialMediaList.OrderBy(sm => sm.PlatformName).ToList();
@@ -330,41 +326,44 @@ namespace MindWeaveServer.BusinessLogic
             player.first_name = updatedProfileData.FirstName.Trim();
             player.last_name = updatedProfileData.LastName?.Trim();
             player.date_of_birth = updatedProfileData.DateOfBirth;
-            player.gender_id = updatedProfileData.IdGender > 0 ? updatedProfileData.IdGender : (int?)null;
+            player.gender_id = updatedProfileData.IdGender > 0
+                ? updatedProfileData.IdGender : (int?)null;
 
             if (updatedProfileData.SocialMedia != null)
             {
                 foreach (var mediaDto in updatedProfileData.SocialMedia)
                 {
-                    var existingMedia = player.PlayerSocialMedias
-                        .FirstOrDefault(pm => pm.IdSocialMediaPlatform == mediaDto.IdSocialMediaPlatform);
-
-                    bool inputIsEmpty = string.IsNullOrWhiteSpace(mediaDto.Username);
-
-                    if (existingMedia != null)
-                    {
-                        if (inputIsEmpty)
-                        {
-                            player.PlayerSocialMedias.Remove(existingMedia);
-                        }
-                        else
-                        {
-                            existingMedia.Username = mediaDto.Username.Trim();
-                        }
-                    }
-                    else
-                    {
-                        if (!inputIsEmpty)
-                        {
-                            player.PlayerSocialMedias.Add(new PlayerSocialMedias
-                            {
-                                IdPlayer = player.idPlayer,
-                                IdSocialMediaPlatform = mediaDto.IdSocialMediaPlatform,
-                                Username = mediaDto.Username.Trim()
-                            });
-                        }
-                    }
+                    UpdateSocialMedia(player, mediaDto);
                 }
+            }
+        }
+
+        private static void UpdateSocialMedia(Player player, PlayerSocialMediaDto mediaDto)
+        {
+            var existingMedia = player.PlayerSocialMedias
+                .FirstOrDefault(pm => pm.IdSocialMediaPlatform == mediaDto.IdSocialMediaPlatform);
+
+            bool inputIsEmpty = string.IsNullOrWhiteSpace(mediaDto.Username);
+
+            if (existingMedia != null)
+            {
+                if (inputIsEmpty)
+                {
+                    player.PlayerSocialMedias.Remove(existingMedia);
+                }
+                else
+                {
+                    existingMedia.Username = mediaDto.Username.Trim();
+                }
+            }
+            else if (!inputIsEmpty)
+            {
+                player.PlayerSocialMedias.Add(new PlayerSocialMedias
+                {
+                    IdPlayer = player.idPlayer,
+                    IdSocialMediaPlatform = mediaDto.IdSocialMediaPlatform,
+                    Username = mediaDto.Username.Trim()
+                });
             }
         }
     }
