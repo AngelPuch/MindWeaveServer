@@ -126,8 +126,7 @@ namespace MindWeaveServer.BusinessLogic
 
             applyProfileUpdates(playerToUpdate, updatedProfileData);
 
-            await playerRepository.updatePlayerAsync(playerToUpdate);
-
+            await playerRepository.updatePlayerProfileWithSocialsAsync(playerToUpdate);
             return new OperationResultDto
             {
                 Success = true,

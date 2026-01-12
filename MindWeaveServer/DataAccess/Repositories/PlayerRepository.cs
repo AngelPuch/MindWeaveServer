@@ -49,12 +49,19 @@ namespace MindWeaveServer.DataAccess.Repositories
             }
         }
 
-        public async Task updatePlayerAsync(Player playerWithChanges)
+        public async Task updatePlayerAsync(Player player)
         {
-            if (playerWithChanges == null)
+            if (player == null) throw new ArgumentNullException(nameof(player));
+
+            using (var context = contextFactory())
             {
-                throw new ArgumentNullException(nameof(playerWithChanges));
+                context.Entry(player).State = EntityState.Modified;
+                await context.SaveChangesAsync();
             }
+        }
+        public async Task updatePlayerProfileWithSocialsAsync(Player playerWithChanges)
+        {
+            if (playerWithChanges == null) throw new ArgumentNullException(nameof(playerWithChanges));
 
             using (var context = contextFactory())
             {
@@ -65,37 +72,35 @@ namespace MindWeaveServer.DataAccess.Repositories
                 if (existingPlayer != null)
                 {
                     context.Entry(existingPlayer).CurrentValues.SetValues(playerWithChanges);
-                    existingPlayer.avatar_path = playerWithChanges.avatar_path;
-                    existingPlayer.password_hash = playerWithChanges.password_hash;
-                    existingPlayer.gender_id = playerWithChanges.gender_id;
 
-                    var socialMediasToDelete = existingPlayer.PlayerSocialMedias
-                        .Where(existing => playerWithChanges.PlayerSocialMedias.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
-                        .ToList();
-
-                    foreach (var deletedSocial in socialMediasToDelete)
+                    if (playerWithChanges.PlayerSocialMedias != null)
                     {
-                        context.PlayerSocialMedias.Remove(deletedSocial);
-                    }
+                        var socialMediasToDelete = existingPlayer.PlayerSocialMedias
+                            .Where(existing => playerWithChanges.PlayerSocialMedias.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
+                            .ToList();
 
-                    foreach (var newSocial in playerWithChanges.PlayerSocialMedias)
-                    {
-                        var existingSocial = existingPlayer.PlayerSocialMedias
-                            .FirstOrDefault(e => e.IdSocialMediaPlatform == newSocial.IdSocialMediaPlatform);
-
-                        if (existingSocial != null)
+                        foreach (var deletedSocial in socialMediasToDelete)
                         {
-                            existingSocial.Username = newSocial.Username;
+                            context.PlayerSocialMedias.Remove(deletedSocial);
                         }
-                        else
+                        foreach (var newSocial in playerWithChanges.PlayerSocialMedias)
                         {
-                            var socialToAdd = new PlayerSocialMedias
+                            var existingSocial = existingPlayer.PlayerSocialMedias
+                                .FirstOrDefault(e => e.IdSocialMediaPlatform == newSocial.IdSocialMediaPlatform);
+
+                            if (existingSocial != null)
                             {
-                                IdPlayer = existingPlayer.idPlayer,
-                                IdSocialMediaPlatform = newSocial.IdSocialMediaPlatform,
-                                Username = newSocial.Username
-                            };
-                            existingPlayer.PlayerSocialMedias.Add(socialToAdd);
+                                existingSocial.Username = newSocial.Username;
+                            }
+                            else
+                            {
+                                existingPlayer.PlayerSocialMedias.Add(new PlayerSocialMedias
+                                {
+                                    IdPlayer = existingPlayer.idPlayer,
+                                    IdSocialMediaPlatform = newSocial.IdSocialMediaPlatform,
+                                    Username = newSocial.Username
+                                });
+                            }
                         }
                     }
                     await context.SaveChangesAsync();
