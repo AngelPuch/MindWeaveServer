@@ -246,7 +246,6 @@ namespace MindWeaveServer.BusinessLogic
             bool isClosestToOwn = isClosestToOwnPosition(pieceId, newX, newY, distanceToOwnTarget);
 
             bool isCorrect = !pieceState.IsPlaced && isNearOwnTarget && isClosestToOwn;
-//TODO HACER ASYNC EL ELSE
             if (isCorrect)
             {
                 await handleCorrectPlacementAsync(player, pieceState);
@@ -347,7 +346,6 @@ namespace MindWeaveServer.BusinessLogic
 
         public void broadcast(Action<IMatchmakingCallback> action)
         {
-            // Hacemos una copia de la lista para evitar problemas de concurrencia si alguien sale mientras iteramos
             var playersList = Players.Values.ToList();
 
             if (action == null)
@@ -358,13 +356,9 @@ namespace MindWeaveServer.BusinessLogic
             foreach (var player in playersList)
             {
                 if (player?.Callback == null) continue;
-
-                // CRUCIAL: Capturamos la variable para el closure del hilo
                 var targetPlayer = player;
 
-                // FIRE AND FORGET: Lanzamos un hilo independiente para cada jugador.
-                // El servidor NO espera a que esto termine para seguir con el siguiente jugador 
-                // ni para salir del método 'broadcast'.
+          
                 Task.Run(() =>
                 {
                     try
@@ -373,7 +367,6 @@ namespace MindWeaveServer.BusinessLogic
                     }
                     catch (CommunicationException ex)
                     {
-                        // Usamos targetPlayer.Username que capturamos arriba
                         logger.Warn("Failed to broadcast to {0}: {1}", targetPlayer.Username, ex.Message);
                     }
                     catch (ObjectDisposedException)
@@ -390,7 +383,6 @@ namespace MindWeaveServer.BusinessLogic
                     }
                 });
             }
-            // El método termina INSTANTÁNEAMENTE aquí, sin esperar a nadie.
         }
 
         public int? getPlayerIdByUsername(string username)
@@ -591,11 +583,9 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.CurrentY = newY;
 
 
-            // 1. Broadcast Movimiento
             broadcast(callback => callback.onPieceMoved(pieceState.PieceId, newX, newY, player.Username));
             logger.Info("DEBUG: Broadcast Movimiento disparado.");
 
-            // 2. Broadcast Soltar
             broadcast(callback => callback.onPieceDragReleased(pieceState.PieceId, player.Username));
             logger.Info("DEBUG: Broadcast Soltar disparado.");
 
@@ -606,7 +596,6 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
-            // Actualización en memoria (Correcto)
             player.NegativeStreak++;
             int penaltyPoints = scoreCalculator.calculatePenaltyPoints(player.NegativeStreak);
             player.Score -= penaltyPoints;
@@ -617,7 +606,6 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Info("DEBUG: Iniciando secuencia de broadcasts para penalización de {0}", player.Username);
 
-            // 3. Broadcast Penalización (EL IMPORTANTE)
             broadcast(cb => cb.onPlayerPenalty(player.Username, penaltyPoints, player.Score, reason));
             logger.Info("DEBUG: Broadcast Penalización disparado. Fin del método.");
         }

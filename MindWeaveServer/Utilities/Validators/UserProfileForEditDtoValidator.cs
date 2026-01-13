@@ -10,9 +10,9 @@ namespace MindWeaveServer.Utilities.Validators
         private const int NAME_MAX_LENGTH = 45;
         private const int MINIMUM_AGE_YEARS = 13;
         private const int MAX_REALISTIC_AGE_YEARS = 100;
-
+        private const int USERNAME_MAX_LENGTH = 100; 
         private const string NAME_VALIDATOR_REGEX = @"^(?=.*\p{L})[\p{L}\p{M} '\-]{3,45}$";
-
+        private const string USERNAME_VALIDATOR_REGEX = @"^[a-zA-Z0-9._-]+$";
         public UserProfileForEditDtoValidator()
         {
             RuleFor(x => x.FirstName)
@@ -31,6 +31,14 @@ namespace MindWeaveServer.Utilities.Validators
                 .NotNull().WithErrorCode(MessageCodes.VALIDATION_DATE_REQUIRED)
                 .Must(beAValidAge).WithErrorCode(MessageCodes.VALIDATION_AGE_MINIMUM)
                 .Must(beARealisticAge).WithErrorCode(MessageCodes.VALIDATION_AGE_REALISTIC);
+
+            RuleForEach(x => x.SocialMedia).ChildRules(socialMedia =>
+            {
+                socialMedia.RuleFor(sm => sm.Username)
+                    .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_SOCIAL_USERNAME_REQUIRED)
+                    .MaximumLength(USERNAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_SOCIAL_USERNAME_LENGTH) 
+                    .Matches(USERNAME_VALIDATOR_REGEX).WithErrorCode(MessageCodes.VALIDATION_SOCIAL_USERNAME_INVALID);
+            });
         }
 
         private static bool notHaveLeadingOrTrailingWhitespace(string value)
@@ -50,5 +58,7 @@ namespace MindWeaveServer.Utilities.Validators
             if (!dateOfBirth.HasValue) return false;
             return dateOfBirth.Value.Year > (DateTime.UtcNow.Year - MAX_REALISTIC_AGE_YEARS);
         }
+
+
     }
 }
