@@ -238,7 +238,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             {
                 return directPath;
             }
-            return directPath;
+               return directPath;
         }
 
         public int? getPlayerIdInLobby(string lobbyCode, string username)

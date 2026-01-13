@@ -242,7 +242,7 @@ namespace MindWeaveServer.BusinessLogic
             bool isClosestToOwn = isClosestToOwnPosition(pieceId, newX, newY, distanceToOwnTarget);
 
             bool isCorrect = !pieceState.IsPlaced && isNearOwnTarget && isClosestToOwn;
-
+//TODO HACER ASYNC EL ELSE
             if (isCorrect)
             {
                 await handleCorrectPlacementAsync(player, pieceState);
@@ -640,6 +640,7 @@ namespace MindWeaveServer.BusinessLogic
             var (minutesPlayed, totalSeconds) = calculateDuration();
             var rankedPlayers = getRankedPlayers();
             var clientResults = new List<PlayerResultDto>();
+            
 
             try
             {

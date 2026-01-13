@@ -31,6 +31,7 @@ namespace MindWeaveServer.Services
         private readonly IPlayerRepository playerRepository;
         private readonly IServiceExceptionHandler exceptionHandler;
         private readonly IDisconnectionHandler disconnectionHandler;
+        private readonly INotificationService notificationService;
 
         private string currentUsername;
         private int? currentPlayerId;
@@ -48,6 +49,7 @@ namespace MindWeaveServer.Services
             this.playerRepository = Bootstrapper.Container.Resolve<IPlayerRepository>();
             this.exceptionHandler = Bootstrapper.Container.Resolve<IServiceExceptionHandler>();
             this.disconnectionHandler = Bootstrapper.Container.Resolve<IDisconnectionHandler>();
+            this.notificationService = Bootstrapper.Container.Resolve<INotificationService>();
 
             subscribeToChannelEvents();
         }
@@ -57,13 +59,15 @@ namespace MindWeaveServer.Services
             GameSessionManager gameSessionManager,
             IPlayerRepository playerRepository,
             IServiceExceptionHandler exceptionHandler,
-            IDisconnectionHandler disconnectionHandler)
+            IDisconnectionHandler disconnectionHandler,
+            INotificationService notificationService)
         {
             this.matchmakingLogic = matchmakingLogic;
             this.gameSessionManager = gameSessionManager;
             this.playerRepository = playerRepository;
             this.exceptionHandler = exceptionHandler;
             this.disconnectionHandler = disconnectionHandler;
+            this.notificationService = notificationService;
 
             subscribeToChannelEvents();
         }
@@ -598,14 +602,23 @@ namespace MindWeaveServer.Services
                     catch (EntityException ex)
                     {
                         logger.Error(ex, "RequestPieceDrop: Database error during piece drop.");
+                        trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_DATABASE));
                     }
                     catch (DbUpdateException ex)
                     {
                         logger.Error(ex, "RequestPieceDrop: Database update error during piece drop.");
+                        trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_DATABASE));
                     }
                     catch (CommunicationException ex)
                     {
                         logger.Warn(ex, "RequestPieceDrop: Communication error broadcasting.");
+                        trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_DATABASE));
+
+                    }
+                    catch (Exception ex) 
+                    {
+                        logger.Error(ex, "RequestPieceDrop: Unexpected error.");
+                        trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
                     }
                 });
             }
@@ -769,6 +782,7 @@ namespace MindWeaveServer.Services
             catch (CommunicationException ex)
             {
                 logger.Warn(ex, "CommunicationException sending callback.");
+
             }
             catch (TimeoutException ex)
             {
