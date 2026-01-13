@@ -12,6 +12,9 @@ using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data.Entity.Core;
+using System.Data.Entity.Infrastructure;
+using System.Data.SqlClient;
 using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
@@ -37,6 +40,7 @@ namespace MindWeaveServer.BusinessLogic
         private const string END_REASON_FORFEIT = "Forfeit";
         private const string END_REASON_PUZZLE_SOLVED = "PuzzleSolved";
         private const string END_REASON_TIMEOUT = "TimeOut";
+        private const string END_REASON_DB_ERROR = "PuzzleSolved_NoSave";
 
         private const string PENALTY_REASON_HOARDING = "HOARDING";
         private const string PENALTY_REASON_WRONG_SPOT = "WRONG_SPOT";
@@ -343,37 +347,50 @@ namespace MindWeaveServer.BusinessLogic
 
         public void broadcast(Action<IMatchmakingCallback> action)
         {
-            var players = Players.Values;
+            // Hacemos una copia de la lista para evitar problemas de concurrencia si alguien sale mientras iteramos
+            var playersList = Players.Values.ToList();
 
             if (action == null)
             {
                 return;
             }
 
-            foreach (var player in players)
+            foreach (var player in playersList)
             {
-                if (player?.Callback == null)
-                {
-                    continue;
-                }
+                if (player?.Callback == null) continue;
 
-                try
+                // CRUCIAL: Capturamos la variable para el closure del hilo
+                var targetPlayer = player;
+
+                // FIRE AND FORGET: Lanzamos un hilo independiente para cada jugador.
+                // El servidor NO espera a que esto termine para seguir con el siguiente jugador 
+                // ni para salir del método 'broadcast'.
+                Task.Run(() =>
                 {
-                    action(player.Callback);
-                }
-                catch (CommunicationException ex)
-                {
-                    logger.Warn(ex, "Failed to broadcast to {0}", player.Username);
-                }
-                catch (ObjectDisposedException ex)
-                {
-                    logger.Warn(ex, "Channel disposed for {0}", player.Username);
-                }
-                catch (TimeoutException ex)
-                {
-                    logger.Warn(ex, "Timeout broadcasting to {0}", player.Username);
-                }
+                    try
+                    {
+                        action(targetPlayer.Callback);
+                    }
+                    catch (CommunicationException ex)
+                    {
+                        // Usamos targetPlayer.Username que capturamos arriba
+                        logger.Warn("Failed to broadcast to {0}: {1}", targetPlayer.Username, ex.Message);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        logger.Warn("Channel disposed for {0}", targetPlayer.Username);
+                    }
+                    catch (TimeoutException)
+                    {
+                        logger.Warn("Timeout broadcasting to {0}", targetPlayer.Username);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Unexpected error broadcasting to {0}", targetPlayer.Username);
+                    }
+                });
             }
+            // El método termina INSTANTÁNEAMENTE aquí, sin esperar a nadie.
         }
 
         public int? getPlayerIdByUsername(string username)
@@ -573,8 +590,14 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.CurrentX = newX;
             pieceState.CurrentY = newY;
 
+
+            // 1. Broadcast Movimiento
             broadcast(callback => callback.onPieceMoved(pieceState.PieceId, newX, newY, player.Username));
+            logger.Info("DEBUG: Broadcast Movimiento disparado.");
+
+            // 2. Broadcast Soltar
             broadcast(callback => callback.onPieceDragReleased(pieceState.PieceId, player.Username));
+            logger.Info("DEBUG: Broadcast Soltar disparado.");
 
             bool isNearAnyTarget = isNearAnyPiecePosition(newX, newY);
 
@@ -583,6 +606,7 @@ namespace MindWeaveServer.BusinessLogic
                 return;
             }
 
+            // Actualización en memoria (Correcto)
             player.NegativeStreak++;
             int penaltyPoints = scoreCalculator.calculatePenaltyPoints(player.NegativeStreak);
             player.Score -= penaltyPoints;
@@ -591,9 +615,13 @@ namespace MindWeaveServer.BusinessLogic
             bool isNearOwnSpot = distanceToTarget < PENALTY_TOLERANCE;
             string reason = isNearOwnSpot ? PENALTY_REASON_MISS : PENALTY_REASON_WRONG_SPOT;
 
+            logger.Info("DEBUG: Iniciando secuencia de broadcasts para penalización de {0}", player.Username);
+
+            // 3. Broadcast Penalización (EL IMPORTANTE)
             broadcast(cb => cb.onPlayerPenalty(player.Username, penaltyPoints, player.Score, reason));
+            logger.Info("DEBUG: Broadcast Penalización disparado. Fin del método.");
         }
-        
+
         private bool isNearAnyPiecePosition(double x, double y)
         {
             foreach (var state in PieceStates.Values)
@@ -640,7 +668,7 @@ namespace MindWeaveServer.BusinessLogic
             var (minutesPlayed, totalSeconds) = calculateDuration();
             var rankedPlayers = getRankedPlayers();
             var clientResults = new List<PlayerResultDto>();
-            
+            string finalReason = reason;
 
             try
             {
@@ -661,13 +689,60 @@ namespace MindWeaveServer.BusinessLogic
 
                 await matchmakingRepository.finishMatchAsync(MatchId);
             }
+            catch (EntityException ex)
+            {
+                clientResults = finalizeGameWithoutDb(ex, rankedPlayers, ref finalReason);
+            }
+            catch (SqlException ex)
+            {
+                clientResults = finalizeGameWithoutDb(ex, rankedPlayers, ref finalReason);
+            }
+            catch (DbUpdateException ex)
+            {
+                clientResults = finalizeGameWithoutDb(ex, rankedPlayers, ref finalReason);
+            }
+            catch (TimeoutException ex)
+            {
+                clientResults = finalizeGameWithoutDb(ex, rankedPlayers, ref finalReason);
+            }
             catch (InvalidOperationException ex)
             {
                 logger.Error(ex, "Error during endGame execution for Lobby {0}", LobbyCode);
             }
 
-            broadcastGameEnd(reason, totalSeconds, clientResults);
+            broadcastGameEnd(finalReason, totalSeconds, clientResults);
             onSessionEndedCleanup?.Invoke(LobbyCode);
+        }
+
+        private List<PlayerResultDto> finalizeGameWithoutDb(
+            Exception ex,
+            List<PlayerSessionData> rankedPlayers,
+            ref string finalReason)
+        {
+            logger.Error(ex, "Critical DB error saving game results for Lobby {0}. Returning in-memory results.", LobbyCode);
+
+            finalReason = END_REASON_DB_ERROR;
+
+            var fallbackResults = new List<PlayerResultDto>();
+            int rank = 1;
+
+            foreach (var player in rankedPlayers)
+            {
+                fallbackResults.Add(new PlayerResultDto
+                {
+                    PlayerId = player.PlayerId,
+                    Username = player.Username,
+                    AvatarPath = player.AvatarPath,
+                    Score = player.Score,
+                    PiecesPlaced = player.PiecesPlaced,
+                    Rank = rank,
+                    IsWinner = rank == 1,
+                    UnlockedAchievementIds = new List<int>()
+                });
+                rank++;
+            }
+
+            return fallbackResults;
         }
 
         private bool trySetGameEnded()
