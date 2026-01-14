@@ -39,11 +39,14 @@ namespace MindWeaveServer.BusinessLogic.Services
         private const int DEFAULT_DIFFICULTY_ID = 1;
         private const int MAX_GUEST_NAME_COUNTER = 99;
         private const int MAX_GUEST_USERNAME_LENGTH = 16;
+        private const int MAX_LOBBY_PLAYERS = 4;
+        private const string DEFAULT_PUZZLE_PREFIX = "puzzleDefault";
+        private const string UPLOADED_PUZZLES_FOLDER = "UploadedPuzzles";
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Major Code Smell",
         "S107:Methods should not have too many parameters",
         Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
-
         public LobbyLifecycleService(
             IGameStateManager gameStateManager,
             ILobbyValidationService validationService,
@@ -86,9 +89,9 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
 
             moderationManager.initializeLobby(newMatch.lobby_code);
-            var (puzzleBytes, puzzlePath) = await resolvePuzzleResourcesAsync(newMatch.puzzle_id, settings.CustomPuzzleImage);
+            var puzzleResource = await resolvePuzzleResourcesAsync(newMatch.puzzle_id, settings.CustomPuzzleImage);
 
-            settings.CustomPuzzleImage = puzzleBytes;
+            settings.CustomPuzzleImage = puzzleResource.Bytes;
 
             var lobbyState = new LobbyStateDto
             {
@@ -96,7 +99,7 @@ namespace MindWeaveServer.BusinessLogic.Services
                 HostUsername = hostUsername,
                 Players = new List<string> { hostUsername },
                 CurrentSettingsDto = settings,
-                PuzzleImagePath = puzzlePath
+                PuzzleImagePath = puzzleResource.Path
             };
 
             if (gameStateManager.ActiveLobbies.TryAdd(newMatch.lobby_code, lobbyState))
@@ -158,14 +161,17 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         public async Task<GuestJoinResultDto> joinLobbyAsGuestAsync(GuestJoinRequestDto request, IMatchmakingCallback callback)
         {
-            var (isValid, invitation, lobby, error) = await validateGuestJoinAsync(request);
-            if (!isValid) return error;
+            var validationResult = await validateGuestJoinAsync(request);
+            if (!validationResult.IsValid)
+            {
+                return validationResult.Error;
+            }
 
             string finalGuestUsername;
 
-            lock (lobby)
+            lock (validationResult.Lobby)
             {
-                if (lobby.Players.Count >= 4)
+                if (validationResult.Lobby.Players.Count >= MAX_LOBBY_PLAYERS)
                 {
                     return new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_FULL };
                 }
@@ -176,27 +182,26 @@ namespace MindWeaveServer.BusinessLogic.Services
                     return new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_GUEST_NAME_GENERATION_FAILED };
                 }
 
-                lobby.Players.Add(finalGuestUsername);
+                validationResult.Lobby.Players.Add(finalGuestUsername);
 
                 var guests = gameStateManager.GuestUsernamesInLobby.GetOrAdd(request.LobbyCode, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
                 guests.Add(finalGuestUsername);
             }
 
             registerMatchmakingCallback(finalGuestUsername, callback);
-            await markInvitationUsedAsync(invitation);
+            await markInvitationUsedAsync(validationResult.Invitation);
 
-            notificationService.broadcastLobbyState(lobby);
+            notificationService.broadcastLobbyState(validationResult.Lobby);
 
             return new GuestJoinResultDto
             {
                 Success = true,
                 MessageCode = MessageCodes.MATCH_GUEST_JOIN_SUCCESS,
                 AssignedGuestUsername = finalGuestUsername,
-                InitialLobbyState = lobby,
+                InitialLobbyState = validationResult.Lobby,
                 PlayerId = -Math.Abs(finalGuestUsername.GetHashCode())
             };
         }
-
 
         public async Task leaveLobbyAsync(LobbyActionContext context)
         {
@@ -240,44 +245,46 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             removeMatchmakingCallback(context.RequesterUsername);
 
-            try
-            {
-                await SyncDbOnLeaveAsync(context.LobbyCode, context.RequesterUsername, wasGuest, isLobbyClosed);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error syncing DB on leave lobby for user {0}", context.RequesterUsername);
-            }
+            await syncDbOnLeaveAsync(context.LobbyCode, context.RequesterUsername, wasGuest, isLobbyClosed);
         }
+
         private void notifyOthersPlayerLeft(LobbyStateDto lobby, string usernameLeft)
         {
             foreach (var player in lobby.Players)
             {
-                if (gameStateManager.MatchmakingCallbacks.TryGetValue(player, out var callback))
+                if (!gameStateManager.MatchmakingCallbacks.TryGetValue(player, out var callback))
                 {
-                    try
-                    {
-                        callback.onPlayerLeftMatch(usernameLeft);
-                    }
-                    catch (CommunicationException ex)
-                    {
-                        logger.Warn(ex, "Failed to notify {0} that {1} left.", player, usernameLeft);
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        //ignored
-                    }
-                    catch (TimeoutException)
-                    {
-                        //ignored
-                    }
+                    continue;
                 }
+
+                notifyPlayerLeftSafe(callback, usernameLeft);
+            }
+        }
+
+        private void notifyPlayerLeftSafe(IMatchmakingCallback callback, string usernameLeft)
+        {
+            try
+            {
+                callback.onPlayerLeftMatch(usernameLeft);
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "Failed to notify player about departure from lobby");
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (TimeoutException)
+            {
             }
         }
 
         public void handleUserDisconnect(string username)
         {
-            if (string.IsNullOrWhiteSpace(username)) return;
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return;
+            }
 
             var lobbiesToLeave = gameStateManager.ActiveLobbies
                 .Where(kvp =>
@@ -301,28 +308,41 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 string code = LobbyCodeGenerator.generateUniqueCode();
                 if (gameStateManager.ActiveLobbies.ContainsKey(code) || await matchmakingRepository.doesLobbyCodeExistAsync(code))
-                    continue;
-                var match = new Matches
                 {
-                    creation_time = DateTime.UtcNow,
-                    match_status_id = MATCH_STATUS_WAITING,
-                    puzzle_id = settings.PreloadedPuzzleId ?? DEFAULT_PUZZLE_ID,
-                    difficulty_id = settings.DifficultyId > 0 ? settings.DifficultyId : DEFAULT_DIFFICULTY_ID,
-                    lobby_code = code
-                };
+                    continue;
+                }
+
+                var match = buildNewMatch(code, settings);
+
                 try
                 {
                     var created = await matchmakingRepository.createMatchAsync(match);
                     await matchmakingRepository.addParticipantAsync(new MatchParticipants
-                        { match_id = created.matches_id, player_id = host.idPlayer, is_host = true });
+                    {
+                        match_id = created.matches_id,
+                        player_id = host.idPlayer,
+                        is_host = true
+                    });
                     return created;
                 }
                 catch (DbUpdateException ex)
                 {
-                    logger.Warn(ex, "Lobby code collision detected for {0}. Retrying.", code);
+                    logger.Warn(ex, "Lobby code collision detected for code {LobbyCode}. Retrying.", code);
                 }
             }
             return null;
+        }
+
+        private Matches buildNewMatch(string code, LobbySettingsDto settings)
+        {
+            return new Matches
+            {
+                creation_time = DateTime.UtcNow,
+                match_status_id = MATCH_STATUS_WAITING,
+                puzzle_id = settings.PreloadedPuzzleId ?? DEFAULT_PUZZLE_ID,
+                difficulty_id = settings.DifficultyId > 0 ? settings.DifficultyId : DEFAULT_DIFFICULTY_ID,
+                lobby_code = code
+            };
         }
 
         private void handleJoinFailure(LobbyStateDto lobby, string username)
@@ -331,22 +351,34 @@ namespace MindWeaveServer.BusinessLogic.Services
             notificationService.notifyLobbyCreationFailed(username, MessageCodes.MATCH_JOIN_ERROR_DATA);
         }
 
-        private async Task<(byte[] bytes, string path)> resolvePuzzleResourcesAsync(int puzzleId, byte[] customBytes)
+        private async Task<PuzzleResourceResult> resolvePuzzleResourcesAsync(int puzzleId, byte[] customBytes)
         {
-            if (customBytes != null && customBytes.Length > 0) return (customBytes, null);
+            if (customBytes != null && customBytes.Length > 0)
+            {
+                return new PuzzleResourceResult { Bytes = customBytes, Path = null };
+            }
 
             var puzzle = await puzzleRepository.getPuzzleByIdAsync(puzzleId);
             string path = puzzle?.image_path ?? "puzzleDefault.png";
 
-            if (!path.StartsWith("puzzleDefault"))
+            if (path.StartsWith(DEFAULT_PUZZLE_PREFIX))
             {
-                string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "UploadedPuzzles", path);
-                if (File.Exists(fullPath))
-                {
-                    return (File.ReadAllBytes(fullPath), path);
-                }
+                return new PuzzleResourceResult { Bytes = null, Path = path };
             }
-            return (null, path);
+
+            return loadPuzzleFromFile(path);
+        }
+
+        private PuzzleResourceResult loadPuzzleFromFile(string path)
+        {
+            string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, UPLOADED_PUZZLES_FOLDER, path);
+
+            if (File.Exists(fullPath))
+            {
+                return new PuzzleResourceResult { Bytes = File.ReadAllBytes(fullPath), Path = path };
+            }
+
+            return new PuzzleResourceResult { Bytes = null, Path = path };
         }
 
         private async Task tryAddParticipantToDbAsync(string lobbyCode, string username)
@@ -354,34 +386,52 @@ namespace MindWeaveServer.BusinessLogic.Services
             var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
             var player = await playerRepository.getPlayerByUsernameAsync(username);
 
-            if (match != null && player != null && match.match_status_id == MATCH_STATUS_WAITING)
+            if (match == null || player == null || match.match_status_id != MATCH_STATUS_WAITING)
             {
-                var exists = await matchmakingRepository.getParticipantAsync(match.matches_id, player.idPlayer);
-                if (exists == null)
-                {
-                    await matchmakingRepository.addParticipantAsync(new MatchParticipants
-                    {
-                        match_id = match.matches_id,
-                        player_id = player.idPlayer,
-                        is_host = false
-                    });
-                }
+                return;
+            }
+
+            var exists = await matchmakingRepository.getParticipantAsync(match.matches_id, player.idPlayer);
+            if (exists != null)
+            {
+                return;
+            }
+
+            await matchmakingRepository.addParticipantAsync(new MatchParticipants
+            {
+                match_id = match.matches_id,
+                player_id = player.idPlayer,
+                is_host = false
+            });
+        }
+
+        private async Task syncDbOnLeaveAsync(string lobbyCode, string requesterUsername, bool wasGuest, bool isLobbyClosed)
+        {
+            try
+            {
+                await executeSyncDbOnLeaveAsync(lobbyCode, requesterUsername, wasGuest, isLobbyClosed);
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.Error(ex, "Database update error syncing leave lobby for lobby {LobbyCode}", lobbyCode);
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Error(ex, "Invalid operation error syncing leave lobby for lobby {LobbyCode}", lobbyCode);
             }
         }
 
-        private async Task SyncDbOnLeaveAsync(string lobbyCode, string username, bool wasGuest, bool isLobbyClosed)
+        private async Task executeSyncDbOnLeaveAsync(string lobbyCode, string requesterUsername, bool wasGuest, bool isLobbyClosed)
         {
             var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
-            if (match == null) return;
+            if (match == null)
+            {
+                return;
+            }
 
             if (!wasGuest)
             {
-                var player = await playerRepository.getPlayerByUsernameAsync(username);
-                if (player != null)
-                {
-                    var participant = await matchmakingRepository.getParticipantAsync(match.matches_id, player.idPlayer);
-                    if (participant != null) await matchmakingRepository.removeParticipantAsync(participant);
-                }
+                await removeParticipantFromMatchAsync(match.matches_id, requesterUsername);
             }
 
             if (isLobbyClosed && match.match_status_id == MATCH_STATUS_WAITING)
@@ -390,31 +440,61 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
+        private async Task removeParticipantFromMatchAsync(int matchId, string username)
+        {
+            var player = await playerRepository.getPlayerByUsernameAsync(username);
+            if (player == null)
+            {
+                return;
+            }
+
+            var participant = await matchmakingRepository.getParticipantAsync(matchId, player.idPlayer);
+            if (participant != null)
+            {
+                await matchmakingRepository.removeParticipantAsync(participant);
+            }
+        }
+
         private void closeLobby(string lobbyCode, List<string> playersToKick)
         {
             gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
             gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
-            if (playersToKick != null)
+
+            if (playersToKick == null)
             {
-                foreach (var p in playersToKick)
-                {
-                    if (gameStateManager.MatchmakingCallbacks.TryGetValue(p, out var callback))
-                    {
-                        try
-                        {
-                            callback.lobbyDestroyed(MessageCodes.NOTIFY_HOST_LEFT);
-                        }
-                        catch (CommunicationException ex)
-                        {
-                            logger.Warn(ex, "Failed to notify {0} about lobby destruction.", p);
-                        }
-                        catch (Exception)
-                        {
-                            // ignored
-                        }
-                    }
-                    removeMatchmakingCallback(p);
-                }
+                return;
+            }
+
+            foreach (var p in playersToKick)
+            {
+                notifyAndRemovePlayer(p);
+            }
+        }
+
+        private void notifyAndRemovePlayer(string player)
+        {
+            if (gameStateManager.MatchmakingCallbacks.TryGetValue(player, out var callback))
+            {
+                notifyLobbyDestroyedSafe(callback);
+            }
+            removeMatchmakingCallback(player);
+        }
+
+        private void notifyLobbyDestroyedSafe(IMatchmakingCallback callback)
+        {
+            try
+            {
+                callback.lobbyDestroyed(MessageCodes.NOTIFY_HOST_LEFT);
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "Failed to notify player about lobby destruction");
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            catch (TimeoutException)
+            {
             }
         }
 
@@ -430,56 +510,106 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private async Task<(bool valid, GuestInvitations inv, LobbyStateDto lobby, GuestJoinResultDto error)> validateGuestJoinAsync(GuestJoinRequestDto req)
+        private async Task<GuestJoinValidationResult> validateGuestJoinAsync(GuestJoinRequestDto req)
         {
-            if (req == null || string.IsNullOrWhiteSpace(req.LobbyCode) || string.IsNullOrWhiteSpace(req.GuestEmail))
+            if (isInvalidGuestRequest(req))
             {
-                return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED });
+                return new GuestJoinValidationResult
+                {
+                    IsValid = false,
+                    Error = new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED }
+                };
             }
 
             if (!gameStateManager.ActiveLobbies.TryGetValue(req.LobbyCode, out var lobby))
             {
-                return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND });
+                return new GuestJoinValidationResult
+                {
+                    IsValid = false,
+                    Error = new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND }
+                };
             }
 
             var match = await matchmakingRepository.getMatchByLobbyCodeAsync(req.LobbyCode);
 
             if (match == null || match.match_status_id != MATCH_STATUS_WAITING)
-                return (false, null, null, new GuestJoinResultDto
+            {
+                return new GuestJoinValidationResult
                 {
-                    Success = false,
-                    MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND,
-                    MessageParams = new[] { req.LobbyCode }
-                });
+                    IsValid = false,
+                    Error = new GuestJoinResultDto
+                    {
+                        Success = false,
+                        MessageCode = MessageCodes.MATCH_LOBBY_NOT_FOUND,
+                        MessageParams = new[] { req.LobbyCode }
+                    }
+                };
+            }
 
             var invitation = await invitationRepository.findValidInvitationAsync(match.matches_id, req.GuestEmail.Trim().ToLowerInvariant());
             if (invitation == null)
             {
-                return (false, null, null, new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_GUEST_INVITE_INVALID });
+                return new GuestJoinValidationResult
+                {
+                    IsValid = false,
+                    Error = new GuestJoinResultDto { Success = false, MessageCode = MessageCodes.MATCH_GUEST_INVITE_INVALID }
+                };
             }
-            return (true, invitation, lobby, null);
+
+            return new GuestJoinValidationResult
+            {
+                IsValid = true,
+                Invitation = invitation,
+                Lobby = lobby,
+                Error = null
+            };
+        }
+
+        private bool isInvalidGuestRequest(GuestJoinRequestDto req)
+        {
+            return req == null || string.IsNullOrWhiteSpace(req.LobbyCode) || string.IsNullOrWhiteSpace(req.GuestEmail);
         }
 
         private string generateUniqueGuestName(string lobbyCode, string baseName)
         {
             var guests = gameStateManager.GuestUsernamesInLobby.GetOrAdd(lobbyCode, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
             string name = baseName.Trim();
-            if (name.Length > MAX_GUEST_USERNAME_LENGTH) name = name.Substring(0, MAX_GUEST_USERNAME_LENGTH);
+            if (name.Length > MAX_GUEST_USERNAME_LENGTH)
+            {
+                name = name.Substring(0, MAX_GUEST_USERNAME_LENGTH);
+            }
 
             gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var lobby);
             var allPlayers = lobby?.Players ?? new List<string>();
 
+            return findAvailableGuestName(name, guests, allPlayers);
+        }
+
+        private string findAvailableGuestName(string name, HashSet<string> guests, List<string> allPlayers)
+        {
             int counter = 1;
             string candidate = name;
-            while ((guests.Contains(candidate) || allPlayers.Contains(candidate, StringComparer.OrdinalIgnoreCase)) && counter <= MAX_GUEST_NAME_COUNTER)
+
+            while (isNameTaken(candidate, guests, allPlayers) && counter <= MAX_GUEST_NAME_COUNTER)
             {
-                string suffix = counter.ToString();
-                int availLen = MAX_GUEST_USERNAME_LENGTH - suffix.Length;
-                candidate = (name.Length > availLen ? name.Substring(0, availLen) : name) + suffix;
+                candidate = buildCandidateName(name, counter);
                 counter++;
             }
 
             return counter > MAX_GUEST_NAME_COUNTER ? null : candidate;
+        }
+
+        private bool isNameTaken(string candidate, HashSet<string> guests, List<string> allPlayers)
+        {
+            return guests.Contains(candidate) || allPlayers.Contains(candidate, StringComparer.OrdinalIgnoreCase);
+        }
+
+        private string buildCandidateName(string name, int counter)
+        {
+            string suffix = counter.ToString();
+            int availLen = MAX_GUEST_USERNAME_LENGTH - suffix.Length;
+            string truncatedName = name.Length > availLen ? name.Substring(0, availLen) : name;
+            return truncatedName + suffix;
         }
 
         private async Task markInvitationUsedAsync(GuestInvitations inv)
@@ -494,10 +624,15 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private void removeGuestTracking(string lobbyCode, string username)
         {
-            if (gameStateManager.GuestUsernamesInLobby.TryGetValue(lobbyCode, out var guests))
+            if (!gameStateManager.GuestUsernamesInLobby.TryGetValue(lobbyCode, out var guests))
             {
-                guests.Remove(username);
-                if (guests.Count == 0) gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
+                return;
+            }
+
+            guests.Remove(username);
+            if (guests.Count == 0)
+            {
+                gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
             }
         }
 
@@ -510,5 +645,19 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             gameStateManager.MatchmakingCallbacks.TryRemove(username, out _);
         }
+    }
+
+    public class PuzzleResourceResult
+    {
+        public byte[] Bytes { get; set; }
+        public string Path { get; set; }
+    }
+
+    public class GuestJoinValidationResult
+    {
+        public bool IsValid { get; set; }
+        public GuestInvitations Invitation { get; set; }
+        public LobbyStateDto Lobby { get; set; }
+        public GuestJoinResultDto Error { get; set; }
     }
 }

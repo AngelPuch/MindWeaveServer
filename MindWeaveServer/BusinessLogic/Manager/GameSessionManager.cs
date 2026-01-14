@@ -6,7 +6,6 @@ using MindWeaveServer.DataAccess.Abstractions;
 using NLog;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,13 +22,17 @@ namespace MindWeaveServer.BusinessLogic.Manager
         private readonly IPuzzleRepository puzzleRepository;
         private readonly StatsLogic statsLogic;
         private readonly IScoreCalculator scoreCalculator;
+
         private const string DEFAULT_PUZZLES_FOLDER_NAME = "DefaultPuzzles";
+        private const string UPLOADED_PUZZLES_FOLDER_NAME = "UploadedPuzzles";
+        private const string RESOURCES_FOLDER_NAME = "Resources";
+        private const string IMAGES_FOLDER_NAME = "Images";
+        private const string PUZZLES_FOLDER_NAME = "Puzzles";
 
         public GameSessionManager(
             IPuzzleRepository puzzleRepository,
             IMatchmakingRepository matchmakingRepository,
             StatsLogic statsLogic,
-            PuzzleGenerator puzzleGenerator,
             IScoreCalculator scoreCalculator)
         {
             this.puzzleRepository = puzzleRepository;
@@ -81,7 +84,10 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
         public bool isPlayerInAnySession(string username)
         {
-            if (string.IsNullOrWhiteSpace(username)) return false;
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return false;
+            }
 
             return activeSessions.Values.Any(session =>
                 session.Players.Values.Any(p => p.Username.Equals(username, StringComparison.OrdinalIgnoreCase)));
@@ -161,15 +167,15 @@ namespace MindWeaveServer.BusinessLogic.Manager
                     continue;
                 }
 
-                logger.Info("Handling disconnect for {Username} in GameSession {LobbyId}",
-                    username, session.LobbyCode);
+                logger.Info("Handling disconnect for player {PlayerId} in GameSession {LobbyId}",
+                    playerId, session.LobbyCode);
 
                 session.releaseHeldPieces(playerId);
 
                 if (!session.Players.Any() && activeSessions.TryRemove(session.LobbyCode, out var removedSession))
                 {
                     removedSession.Dispose();
-                    logger.Info("Removed AND DISPOSED empty GameSession {LobbyId} from session manager.", session.LobbyCode);
+                    logger.Info("Removed and disposed empty GameSession {LobbyId} from session manager.", session.LobbyCode);
                 }
 
                 break;
@@ -204,7 +210,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
             if (string.IsNullOrEmpty(fullPath) || !File.Exists(fullPath))
             {
-                logger.Error("FATAL: Could not find puzzle image file. Requested: '{0}'. Resolves to: '{1}'", imagePath, fullPath);
+                logger.Error("FATAL: Could not find puzzle image file. Requested: '{ImagePath}'. Resolves to: '{FullPath}'", imagePath, fullPath);
 
                 throw new FileNotFoundException($"Puzzle image not found: {imagePath}", fullPath);
             }
@@ -221,24 +227,21 @@ namespace MindWeaveServer.BusinessLogic.Manager
             {
                 return defaultPuzzlePath;
             }
-            string uploadedPath = Path.Combine(basePath, "UploadedPuzzles", imagePath);
+
+            string uploadedPath = Path.Combine(basePath, UPLOADED_PUZZLES_FOLDER_NAME, imagePath);
             if (File.Exists(uploadedPath))
             {
                 return uploadedPath;
             }
 
-            string resourcesPath = Path.Combine(basePath, "Resources", "Images", "Puzzles", imagePath);
+            string resourcesPath = Path.Combine(basePath, RESOURCES_FOLDER_NAME, IMAGES_FOLDER_NAME, PUZZLES_FOLDER_NAME, imagePath);
             if (File.Exists(resourcesPath))
             {
                 return resourcesPath;
             }
 
             string directPath = Path.Combine(basePath, imagePath);
-            if (File.Exists(directPath))
-            {
-                return directPath;
-            }
-               return directPath;
+            return directPath;
         }
 
         public int? getPlayerIdInLobby(string lobbyCode, string username)
@@ -282,10 +285,6 @@ namespace MindWeaveServer.BusinessLogic.Manager
             }
 
             return null;
-        }
-        public IReadOnlyCollection<string> getActiveSessionCodes()
-        {
-            return activeSessions.Keys.ToList().AsReadOnly();
         }
     }
 }

@@ -31,6 +31,8 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
         private readonly StatsLogic statsLogic;
         private readonly string tempPuzzlePath;
 
+        private const int BROADCAST_DELAY_MS = 100;
+
         public GameSessionManagerTests()
         {
             puzzleRepositoryMock = new Mock<IPuzzleRepository>();
@@ -50,7 +52,6 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
                 puzzleRepositoryMock.Object,
                 matchmakingRepositoryMock.Object,
                 statsLogic,
-                puzzleGenerator,
                 scoreCalculatorMock.Object);
 
             tempPuzzlePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "puzzleDefaultTest.png");
@@ -168,6 +169,8 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
             double nearMissY = pieceState.FinalY;
 
             await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, nearMissX, nearMissY);
+
+            await Task.Delay(BROADCAST_DELAY_MS);
 
             callbackMock.Verify(x => x.onPlayerPenalty("Player1", 5, It.IsAny<int>(), It.IsAny<string>()), Times.Once);
         }

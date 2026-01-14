@@ -181,16 +181,20 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             const string lobbyCode = "CODE";
             const string username = "User";
-            string tooLongMessage = new string('a', 501);
+            string tooLongMessage = new string('z', 205);
 
             var callbackMock = CreateMockCallback();
-            var lobbyState = new LobbyStateDto { LobbyId = lobbyCode, HostUsername = username, Players = new List<string> { username } };
+            var lobbyState = new LobbyStateDto
+            {
+                LobbyId = lobbyCode,
+                HostUsername = username,
+                Players = new List<string> { username }
+            };
 
             activeLobbyMock.TryAdd(lobbyCode, lobbyState);
             lobbyChatUsersMock.TryAdd(lobbyCode, new ConcurrentDictionary<string, IChatCallback>());
             lobbyChatUsersMock[lobbyCode].TryAdd(username, callbackMock.Object);
             lobbyChatHistoryMock.TryAdd(lobbyCode, new List<ChatMessageDto>());
-
             lobbyModerationManager.initializeLobby(lobbyCode);
 
             await chatLogic.processAndBroadcastMessageAsync(username, lobbyCode, tooLongMessage);

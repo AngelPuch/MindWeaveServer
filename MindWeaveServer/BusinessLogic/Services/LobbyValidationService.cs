@@ -3,8 +3,6 @@ using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Models;
 using MindWeaveServer.Contracts.DataContracts.Matchmaking;
 using MindWeaveServer.Contracts.DataContracts.Shared; 
-using MindWeaveServer.Resources;
-using NLog;
 using System;
 using System.Linq;
 
@@ -185,7 +183,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                 if (currentLobbyId != null && lobby.LobbyId == currentLobbyId) continue;
 
-                bool inLobby = false;
+                bool inLobby;
                 lock (lobby)
                 {
                     inLobby = lobby.Players.Contains(username, StringComparer.OrdinalIgnoreCase);

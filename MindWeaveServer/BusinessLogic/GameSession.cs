@@ -26,16 +26,20 @@ namespace MindWeaveServer.BusinessLogic
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private readonly object sessionLock = new object();
+
         private const double SNAP_TOLERANCE = 30.0;
         private const double PENALTY_TOLERANCE = 60.0;
         private const int HOARDING_LIMIT_SECONDS = 10;
         private const int PENALTY_HOARDING = 15;
         private const int DEFAULT_MATCH_DURATION_SECONDS = 300;
-
         private const int MILLISECONDS_PER_SECOND = 1000;
         private const int MIN_PLAYERS_TO_CONTINUE = 2;
         private const int MIN_PLAYTIME_MINUTES = 1;
         private const int KICK_REASON_PROFANITY_ID = 2;
+        private const int HOARDING_TIMER_INTERVAL_MS = 1000;
+        private const int SINGLE_PLAYER_COUNT = 1;
+        private const int MINIMUM_VALID_PLAYER_ID = 0;
+        private const int INITIAL_RANK = 1;
 
         private const string END_REASON_FORFEIT = "Forfeit";
         private const string END_REASON_PUZZLE_SOLVED = "PuzzleSolved";
@@ -59,13 +63,14 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IPuzzleRepository puzzleRepository;
         private readonly Action<string> onSessionEndedCleanup;
         private readonly IScoreCalculator scoreCalculator;
-        
+
         private readonly Timer hoardingTimer;
         private Timer gameDurationTimer;
         private bool isGameEnded;
         private bool isFirstBloodClaimed;
         private bool isDisposed;
         private readonly object endGameLock = new object();
+
         [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Major Code Smell",
         "S107:Methods should not have too many parameters",
@@ -95,7 +100,7 @@ namespace MindWeaveServer.BusinessLogic
 
             initializePieceStates();
 
-            hoardingTimer = new Timer(1000);
+            hoardingTimer = new Timer(HOARDING_TIMER_INTERVAL_MS);
             hoardingTimer.Elapsed += checkHoarding;
             hoardingTimer.AutoReset = true;
             hoardingTimer.Start();
@@ -160,7 +165,10 @@ namespace MindWeaveServer.BusinessLogic
 
         public void handlePieceDrag(int playerId, int pieceId)
         {
-            if (isGameEnded) return;
+            if (isGameEnded)
+            {
+                return;
+            }
 
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
@@ -198,7 +206,10 @@ namespace MindWeaveServer.BusinessLogic
 
         public void handlePieceMove(int playerId, int pieceId, double newX, double newY)
         {
-            if (isGameEnded) return;
+            if (isGameEnded)
+            {
+                return;
+            }
 
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
@@ -221,7 +232,10 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task handlePieceDrop(int playerId, int pieceId, double newX, double newY)
         {
-            if (isGameEnded) return;
+            if (isGameEnded)
+            {
+                return;
+            }
 
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
@@ -260,7 +274,10 @@ namespace MindWeaveServer.BusinessLogic
         {
             foreach (var otherState in PieceStates.Values)
             {
-                if (otherState.PieceId == pieceId) continue;
+                if (otherState.PieceId == pieceId)
+                {
+                    continue;
+                }
 
                 double distanceToOther = calculateDistance(dropX, dropY, otherState.FinalX, otherState.FinalY);
 
@@ -274,7 +291,10 @@ namespace MindWeaveServer.BusinessLogic
 
         public void handlePieceRelease(int playerId, int pieceId)
         {
-            if (isGameEnded) return;
+            if (isGameEnded)
+            {
+                return;
+            }
 
             if (!PieceStates.TryGetValue(pieceId, out var pieceState))
             {
@@ -304,26 +324,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (Players.TryGetValue(playerId, out var playerSession))
             {
-                try
-                {
-                    string kickMessageCode = reasonId == KICK_REASON_PROFANITY_ID
-                        ? MessageCodes.NOTIFY_KICKED_PROFANITY
-                        : MessageCodes.NOTIFY_KICKED_BY_HOST;
-
-                    playerSession.Callback?.kickedFromLobby(kickMessageCode);
-                }
-                catch (CommunicationException ex)
-                {
-                    logger.Warn(ex, "Could not notify player {0} of kick", playerSession.Username);
-                }
-                catch (ObjectDisposedException ex)
-                {
-                    logger.Warn(ex, "Channel disposed for player {0}", playerSession.Username);
-                }
-                catch (TimeoutException ex)
-                {
-                    logger.Warn(ex, "Timeout notifying player {0} of kick", playerSession.Username);
-                }
+                notifyPlayerOfKick(playerSession, reasonId);
             }
 
             var expulsionDto = new ExpulsionDto
@@ -337,6 +338,30 @@ namespace MindWeaveServer.BusinessLogic
             await matchmakingRepository.registerExpulsionAsync(expulsionDto);
 
             removePlayer(playerId);
+        }
+
+        private void notifyPlayerOfKick(PlayerSessionData playerSession, int reasonId)
+        {
+            try
+            {
+                string kickMessageCode = reasonId == KICK_REASON_PROFANITY_ID
+                    ? MessageCodes.NOTIFY_KICKED_PROFANITY
+                    : MessageCodes.NOTIFY_KICKED_BY_HOST;
+
+                playerSession.Callback?.kickedFromLobby(kickMessageCode);
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "Could not notify player {PlayerId} of kick", playerSession.PlayerId);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                logger.Warn(ex, "Channel disposed for player {PlayerId}", playerSession.PlayerId);
+            }
+            catch (TimeoutException ex)
+            {
+                logger.Warn(ex, "Timeout notifying player {PlayerId} of kick", playerSession.PlayerId);
+            }
         }
 
         public bool isPuzzleComplete()
@@ -355,33 +380,38 @@ namespace MindWeaveServer.BusinessLogic
 
             foreach (var player in playersList)
             {
-                if (player?.Callback == null) continue;
+                if (player?.Callback == null)
+                {
+                    continue;
+                }
+
                 var targetPlayer = player;
 
-          
-                Task.Run(() =>
-                {
-                    try
-                    {
-                        action(targetPlayer.Callback);
-                    }
-                    catch (CommunicationException ex)
-                    {
-                        logger.Warn("Failed to broadcast to {0}: {1}", targetPlayer.Username, ex.Message);
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                        logger.Warn("Channel disposed for {0}", targetPlayer.Username);
-                    }
-                    catch (TimeoutException)
-                    {
-                        logger.Warn("Timeout broadcasting to {0}", targetPlayer.Username);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Unexpected error broadcasting to {0}", targetPlayer.Username);
-                    }
-                });
+                Task.Run(() => executeBroadcastSafe(targetPlayer, action));
+            }
+        }
+
+        private void executeBroadcastSafe(PlayerSessionData targetPlayer, Action<IMatchmakingCallback> action)
+        {
+            try
+            {
+                action(targetPlayer.Callback);
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Warn(ex, "Failed to broadcast to player {PlayerId}", targetPlayer.PlayerId);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                logger.Debug(ex, "Channel disposed for player {PlayerId} during broadcast", targetPlayer.PlayerId);
+            }
+            catch (TimeoutException ex)
+            {
+                logger.Warn(ex, "Timeout broadcasting to player {PlayerId}", targetPlayer.PlayerId);
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Error(ex, "Invalid operation broadcasting to player {PlayerId}", targetPlayer.PlayerId);
             }
         }
 
@@ -407,7 +437,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (playerEntry.Value == null)
             {
-                logger.Warn("Player {Username} not found in session {LobbyCode} during leave request.", username, LobbyCode);
+                logger.Warn("Player not found in session {LobbyCode} during leave request.", LobbyCode);
                 return;
             }
 
@@ -425,22 +455,30 @@ namespace MindWeaveServer.BusinessLogic
 
             if (Players.Count < MIN_PLAYERS_TO_CONTINUE)
             {
-                if (Players.Count == 1)
-                {
-                    await endGameAsync(END_REASON_FORFEIT);
-                }
-                else
-                {
-                    logger.Info("All players left Lobby {LobbyCode}. Disposing session.", LobbyCode);
-                    stopTimers();
-                    onSessionEndedCleanup?.Invoke(LobbyCode);
-                }
+                await handleInsufficientPlayersAsync();
+            }
+        }
+
+        private async Task handleInsufficientPlayersAsync()
+        {
+            if (Players.Count == SINGLE_PLAYER_COUNT)
+            {
+                await endGameAsync(END_REASON_FORFEIT);
+            }
+            else
+            {
+                logger.Info("All players left Lobby {LobbyCode}. Disposing session.", LobbyCode);
+                stopTimers();
+                onSessionEndedCleanup?.Invoke(LobbyCode);
             }
         }
 
         protected virtual void Dispose(bool disposing)
         {
-            if (isDisposed) return;
+            if (isDisposed)
+            {
+                return;
+            }
 
             if (disposing)
             {
@@ -482,59 +520,68 @@ namespace MindWeaveServer.BusinessLogic
                     return;
                 }
 
-                lock (sessionLock)
+                processHoardingPenalties();
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Debug(ex, "Error in checkHoarding for lobby {LobbyCode}", LobbyCode);
+            }
+        }
+
+        private void processHoardingPenalties()
+        {
+            lock (sessionLock)
+            {
+                var now = DateTime.UtcNow;
+
+                var hoardingPieces = PieceStates.Values
+                    .Where(p => p.HeldByPlayerId.HasValue &&
+                                p.GrabTime.HasValue &&
+                                (now - p.GrabTime.Value).TotalSeconds > HOARDING_LIMIT_SECONDS)
+                    .ToList();
+
+                if (hoardingPieces.Count == 0)
                 {
-                    var now = DateTime.UtcNow;
+                    return;
+                }
 
-                    var hoardingPieces = PieceStates.Values
-                        .Where(p => p.HeldByPlayerId.HasValue &&
-                                    p.GrabTime.HasValue &&
-                                    (now - p.GrabTime.Value).TotalSeconds > HOARDING_LIMIT_SECONDS)
-                        .ToList();
+                var piecesByPlayer = hoardingPieces.GroupBy(p => p.HeldByPlayerId.Value);
 
-                    if (hoardingPieces.Count == 0)
-                    {
-                        return;
-                    }
-
-                    var piecesByPlayer = hoardingPieces
-                        .GroupBy(p => p.HeldByPlayerId.Value);
-
-                    foreach (var group in piecesByPlayer)
-                    {
-                        int playerId = group.Key;
-                        var piecesToRelease = group.ToList();
-
-                        if (Players.TryGetValue(playerId, out var player))
-                        {
-                            int totalPenalty = PENALTY_HOARDING * piecesToRelease.Count;
-
-                            player.Score -= totalPenalty;
-                            player.CurrentStreak = 0;
-
-                            foreach (var piece in piecesToRelease)
-                            {
-                                piece.HeldByPlayerId = null;
-                                piece.GrabTime = null;
-
-                                broadcast(cb => cb.onPieceDragReleased(piece.PieceId, player.Username));
-                            }
-
-                            broadcast(cb => cb.onPlayerPenalty(
-                                player.Username,
-                                totalPenalty,
-                                player.Score,
-                                PENALTY_REASON_HOARDING));
-
-                            Console.WriteLine($"Hoarding detected for {player.Username}. Released {piecesToRelease.Count} pieces.");
-                        }
-                    }
+                foreach (var group in piecesByPlayer)
+                {
+                    applyHoardingPenaltyToPlayer(group.Key, group.ToList());
                 }
             }
-            catch (Exception ex)
+        }
+
+        private void applyHoardingPenaltyToPlayer(int playerId, List<PuzzlePieceState> piecesToRelease)
+        {
+            if (!Players.TryGetValue(playerId, out var player))
             {
-                Console.WriteLine($"Error in checkHoarding: {ex.Message}");
+                return;
             }
+
+            int totalPenalty = PENALTY_HOARDING * piecesToRelease.Count;
+
+            player.Score -= totalPenalty;
+            player.CurrentStreak = 0;
+
+            foreach (var piece in piecesToRelease)
+            {
+                piece.HeldByPlayerId = null;
+                piece.GrabTime = null;
+
+                broadcast(cb => cb.onPieceDragReleased(piece.PieceId, player.Username));
+            }
+
+            broadcast(cb => cb.onPlayerPenalty(
+                player.Username,
+                totalPenalty,
+                player.Score,
+                PENALTY_REASON_HOARDING));
+
+            logger.Debug("Hoarding detected for player {PlayerId}. Released {PieceCount} pieces.",
+                playerId, piecesToRelease.Count);
         }
 
         private async Task handleCorrectPlacementAsync(PlayerSessionData player, PuzzlePieceState pieceState)
@@ -582,12 +629,9 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.CurrentX = newX;
             pieceState.CurrentY = newY;
 
-
             broadcast(callback => callback.onPieceMoved(pieceState.PieceId, newX, newY, player.Username));
-            logger.Info("DEBUG: Broadcast Movimiento disparado.");
 
             broadcast(callback => callback.onPieceDragReleased(pieceState.PieceId, player.Username));
-            logger.Info("DEBUG: Broadcast Soltar disparado.");
 
             bool isNearAnyTarget = isNearAnyPiecePosition(newX, newY);
 
@@ -604,10 +648,7 @@ namespace MindWeaveServer.BusinessLogic
             bool isNearOwnSpot = distanceToTarget < PENALTY_TOLERANCE;
             string reason = isNearOwnSpot ? PENALTY_REASON_MISS : PENALTY_REASON_WRONG_SPOT;
 
-            logger.Info("DEBUG: Iniciando secuencia de broadcasts para penalización de {0}", player.Username);
-
             broadcast(cb => cb.onPlayerPenalty(player.Username, penaltyPoints, player.Score, reason));
-            logger.Info("DEBUG: Broadcast Penalización disparado. Fin del método.");
         }
 
         private bool isNearAnyPiecePosition(double x, double y)
@@ -626,7 +667,10 @@ namespace MindWeaveServer.BusinessLogic
         private bool isEdgePiece(int pieceId)
         {
             var pieceDef = PuzzleDefinition.Pieces.FirstOrDefault(p => p.PieceId == pieceId);
-            if (pieceDef == null) return false;
+            if (pieceDef == null)
+            {
+                return false;
+            }
 
             return pieceDef.TopNeighborId == null ||
                    pieceDef.BottomNeighborId == null ||
@@ -653,23 +697,23 @@ namespace MindWeaveServer.BusinessLogic
 
             stopTimers();
 
-            var (minutesPlayed, totalSeconds) = calculateDuration();
+            var durationResult = calculateDuration();
             var rankedPlayers = getRankedPlayers();
             var clientResults = new List<PlayerResultDto>();
             string finalReason = reason;
 
             try
             {
-                var (matchEntity, puzzleEntity) = await fetchGameEntitiesAsync(matchmakingRepository, puzzleRepository);
+                var entitiesResult = await fetchGameEntitiesAsync(matchmakingRepository, puzzleRepository);
 
                 var context = new EndGameProcessingContext
                 {
                     MatchRepo = matchmakingRepository,
                     StatsService = statsLogic,
-                    MatchEntity = matchEntity,
-                    PuzzleEntity = puzzleEntity,
+                    MatchEntity = entitiesResult.Match,
+                    PuzzleEntity = entitiesResult.Puzzle,
                     MatchId = MatchId,
-                    MinutesPlayed = minutesPlayed,
+                    MinutesPlayed = durationResult.Minutes,
                     TotalParticipants = rankedPlayers.Count
                 };
 
@@ -695,10 +739,10 @@ namespace MindWeaveServer.BusinessLogic
             }
             catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "Error during endGame execution for Lobby {0}", LobbyCode);
+                logger.Error(ex, "Error during endGame execution for Lobby {LobbyCode}", LobbyCode);
             }
 
-            broadcastGameEnd(finalReason, totalSeconds, clientResults);
+            broadcastGameEnd(finalReason, durationResult.TotalSeconds, clientResults);
             onSessionEndedCleanup?.Invoke(LobbyCode);
         }
 
@@ -707,12 +751,12 @@ namespace MindWeaveServer.BusinessLogic
             List<PlayerSessionData> rankedPlayers,
             ref string finalReason)
         {
-            logger.Error(ex, "Critical DB error saving game results for Lobby {0}. Returning in-memory results.", LobbyCode);
+            logger.Error(ex, "Critical DB error saving game results for Lobby {LobbyCode}. Returning in-memory results.", LobbyCode);
 
             finalReason = END_REASON_DB_ERROR;
 
             var fallbackResults = new List<PlayerResultDto>();
-            int rank = 1;
+            int rank = INITIAL_RANK;
 
             foreach (var player in rankedPlayers)
             {
@@ -724,7 +768,7 @@ namespace MindWeaveServer.BusinessLogic
                     Score = player.Score,
                     PiecesPlaced = player.PiecesPlaced,
                     Rank = rank,
-                    IsWinner = rank == 1,
+                    IsWinner = rank == INITIAL_RANK,
                     UnlockedAchievementIds = new List<int>()
                 });
                 rank++;
@@ -737,7 +781,11 @@ namespace MindWeaveServer.BusinessLogic
         {
             lock (endGameLock)
             {
-                if (isGameEnded) return false;
+                if (isGameEnded)
+                {
+                    return false;
+                }
+
                 isGameEnded = true;
                 return true;
             }
@@ -749,11 +797,15 @@ namespace MindWeaveServer.BusinessLogic
             hoardingTimer?.Stop();
         }
 
-        private (int minutes, double totalSeconds) calculateDuration()
+        private GameDurationResult calculateDuration()
         {
             var duration = DateTime.UtcNow - StartTime;
             int minutes = Math.Max(MIN_PLAYTIME_MINUTES, (int)duration.TotalMinutes);
-            return (minutes, duration.TotalSeconds);
+            return new GameDurationResult
+            {
+                Minutes = minutes,
+                TotalSeconds = duration.TotalSeconds
+            };
         }
 
         private List<PlayerSessionData> getRankedPlayers()
@@ -764,7 +816,7 @@ namespace MindWeaveServer.BusinessLogic
                 .ToList();
         }
 
-        private async Task<(Matches match, Puzzles puzzle)> fetchGameEntitiesAsync(
+        private async Task<GameEntitiesResult> fetchGameEntitiesAsync(
             IMatchmakingRepository matchRepo,
             IPuzzleRepository puzzleRepo)
         {
@@ -776,10 +828,14 @@ namespace MindWeaveServer.BusinessLogic
 
             var puzzleEntity = await puzzleRepo.getPuzzleByIdAsync(PuzzleId);
 
-            return (matchEntity, puzzleEntity);
+            return new GameEntitiesResult
+            {
+                Match = matchEntity,
+                Puzzle = puzzleEntity
+            };
         }
 
-        private async Task<List<PlayerResultDto>> processAllPlayersAsync(
+        private static async Task<List<PlayerResultDto>> processAllPlayersAsync(
             List<PlayerSessionData> rankedPlayers,
             EndGameProcessingContext context)
         {
@@ -787,12 +843,12 @@ namespace MindWeaveServer.BusinessLogic
 
             bool isZeroActionDraw = rankedPlayers.Any() && rankedPlayers.All(p => p.Score == 0 && p.PiecesPlaced == 0);
 
-            int currentRank = 1;
+            int currentRank = INITIAL_RANK;
 
             foreach (var player in rankedPlayers)
             {
-                int effectiveRank = isZeroActionDraw ? 1 : currentRank;
-                bool isWinner = !isZeroActionDraw && (currentRank == 1);
+                int effectiveRank = isZeroActionDraw ? INITIAL_RANK : currentRank;
+                bool isWinner = !isZeroActionDraw && (currentRank == INITIAL_RANK);
 
                 var resultDto = await processSinglePlayerAsync(player, effectiveRank, isWinner, context);
                 results.Add(resultDto);
@@ -806,7 +862,7 @@ namespace MindWeaveServer.BusinessLogic
             return results;
         }
 
-        private async Task<PlayerResultDto> processSinglePlayerAsync(
+        private static async Task<PlayerResultDto> processSinglePlayerAsync(
             PlayerSessionData player,
             int rank,
             bool isWinner,
@@ -814,7 +870,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             var unlockedIds = new List<int>();
 
-            if (player.PlayerId > 0)
+            if (player.PlayerId > MINIMUM_VALID_PLAYER_ID)
             {
                 unlockedIds = await handlePlayerStatsAndAchievementsAsync(player, rank, isWinner, context);
 
@@ -843,7 +899,7 @@ namespace MindWeaveServer.BusinessLogic
             };
         }
 
-        private async Task<List<int>> handlePlayerStatsAndAchievementsAsync(
+        private static async Task<List<int>> handlePlayerStatsAndAchievementsAsync(
             PlayerSessionData player,
             int rank,
             bool isWinner,
@@ -912,5 +968,17 @@ namespace MindWeaveServer.BusinessLogic
         public int MatchId { get; set; }
         public int MinutesPlayed { get; set; }
         public int TotalParticipants { get; set; }
+    }
+
+    public class GameDurationResult
+    {
+        public int Minutes { get; set; }
+        public double TotalSeconds { get; set; }
+    }
+
+    public class GameEntitiesResult
+    {
+        public Matches Match { get; set; }
+        public Puzzles Puzzle { get; set; }
     }
 }

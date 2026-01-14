@@ -16,7 +16,6 @@ using System.Linq;
 using System.Net.Mail;
 using System.Threading.Tasks;
 
-
 namespace MindWeaveServer.BusinessLogic
 {
     public class AuthenticationLogic
@@ -25,6 +24,8 @@ namespace MindWeaveServer.BusinessLogic
 
         private const int VERIFICATION_CODE_LENGTH = 6;
         private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
+        private const int SQL_ERROR_UNIQUE_CONSTRAINT_VIOLATION = 2627;
+        private const int SQL_ERROR_UNIQUE_INDEX_VIOLATION = 2601;
 
         private readonly IPlayerRepository playerRepository;
         private readonly IEmailService emailService;
@@ -34,10 +35,7 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IUserSessionManager userSessionManager;
         private readonly IValidator<UserProfileDto> profileValidator;
         private readonly IValidator<LoginDto> loginValidator;
-        [System.Diagnostics.CodeAnalysis.SuppressMessage(
-            "Major Code Smell",
-            "S107:Methods should not have too many parameters",
-            Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
+
         public AuthenticationLogic(
             IPlayerRepository playerRepository,
             IEmailService emailService,
@@ -70,21 +68,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (existingPlayer != null)
             {
-                
-                if (!existingPlayer.is_verified)
-                {
-                    return new OperationResultDto
-                    {
-                        Success = false,
-                        MessageCode = MessageCodes.AUTH_ACCOUNT_NOT_VERIFIED
-                    };
-                }
-
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.AUTH_EMAIL_ALREADY_REGISTERED
-                };
+                return handleExistingPlayerOnRegistration(existingPlayer);
             }
 
             try
@@ -106,48 +90,215 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (loginData == null)
             {
-                return new LoginResultDto
-                {
-                    OperationResult = new OperationResultDto
-                    {
-                        Success = false,
-                        MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED
-                    }
-                };
+                return createLoginFailureResult(MessageCodes.VALIDATION_FIELDS_REQUIRED);
             }
 
             var validationResult = await loginValidator.ValidateAsync(loginData);
             if (!validationResult.IsValid)
             {
                 logger.Warn("Login validation failed.");
-                return new LoginResultDto
-                {
-                    OperationResult = new OperationResultDto
-                    {
-                        Success = false,
-                        MessageCode = MessageCodes.VALIDATION_GENERAL_ERROR
-                    }
-                };
+                return createLoginFailureResult(MessageCodes.VALIDATION_GENERAL_ERROR);
             }
 
             var player = await playerRepository.getPlayerByEmailAsync(loginData.Email);
 
-            if (player == null || !passwordService.verifyPassword(loginData.Password, player.password_hash))
+            if (!isCredentialsValid(player, loginData.Password))
             {
                 logger.Warn("Invalid login credentials provided.");
-                return new LoginResultDto
+                return createLoginFailureResult(MessageCodes.AUTH_INVALID_CREDENTIALS);
+            }
+
+            return processValidatedLogin(player);
+        }
+
+        public async Task<OperationResultDto> verifyAccountAsync(string email, string code)
+        {
+            var inputValidation = validateVerificationInput(email, code);
+            if (!inputValidation.Success)
+            {
+                return inputValidation;
+            }
+
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            var playerValidation = validatePlayerForVerification(player);
+            if (!playerValidation.Success)
+            {
+                return playerValidation;
+            }
+
+            if (!checkCodeValidity(player, code))
+            {
+                logger.Warn("Invalid or expired verification code. PlayerId: {Id}", player.idPlayer);
+                return new OperationResultDto
                 {
-                    OperationResult = new OperationResultDto
-                    {
-                        Success = false,
-                        MessageCode = MessageCodes.AUTH_INVALID_CREDENTIALS
-                    }
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_CODE_INVALID_OR_EXPIRED
                 };
             }
 
+            markPlayerAsVerified(player);
+            await playerRepository.updatePlayerAsync(player);
+
+            logger.Info("Account verified successfully. PlayerId: {Id}", player.idPlayer);
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_VERIFICATION_SUCCESS
+            };
+        }
+
+        public async Task<OperationResultDto> resendVerificationCodeAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_EMAIL_REQUIRED
+                };
+            }
+
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            var playerValidation = validatePlayerForResendCode(player);
+            if (!playerValidation.Success)
+            {
+                return playerValidation;
+            }
+
+            await generateAndSaveNewCodeAsync(player);
+
+            await sendVerificationEmailSafeAsync(player.email, player.username, player.verification_code, player.idPlayer);
+
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_VERIFICATION_CODE_RESENT
+            };
+        }
+
+        public async Task<OperationResultDto> sendPasswordRecoveryCodeAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_EMAIL_REQUIRED
+                };
+            }
+
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+
+            var playerValidation = validatePlayerForRecovery(player);
+            if (!playerValidation.Success)
+            {
+                return playerValidation;
+            }
+
+            await generateAndSaveNewCodeAsync(player);
+
+            var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, player.verification_code);
+            await emailService.sendEmailAsync(player.email, player.username, emailTemplate);
+
+            logger.Info("Recovery code sent. PlayerId: {Id}", player.idPlayer);
+
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_RECOVERY_CODE_SENT
+            };
+        }
+
+        public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
+        {
+            var inputValidation = validateResetPasswordInput(email, code, newPassword);
+            if (!inputValidation.Success)
+            {
+                return inputValidation;
+            }
+
+            var player = await playerRepository.getPlayerByEmailAsync(email);
+            if (player == null)
+            {
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
+                };
+            }
+
+            if (!checkCodeValidity(player, code))
+            {
+                logger.Warn("Reset password failed: Invalid code. PlayerId: {Id}", player.idPlayer);
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_CODE_INVALID_OR_EXPIRED
+                };
+            }
+
+            updatePlayerPassword(player, newPassword);
+            await playerRepository.updatePlayerAsync(player);
+
+            logger.Info("Password reset successful. PlayerId: {Id}", player.idPlayer);
+
+            return new OperationResultDto
+            {
+                Success = true,
+                MessageCode = MessageCodes.AUTH_PASSWORD_RESET_SUCCESS
+            };
+        }
+
+        public void logout(string username)
+        {
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                userSessionManager.removeSession(username);
+            }
+        }
+
+        private static OperationResultDto handleExistingPlayerOnRegistration(Player existingPlayer)
+        {
+            if (!existingPlayer.is_verified)
+            {
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.AUTH_ACCOUNT_NOT_VERIFIED
+                };
+            }
+
+            return new OperationResultDto
+            {
+                Success = false,
+                MessageCode = MessageCodes.AUTH_EMAIL_ALREADY_REGISTERED
+            };
+        }
+
+        private static LoginResultDto createLoginFailureResult(string messageCode)
+        {
+            return new LoginResultDto
+            {
+                OperationResult = new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = messageCode
+                }
+            };
+        }
+
+        private bool isCredentialsValid(Player player, string password)
+        {
+            return player != null && passwordService.verifyPassword(password, player.password_hash);
+        }
+
+        private LoginResultDto processValidatedLogin(Player player)
+        {
             if (userSessionManager.isUserLoggedIn(player.username))
             {
-                logger.Warn("Duplicate login attempt blocked for user: {Username}", player.username);
+                logger.Warn("Duplicate login attempt blocked. PlayerId: {Id}", player.idPlayer);
                 return new LoginResultDto
                 {
                     OperationResult = new OperationResultDto
@@ -189,7 +340,7 @@ namespace MindWeaveServer.BusinessLogic
             };
         }
 
-        public async Task<OperationResultDto> verifyAccountAsync(string email, string code)
+        private static OperationResultDto validateVerificationInput(string email, string code)
         {
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code))
             {
@@ -210,7 +361,11 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
-            var player = await playerRepository.getPlayerByEmailAsync(email);
+            return new OperationResultDto { Success = true };
+        }
+
+        private static OperationResultDto validatePlayerForVerification(Player player)
+        {
             if (player == null)
             {
                 logger.Warn("Verification failed: Player not found.");
@@ -231,39 +386,11 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
-            if (!checkCodeValidity(player, code))
-            {
-                logger.Warn("Invalid or expired verification code. PlayerId: {Id}", player.idPlayer);
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.AUTH_CODE_INVALID_OR_EXPIRED
-                };
-            }
-
-            markPlayerAsVerified(player);
-            await playerRepository.updatePlayerAsync(player);
-
-            logger.Info("Account verified successfully. PlayerId: {Id}", player.idPlayer);
-            return new OperationResultDto
-            {
-                Success = true,
-                MessageCode = MessageCodes.AUTH_VERIFICATION_SUCCESS
-            };
+            return new OperationResultDto { Success = true };
         }
 
-        public async Task<OperationResultDto> resendVerificationCodeAsync(string email)
+        private static OperationResultDto validatePlayerForResendCode(Player player)
         {
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.VALIDATION_EMAIL_REQUIRED
-                };
-            }
-
-            var player = await playerRepository.getPlayerByEmailAsync(email);
             if (player == null)
             {
                 logger.Warn("Resend code failed: Player not found.");
@@ -283,28 +410,11 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
-            await generateAndSaveNewCodeAsync(player);
-            await sendVerificationEmailSafeAsync(player.email, player.username, player.verification_code, player.idPlayer);
-
-            return new OperationResultDto
-            {
-                Success = true,
-                MessageCode = MessageCodes.AUTH_VERIFICATION_CODE_RESENT
-            };
+            return new OperationResultDto { Success = true };
         }
 
-        public async Task<OperationResultDto> sendPasswordRecoveryCodeAsync(string email)
+        private static OperationResultDto validatePlayerForRecovery(Player player)
         {
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.VALIDATION_EMAIL_REQUIRED
-                };
-            }
-
-            var player = await playerRepository.getPlayerByEmailAsync(email);
             if (player == null)
             {
                 logger.Warn("Recovery code failed: Player not found.");
@@ -325,21 +435,10 @@ namespace MindWeaveServer.BusinessLogic
                 };
             }
 
-            await generateAndSaveNewCodeAsync(player);
-
-            var emailTemplate = new PasswordRecoveryEmailTemplate(player.username, player.verification_code);
-            await emailService.sendEmailAsync(player.email, player.username, emailTemplate);
-
-            logger.Info("Recovery code sent. PlayerId: {Id}", player.idPlayer);
-
-            return new OperationResultDto
-            {
-                Success = true,
-                MessageCode = MessageCodes.AUTH_RECOVERY_CODE_SENT
-            };
+            return new OperationResultDto { Success = true };
         }
 
-        public async Task<OperationResultDto> resetPasswordWithCodeAsync(string email, string code, string newPassword)
+        private OperationResultDto validateResetPasswordInput(string email, string code, string newPassword)
         {
             if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(newPassword))
             {
@@ -369,48 +468,14 @@ namespace MindWeaveServer.BusinessLogic
                 return passwordValidation;
             }
 
-            var player = await playerRepository.getPlayerByEmailAsync(email);
-            if (player == null)
-            {
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.AUTH_USER_NOT_FOUND
-                };
-            }
-
-            if (!checkCodeValidity(player, code))
-            {
-                logger.Warn("Reset password failed: Invalid code. PlayerId: {Id}", player.idPlayer);
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.AUTH_CODE_INVALID_OR_EXPIRED
-                };
-            }
-
-            player.password_hash = passwordService.hashPassword(newPassword);
-
-            player.verification_code = null;
-            player.code_expiry_date = null;
-
-            await playerRepository.updatePlayerAsync(player);
-
-            logger.Info("Password reset successful. PlayerId: {Id}", player.idPlayer);
-
-            return new OperationResultDto
-            {
-                Success = true,
-                MessageCode = MessageCodes.AUTH_PASSWORD_RESET_SUCCESS
-            };
+            return new OperationResultDto { Success = true };
         }
 
-        public void logout(string username)
+        private void updatePlayerPassword(Player player, string newPassword)
         {
-            if (!string.IsNullOrWhiteSpace(username))
-            {
-                userSessionManager.removeSession(username);
-            }
+            player.password_hash = passwordService.hashPassword(newPassword);
+            player.verification_code = null;
+            player.code_expiry_date = null;
         }
 
         private async Task<OperationResultDto> validateRegistrationInputAsync(UserProfileDto userProfile, string password)
@@ -479,6 +544,7 @@ namespace MindWeaveServer.BusinessLogic
             existingPlayer.code_expiry_date = verificationCodeService.getVerificationExpiryTime();
 
             await playerRepository.updatePlayerAsync(existingPlayer);
+
             await sendVerificationEmailSafeAsync(existingPlayer.email, existingPlayer.username, newCode, existingPlayer.idPlayer);
 
             return new OperationResultDto
@@ -560,27 +626,28 @@ namespace MindWeaveServer.BusinessLogic
             player.email = dto.Email.Trim();
         }
 
-        private async Task sendVerificationEmailSafeAsync(string email, string username, string code, int playerId)
+        private async Task sendVerificationEmailSafeAsync(string email, string username, string verificationCode, int idPlayer)
         {
             try
             {
-                var emailTemplate = new VerificationEmailTemplate(username, code);
+                var emailTemplate = new VerificationEmailTemplate(username, verificationCode);
                 await emailService.sendEmailAsync(email, username, emailTemplate);
             }
             catch (SmtpException smtpEx)
             {
-                logger.Error(smtpEx, "SMTP failure sending verification email to {Email}. PlayerId: {Id}", email, playerId);
+                logger.Error(smtpEx, "SMTP failure sending verification email. PlayerId: {Id}", idPlayer);
             }
             catch (TimeoutException timeoutEx)
             {
-                logger.Error(timeoutEx, "Timeout sending verification email to {Email}. PlayerId: {Id}", email, playerId);
+                logger.Error(timeoutEx, "Timeout sending verification email. PlayerId: {Id}", idPlayer);
             }
         }
 
         private static bool isDuplicateKeyException(DbUpdateException ex)
         {
             return ex.InnerException?.InnerException is SqlException sqlEx &&
-                   (sqlEx.Number == 2627 || sqlEx.Number == 2601);
+                   (sqlEx.Number == SQL_ERROR_UNIQUE_CONSTRAINT_VIOLATION || sqlEx.Number == SQL_ERROR_UNIQUE_INDEX_VIOLATION);
         }
+
     }
 }

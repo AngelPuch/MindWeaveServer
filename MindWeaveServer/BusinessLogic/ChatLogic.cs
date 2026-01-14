@@ -28,6 +28,7 @@ namespace MindWeaveServer.BusinessLogic
         private const int MAX_MESSAGE_LENGTH = 200;
         private const int MAX_STRIKES_BEFORE_EXPULSION = 3;
         private const string EXPULSION_REASON_PROFANITY = "Profanity";
+        private const string MESSAGE_TRUNCATION_SUFFIX = "...";
 
         public ChatLogic(
             IGameStateManager gameStateManager,
@@ -73,7 +74,7 @@ namespace MindWeaveServer.BusinessLogic
         }
 
         public async Task processAndBroadcastMessageAsync(
-           string senderUsername,
+            string senderUsername,
             string lobbyId,
             string messageContent)
         {
@@ -81,12 +82,13 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Debug("Processing message in lobby {LobbyId}", lobbyId);
 
-            if (await handleProfanityCheckAsync(senderUsername, lobbyId, messageContent))
+            string sanitizedContent = sanitizeMessageContent(messageContent);
+
+            if (await handleProfanityCheckAsync(senderUsername, lobbyId, sanitizedContent))
             {
                 return;
             }
 
-            string sanitizedContent = sanitizeMessageContent(messageContent);
             var messageDto = createMessageDto(senderUsername, sanitizedContent);
 
             addMessageToHistory(lobbyId, messageDto);
@@ -143,18 +145,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (strikes >= MAX_STRIKES_BEFORE_EXPULSION)
             {
-                try
-                {
-                    await expulsionService.expelPlayerAsync(lobbyId, senderUsername, EXPULSION_REASON_PROFANITY);
-                }
-                catch (EntityException dbEx)
-                {
-                    logger.Error(dbEx, "Database error expelling player {User} from lobby {LobbyId}", senderUsername, lobbyId);
-                }
-                catch (SqlException sqlEx)
-                {
-                    logger.Error(sqlEx, "SQL error expelling player {User} from lobby {LobbyId}", senderUsername, lobbyId);
-                }
+                await executePlayerExpulsionAsync(lobbyId, senderUsername);
             }
             else
             {
@@ -162,6 +153,22 @@ namespace MindWeaveServer.BusinessLogic
             }
 
             return true;
+        }
+
+        private async Task executePlayerExpulsionAsync(string lobbyId, string senderUsername)
+        {
+            try
+            {
+                await expulsionService.expelPlayerAsync(lobbyId, senderUsername, EXPULSION_REASON_PROFANITY);
+            }
+            catch (EntityException dbEx)
+            {
+                logger.Error(dbEx, "Database error expelling player from lobby {LobbyId}", lobbyId);
+            }
+            catch (SqlException sqlEx)
+            {
+                logger.Error(sqlEx, "SQL error expelling player from lobby {LobbyId}", lobbyId);
+            }
         }
 
         private void sendStrikeWarningToUser(string username, string lobbyId, int strikes)
@@ -178,13 +185,13 @@ namespace MindWeaveServer.BusinessLogic
                 string warningMessage = $"{MessageCodes.CHAT_PROFANITY_WARNING}:{strikes}";
                 senderCallback.receiveSystemMessage(warningMessage);
             }
-            catch (CommunicationException)
+            catch (CommunicationException commEx)
             {
-                // ignore
+                logger.Debug(commEx, "Failed to send strike warning in lobby {LobbyId}. Connection lost.", lobbyId);
             }
-            catch (TimeoutException)
+            catch (TimeoutException timeoutEx)
             {
-                // ignore
+                logger.Debug(timeoutEx, "Failed to send strike warning in lobby {LobbyId}. Timeout.", lobbyId);
             }
         }
 
@@ -263,7 +270,7 @@ namespace MindWeaveServer.BusinessLogic
                 return messageContent;
             }
 
-            return messageContent.Substring(0, MAX_MESSAGE_LENGTH) + "...";
+            return messageContent.Substring(0, MAX_MESSAGE_LENGTH) + MESSAGE_TRUNCATION_SUFFIX;
         }
 
         private static ChatMessageDto createMessageDto(string senderUsername, string content)
@@ -364,7 +371,10 @@ namespace MindWeaveServer.BusinessLogic
         private static bool trySendMessageToUser(IChatCallback callback, ChatMessageDto messageDto)
         {
             var commObject = callback as ICommunicationObject;
-            if (commObject?.State != CommunicationState.Opened) return false;
+            if (commObject?.State != CommunicationState.Opened)
+            {
+                return false;
+            }
 
             try
             {
@@ -385,9 +395,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private void removeFailedUsers(
-            List<string> failedUsers,
-            ConcurrentDictionary<string, IChatCallback> usersInLobby,
+        private void removeFailedUsers(List<string> failedUsers, ConcurrentDictionary<string, IChatCallback> usersInLobby,
             string lobbyId)
         {
             logger.Warn("Removing {Count} users with failed channels from lobby {LobbyId}",

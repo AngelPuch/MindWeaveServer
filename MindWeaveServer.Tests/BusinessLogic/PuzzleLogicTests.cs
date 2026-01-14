@@ -195,7 +195,6 @@ namespace MindWeaveServer.Tests.BusinessLogic
         {
             var puzzle = new Puzzles { puzzle_id = 1, image_path = "missing_file.png" };
             var difficulty = new DifficultyLevels { idDifficulty = 1, piece_count = 25 };
-
             puzzleRepositoryMock.Setup(x => x.getPuzzleByIdAsync(1))
                 .ReturnsAsync(puzzle);
             puzzleRepositoryMock.Setup(x => x.getDifficultyByIdAsync(1))
@@ -204,8 +203,9 @@ namespace MindWeaveServer.Tests.BusinessLogic
             var exception = await Assert.ThrowsAsync<FileNotFoundException>(() =>
                 puzzleLogic.getPuzzleDefinitionAsync(1, 1));
 
-            Assert.Contains("ID: 1", exception.Message);
+            Assert.Contains("PuzzleId: 1", exception.Message);
         }
+
         [Fact]
         public async Task GetPuzzleDefinitionAsync_ValidData_ReturnsDefinition()
         {

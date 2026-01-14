@@ -23,14 +23,16 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly object disconnectionLock = new object();
         private readonly HashSet<string> usersBeingDisconnected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        private const string KICK_REASON_HOST_DISCONNECTED = "HOST_DISCONNECTED";
+
         public DisconnectionHandler(
             IUserSessionManager userSessionManager,
             IGameStateManager gameStateManager,
             GameSessionManager gameSessionManager)
         {
-            this.userSessionManager = userSessionManager ?? throw new ArgumentNullException(nameof(userSessionManager));
-            this.gameStateManager = gameStateManager ?? throw new ArgumentNullException(nameof(gameStateManager));
-            this.gameSessionManager = gameSessionManager ?? throw new ArgumentNullException(nameof(gameSessionManager));
+            this.userSessionManager = userSessionManager;
+            this.gameStateManager = gameStateManager;
+            this.gameSessionManager = gameSessionManager;
         }
 
         public async Task handleFullDisconnectionAsync(string username, string reason)
@@ -41,99 +43,103 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return;
             }
 
-            // Verificar si ya estamos procesando este usuario
+            if (!tryAcquireDisconnectionLock(username))
+            {
+                return;
+            }
+
+            try
+            {
+                logger.Info("DISCONNECTION START (Reason: {Reason})", reason);
+
+                await cleanupFromActiveGamesAsync(username);
+                await cleanupFromLobbiesAsync(username);
+                cleanupFromLobbyChats(username);
+                cleanupMatchmakingCallbacks(username);
+                await cleanupFromSocialAsync(username);
+                cleanupAuthenticationSession(username);
+
+                logger.Info("DISCONNECTION COMPLETE");
+            }
+            catch (EntityException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: Database entity error during disconnection.");
+            }
+            catch (SqlException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: SQL error during disconnection.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: Invalid operation during disconnection.");
+            }
+            finally
+            {
+                releaseDisconnectionLock(username);
+            }
+        }
+
+        public async Task handleGameDisconnectionAsync(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return;
+            }
+
+            if (!tryAcquireDisconnectionLock(username))
+            {
+                return;
+            }
+
+            try
+            {
+                logger.Info("GAME SERVICE DISCONNECTION");
+
+                await cleanupFromActiveGamesAsync(username);
+                await cleanupFromLobbiesAsync(username);
+                cleanupFromLobbyChats(username);
+                cleanupMatchmakingCallbacks(username);
+
+                logger.Info("GAME DISCONNECTION COMPLETE");
+            }
+            catch (EntityException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: Database entity error during game disconnection.");
+            }
+            catch (SqlException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: SQL error during game disconnection.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: Invalid operation during game disconnection.");
+            }
+            finally
+            {
+                releaseDisconnectionLock(username);
+            }
+        }
+
+        private bool tryAcquireDisconnectionLock(string username)
+        {
             lock (disconnectionLock)
             {
                 if (usersBeingDisconnected.Contains(username))
                 {
-                    logger.Info("DisconnectionHandler: Disconnection already in progress for {0}. Skipping duplicate call.", username);
-                    return;
+                    logger.Info("DisconnectionHandler: Disconnection already in progress. Skipping duplicate call.");
+                    return false;
                 }
 
                 usersBeingDisconnected.Add(username);
-            }
-
-            try
-            {
-                logger.Info("===== DISCONNECTION START: {0} (Reason: {1}) =====", username, reason);
-
-                // 1. Limpiar de partidas activas
-                await cleanupFromActiveGamesAsync(username);
-
-                // 2. Limpiar de lobbies
-                await cleanupFromLobbiesAsync(username);
-
-                // 3. Limpiar de chats de lobby
-                cleanupFromLobbyChats(username);
-
-                // 4. Limpiar callbacks de matchmaking
-                cleanupMatchmakingCallbacks(username);
-
-                // 5. Limpiar del servicio social
-                await cleanupFromSocialAsync(username);
-
-                // 6. Limpiar sesión de autenticación
-                cleanupAuthenticationSession(username);
-
-                logger.Info("===== DISCONNECTION COMPLETE: {0} =====", username);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "DisconnectionHandler: Critical error during disconnection of {0}.", username);
-            }
-            finally
-            {
-                lock (disconnectionLock)
-                {
-                    usersBeingDisconnected.Remove(username);
-                }
+                return true;
             }
         }
 
-        // En MindWeaveServer.BusinessLogic.Services.DisconnectionHandler
-
-        public async Task handleGameDisconnectionAsync(string username)
+        private void releaseDisconnectionLock(string username)
         {
-            if (string.IsNullOrWhiteSpace(username)) return;
-
-            // Usamos el mismo lock para evitar conflictos
             lock (disconnectionLock)
             {
-                if (usersBeingDisconnected.Contains(username)) return;
-                usersBeingDisconnected.Add(username);
-            }
-
-            try
-            {
-                logger.Info("===== GAME SERVICE DISCONNECTION: {0} =====", username);
-
-                // SOLO pasos relacionados con el juego (1, 2, 3 y 4)
-                // OMITIMOS Social y Auth (5 y 6)
-
-                // 1. Limpiar de partidas activas
-                await cleanupFromActiveGamesAsync(username);
-
-                // 2. Limpiar de lobbies
-                await cleanupFromLobbiesAsync(username);
-
-                // 3. Limpiar de chats de lobby
-                cleanupFromLobbyChats(username);
-
-                // 4. Limpiar callbacks de matchmaking
-                cleanupMatchmakingCallbacks(username);
-
-                logger.Info("===== GAME DISCONNECTION COMPLETE: {0} =====", username);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Error during game disconnection of {0}.", username);
-            }
-            finally
-            {
-                lock (disconnectionLock)
-                {
-                    usersBeingDisconnected.Remove(username);
-                }
+                usersBeingDisconnected.Remove(username);
             }
         }
 
@@ -145,31 +151,29 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                 if (session == null)
                 {
-                    logger.Debug("DisconnectionHandler: No active game session found for {0}.", username);
+                    logger.Debug("DisconnectionHandler: No active game session found for user.");
                     return;
                 }
 
                 string lobbyCode = session.LobbyCode;
 
-                logger.Info("DisconnectionHandler: Found active game session {0} for {1}. Processing leave.",
-                    lobbyCode, username);
+                logger.Info("DisconnectionHandler: Found active game session {LobbyCode}. Processing leave.", lobbyCode);
 
                 await gameSessionManager.handlePlayerLeaveAsync(lobbyCode, username);
 
-                logger.Info("DisconnectionHandler: Successfully processed game exit for {0} from session {1}.",
-                    username, lobbyCode);
+                logger.Info("DisconnectionHandler: Successfully processed game exit from session {LobbyCode}.", lobbyCode);
             }
             catch (EntityException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: Database error cleaning up games for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: Database error cleaning up games.");
             }
             catch (SqlException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: SQL error cleaning up games for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: SQL error cleaning up games.");
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: Unexpected error cleaning up games for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: Invalid operation cleaning up games.");
             }
         }
 
@@ -177,45 +181,62 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             try
             {
-                var lobbiesToLeave = gameStateManager.ActiveLobbies
-                    .Where(kvp =>
-                    {
-                        lock (kvp.Value)
-                        {
-                            return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
-                        }
-                    })
-                    .Select(kvp => kvp.Key)
-                    .ToList();
+                var lobbiesToLeave = findLobbiesContainingUser(username);
+
                 foreach (var lobbyCode in lobbiesToLeave)
                 {
-                    try
-                    {
-                        await processLobbyLeaveAsync(lobbyCode, username);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "DisconnectionHandler: Error leaving lobby {0} for {1}.", lobbyCode, username);
-                    }
+                    await processLobbyLeaveSafeAsync(lobbyCode, username);
                 }
-                // Limpiar de tracking de guests
-                var guestEntries = gameStateManager.GuestUsernamesInLobby
-                    .ToArray()
-                    .Where(kvp => kvp.Value.Contains(username));
 
-                foreach (var kvp in guestEntries)
-                {
-                    kvp.Value.Remove(username);
-                    logger.Debug("DisconnectionHandler: Removed {0} from guest tracking in lobby {1}.", username, kvp.Key);
-                    if (kvp.Value.Count == 0)
-                    {
-                        gameStateManager.GuestUsernamesInLobby.TryRemove(kvp.Key, out _);
-                    }
-                }
+                cleanupGuestTracking(username);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: Error cleaning up lobbies for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: Error cleaning up lobbies.");
+            }
+        }
+
+        private List<string> findLobbiesContainingUser(string username)
+        {
+            return gameStateManager.ActiveLobbies
+                .Where(kvp =>
+                {
+                    lock (kvp.Value)
+                    {
+                        return kvp.Value.Players.Contains(username, StringComparer.OrdinalIgnoreCase);
+                    }
+                })
+                .Select(kvp => kvp.Key)
+                .ToList();
+        }
+
+        private async Task processLobbyLeaveSafeAsync(string lobbyCode, string username)
+        {
+            try
+            {
+                await processLobbyLeaveAsync(lobbyCode, username);
+            }
+            catch (InvalidOperationException ex)
+            {
+                logger.Error(ex, "DisconnectionHandler: Error leaving lobby {LobbyCode}.", lobbyCode);
+            }
+        }
+
+        private void cleanupGuestTracking(string username)
+        {
+            var guestEntries = gameStateManager.GuestUsernamesInLobby
+                .ToArray()
+                .Where(kvp => kvp.Value.Contains(username));
+
+            foreach (var kvp in guestEntries)
+            {
+                kvp.Value.Remove(username);
+                logger.Debug("DisconnectionHandler: Removed user from guest tracking in lobby {LobbyCode}.", kvp.Key);
+
+                if (kvp.Value.Count == 0)
+                {
+                    gameStateManager.GuestUsernamesInLobby.TryRemove(kvp.Key, out _);
+                }
             }
         }
 
@@ -226,31 +247,18 @@ namespace MindWeaveServer.BusinessLogic.Services
                 return;
             }
 
-            bool isHost;
-            bool wasInLobby;
-            List<string> remainingPlayers = null;
+            var leaveResult = removePlayerFromLobby(lobby, username);
 
-            lock (lobby)
-            {
-                wasInLobby = lobby.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase)) > 0;
-                isHost = lobby.HostUsername.Equals(username, StringComparison.OrdinalIgnoreCase);
-
-                if (isHost || lobby.Players.Count == 0)
-                {
-                    remainingPlayers = lobby.Players.ToList();
-                }
-            }
-
-            if (!wasInLobby)
+            if (!leaveResult.WasInLobby)
             {
                 return;
             }
 
-            logger.Info("DisconnectionHandler: Removed {0} from lobby {1}. IsHost: {2}", username, lobbyCode, isHost);
+            logger.Info("DisconnectionHandler: Removed player from lobby {LobbyCode}. IsHost: {IsHost}", lobbyCode, leaveResult.IsHost);
 
-            if (isHost || (remainingPlayers != null && remainingPlayers.Count == 0))
+            if (leaveResult.IsHost || (leaveResult.RemainingPlayers != null && leaveResult.RemainingPlayers.Count == 0))
             {
-                closeLobbyAndNotify(lobbyCode, remainingPlayers);
+                closeLobbyAndNotify(lobbyCode, leaveResult.RemainingPlayers);
             }
             else
             {
@@ -260,20 +268,44 @@ namespace MindWeaveServer.BusinessLogic.Services
             await Task.CompletedTask;
         }
 
+        private static LobbyLeaveResult removePlayerFromLobby(LobbyStateDto lobby, string username)
+        {
+            lock (lobby)
+            {
+                bool wasInLobby = lobby.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase)) > 0;
+                bool isHost = lobby.HostUsername.Equals(username, StringComparison.OrdinalIgnoreCase);
+
+                List<string> remainingPlayers = null;
+                if (isHost || lobby.Players.Count == 0)
+                {
+                    remainingPlayers = lobby.Players.ToList();
+                }
+
+                return new LobbyLeaveResult
+                {
+                    WasInLobby = wasInLobby,
+                    IsHost = isHost,
+                    RemainingPlayers = remainingPlayers
+                };
+            }
+        }
+
         private void closeLobbyAndNotify(string lobbyCode, List<string> playersToKick)
         {
             gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
             gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
 
-            logger.Info("DisconnectionHandler: Lobby {0} closed.", lobbyCode);
+            logger.Info("DisconnectionHandler: Lobby {LobbyCode} closed.", lobbyCode);
 
-            if (playersToKick != null)
+            if (playersToKick == null)
             {
-                foreach (var player in playersToKick)
-                {
-                    notifyPlayerKicked(player, "HOST_DISCONNECTED");
-                    cleanupMatchmakingCallbacks(player);
-                }
+                return;
+            }
+
+            foreach (var player in playersToKick)
+            {
+                notifyPlayerKicked(player, KICK_REASON_HOST_DISCONNECTED);
+                cleanupMatchmakingCallbacks(player);
             }
         }
 
@@ -311,36 +343,46 @@ namespace MindWeaveServer.BusinessLogic.Services
                     callback.updateLobbyState(lobby);
                 }
             }
-            catch (CommunicationException)
+            catch (CommunicationException ex)
             {
-                //ignored
+                logger.Debug(ex, "CommunicationException while notifying player of lobby update.");
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
-                //ignored
+                logger.Debug(ex, "TimeoutException while notifying player of lobby update.");
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
-                //ignored
+                logger.Debug(ex, "ObjectDisposedException while notifying player of lobby update.");
             }
         }
 
         private void notifyPlayerKicked(string username, string reason)
         {
-            if (gameStateManager.MatchmakingCallbacks.TryGetValue(username, out var callback))
+            if (!gameStateManager.MatchmakingCallbacks.TryGetValue(username, out var callback))
             {
-                try
+                return;
+            }
+
+            try
+            {
+                var commObj = callback as ICommunicationObject;
+                if (commObj?.State == CommunicationState.Opened)
                 {
-                    var commObj = callback as ICommunicationObject;
-                    if (commObj?.State == CommunicationState.Opened)
-                    {
-                        callback.kickedFromLobby(reason);
-                    }
+                    callback.kickedFromLobby(reason);
                 }
-                catch
-                {
-                    //ignored
-                }
+            }
+            catch (CommunicationException ex)
+            {
+                logger.Debug(ex, "CommunicationException while notifying player of kick.");
+            }
+            catch (TimeoutException ex)
+            {
+                logger.Debug(ex, "TimeoutException while notifying player of kick.");
+            }
+            catch (ObjectDisposedException ex)
+            {
+                logger.Debug(ex, "ObjectDisposedException while notifying player of kick.");
             }
         }
 
@@ -355,7 +397,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                     if (usersInLobby.TryRemove(username, out _))
                     {
-                        logger.Debug("DisconnectionHandler: Removed {0} from chat in lobby {1}.", username, lobbyId);
+                        logger.Debug("DisconnectionHandler: Removed user from chat in lobby {LobbyId}.", lobbyId);
 
                         if (usersInLobby.IsEmpty)
                         {
@@ -365,9 +407,9 @@ namespace MindWeaveServer.BusinessLogic.Services
                     }
                 }
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: Error cleaning up lobby chats for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: Error cleaning up lobby chats.");
             }
         }
 
@@ -375,7 +417,7 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             if (gameStateManager.MatchmakingCallbacks.TryRemove(username, out _))
             {
-                logger.Debug("DisconnectionHandler: Removed matchmaking callback for {0}.", username);
+                logger.Debug("DisconnectionHandler: Removed matchmaking callback for user.");
             }
         }
 
@@ -390,11 +432,11 @@ namespace MindWeaveServer.BusinessLogic.Services
 
                 gameStateManager.removeConnectedUser(username);
 
-                logger.Debug("DisconnectionHandler: Removed {0} from social/connected users.", username);
+                logger.Debug("DisconnectionHandler: Removed user from social/connected users.");
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: Error cleaning up social for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: Error cleaning up social.");
             }
 
             return Task.CompletedTask;
@@ -407,13 +449,20 @@ namespace MindWeaveServer.BusinessLogic.Services
                 if (userSessionManager.isUserLoggedIn(username))
                 {
                     userSessionManager.removeSession(username);
-                    logger.Debug("DisconnectionHandler: Removed authentication session for {0}.", username);
+                    logger.Debug("DisconnectionHandler: Removed authentication session for user.");
                 }
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
-                logger.Error(ex, "DisconnectionHandler: Error cleaning up auth session for {0}.", username);
+                logger.Error(ex, "DisconnectionHandler: Error cleaning up auth session.");
             }
+        }
+
+        private class LobbyLeaveResult
+        {
+            public bool WasInLobby { get; set; }
+            public bool IsHost { get; set; }
+            public List<string> RemainingPlayers { get; set; }
         }
     }
 }

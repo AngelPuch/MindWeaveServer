@@ -51,7 +51,6 @@ namespace MindWeaveServer.Tests.Services
                 puzzleRepoMock.Object,
                 matchRepoMock.Object,
                 statsLogic,
-                new PuzzleGenerator(),
                 new Mock<IScoreCalculator>().Object);
 
             moderationManager = new LobbyModerationManager();

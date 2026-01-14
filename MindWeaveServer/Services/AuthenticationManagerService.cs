@@ -13,7 +13,6 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity.Core;
 using System.Data.SqlClient;
-using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -22,6 +21,14 @@ namespace MindWeaveServer.Services
     public class AuthenticationManagerService : IAuthenticationManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+        private const string OPERATION_LOGIN = "LoginOperation";
+        private const string OPERATION_REGISTER = "RegisterOperation";
+        private const string OPERATION_VERIFY_ACCOUNT = "VerifyAccountOperation";
+        private const string OPERATION_RESEND_VERIFICATION = "ResendVerificationOperation";
+        private const string OPERATION_SEND_RECOVERY_CODE = "SendRecoveryCodeOperation";
+        private const string OPERATION_RESET_PASSWORD = "ResetPasswordOperation";
+
         private readonly AuthenticationLogic authenticationLogic;
         private readonly IServiceExceptionHandler exceptionHandler;
 
@@ -36,7 +43,6 @@ namespace MindWeaveServer.Services
         {
             this.authenticationLogic = authenticationLogic;
             this.exceptionHandler = exceptionHandler;
-
         }
 
         public async Task<LoginResultDto> login(LoginDto loginCredentials)
@@ -45,11 +51,10 @@ namespace MindWeaveServer.Services
             try
             {
                 return await authenticationLogic.loginAsync(loginCredentials);
-                
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "LoginOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_LOGIN);
             }
         }
 
@@ -62,7 +67,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "RegisterOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_REGISTER);
             }
         }
 
@@ -75,7 +80,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "VerifyAccountOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_VERIFY_ACCOUNT);
             }
         }
 
@@ -88,7 +93,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "ResendVerificationOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_RESEND_VERIFICATION);
             }
         }
 
@@ -101,7 +106,7 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "SendRecoveryCodeOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_SEND_RECOVERY_CODE);
             }
         }
 
@@ -114,13 +119,13 @@ namespace MindWeaveServer.Services
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "ResetPasswordOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_RESET_PASSWORD);
             }
         }
 
         public void logOut(string username)
         {
-            logger.Info("Logout request received for user: {Username}", username);
+            logger.Info("Logout request received.");
 
             try
             {
@@ -129,15 +134,15 @@ namespace MindWeaveServer.Services
             }
             catch (EntityException entityEx)
             {
-                logger.Error(entityEx, "Database error during logout for {Username}", username);
+                logger.Error(entityEx, "Database error during logout.");
             }
             catch (SqlException sqlEx)
             {
-                logger.Error(sqlEx, "SQL error during logout for {Username}", username);
+                logger.Error(sqlEx, "SQL error during logout.");
             }
             catch (TimeoutException timeoutEx)
             {
-                logger.Error(timeoutEx, "Operation timed out during logout for {Username}", username);
+                logger.Error(timeoutEx, "Operation timed out during logout.");
             }
         }
 
@@ -147,12 +152,14 @@ namespace MindWeaveServer.Services
             {
                 var gameStateManager = Bootstrapper.Container.Resolve<IGameStateManager>();
 
-                if (gameStateManager.isUserConnected(username))
+                if (!gameStateManager.isUserConnected(username))
                 {
-                    notifyFriendsUserIsOffline(username, gameStateManager);
-                    gameStateManager.removeConnectedUser(username);
-                    logger.Info("User {Username} removed from GameStateManager connected list.", username);
+                    return;
                 }
+
+                notifyFriendsUserIsOffline(username, gameStateManager);
+                gameStateManager.removeConnectedUser(username);
+                logger.Info("User removed from GameStateManager connected list.");
             }
             catch (DependencyResolutionException depEx)
             {
@@ -162,35 +169,50 @@ namespace MindWeaveServer.Services
 
         private static void notifyFriendsUserIsOffline(string username, IGameStateManager gameStateManager)
         {
+            List<FriendDto> friends = retrieveFriendsList(username);
+
+            if (friends == null)
+            {
+                return;
+            }
+
+            foreach (var friend in friends)
+            {
+                notifyFriendIfConnected(username, friend.Username, gameStateManager);
+            }
+        }
+
+        private static List<FriendDto> retrieveFriendsList(string username)
+        {
             try
             {
                 var socialLogic = Bootstrapper.Container.Resolve<SocialLogic>();
-
                 var task = Task.Run(async () => await socialLogic.getFriendsListAsync(username, null));
                 task.Wait();
-
-                List<FriendDto> friends = task.Result;
-
-                if (friends != null)
-                {
-                    foreach (var friendUsername in friends.Select(friend => friend.Username))
-                    {
-                        var friendCallback = gameStateManager.getUserCallback(friendUsername);
-                        if (friendCallback != null)
-                        {
-                            notifySingleFriend(friendCallback, username, friendUsername, gameStateManager);
-                        }
-                    }
-                }
+                return task.Result;
             }
             catch (DependencyResolutionException depEx)
             {
                 logger.Error(depEx, "Could not resolve SocialLogic to notify friends.");
+                return null;
             }
             catch (AggregateException aggEx)
             {
-                logger.Warn(aggEx, "Error retrieving friend list for logout notification for {Username}", username);
+                logger.Warn(aggEx, "Error retrieving friend list for logout notification.");
+                return null;
             }
+        }
+
+        private static void notifyFriendIfConnected(string username, string friendUsername, IGameStateManager gameStateManager)
+        {
+            var friendCallback = gameStateManager.getUserCallback(friendUsername);
+
+            if (friendCallback == null)
+            {
+                return;
+            }
+
+            notifySingleFriend(friendCallback, username, friendUsername, gameStateManager);
         }
 
         private static void notifySingleFriend(ISocialCallback friendCallback, string username, string friendUsername, IGameStateManager gameStateManager)
@@ -201,17 +223,17 @@ namespace MindWeaveServer.Services
             }
             catch (CommunicationException commEx)
             {
-                logger.Warn(commEx, "Connection lost with friend {Friend}. Removing from active users.", friendUsername);
+                logger.Warn(commEx, "Connection lost with friend. Removing from active users.");
                 gameStateManager.removeConnectedUser(friendUsername);
             }
             catch (TimeoutException timeoutEx)
             {
-                logger.Warn(timeoutEx, "Timeout notifying friend {Friend}. Removing from active users.", friendUsername);
+                logger.Warn(timeoutEx, "Timeout notifying friend. Removing from active users.");
                 gameStateManager.removeConnectedUser(friendUsername);
             }
             catch (ObjectDisposedException disposedEx)
             {
-                logger.Warn(disposedEx, "Channel disposed for friend {Friend}.", friendUsername);
+                logger.Warn(disposedEx, "Channel disposed for friend.");
                 gameStateManager.removeConnectedUser(friendUsername);
             }
         }

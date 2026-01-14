@@ -18,6 +18,7 @@ namespace MindWeaveServer.BusinessLogic
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private const string DEFAULT_AVATAR_PATH = "/Resources/Images/Avatar/default_avatar.png";
+        private const string UNKNOWN_PLATFORM_NAME = "Unknown";
 
         private readonly IPlayerRepository playerRepository;
         private readonly IGenderRepository genderRepository;
@@ -54,7 +55,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (player == null)
             {
-                logger.Warn("getPlayerProfileViewAsync: Player not found for User: {Username}", username);
+                logger.Warn("getPlayerProfileViewAsync: Player not found.");
                 return null;
             }
 
@@ -73,13 +74,12 @@ namespace MindWeaveServer.BusinessLogic
 
             if (player == null)
             {
-                logger.Warn("getPlayerProfileForEditAsync: Player not found for User: {Username}", username);
+                logger.Warn("getPlayerProfileForEditAsync: Player not found.");
                 return null;
             }
 
             var allGendersData = await genderRepository.getAllGendersAsync();
-            var allGendersDto = allGendersData.Select
-                (g => new GenderDto { IdGender = g.idGender, Name = g.gender1 }).ToList();
+            var allGendersDto = mapToGenderDtoList(allGendersData);
             var allPlatforms = await playerRepository.getAllSocialMediaPlatformsAsync();
 
             return mapToUserProfileForEditDto(player, allGendersDto, allPlatforms);
@@ -89,7 +89,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (updatedProfileData == null)
             {
-                logger.Warn("Update profile failed for {Username}: Updated profile data is null.", username ?? "NULL");
+                logger.Warn("updateProfileAsync: Updated profile data is null.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -101,8 +101,7 @@ namespace MindWeaveServer.BusinessLogic
             if (!validationResult.IsValid)
             {
                 var firstError = validationResult.Errors[0];
-
-                logger.Warn("Update profile failed for {Username}: Validation failed.", username ?? "NULL");
+                logger.Warn("updateProfileAsync: Validation failed.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -114,7 +113,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (playerToUpdate == null)
             {
-                logger.Warn("Update profile failed: Player {Username} not found.", username);
+                logger.Warn("updateProfileAsync: Player not found.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -136,7 +135,7 @@ namespace MindWeaveServer.BusinessLogic
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(newAvatarPath))
             {
-                logger.Warn("Update avatar path failed: Username or new path is null/whitespace.");
+                logger.Warn("updateAvatarPathAsync: Username or new path is null/whitespace.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -148,7 +147,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (playerToUpdate == null)
             {
-                logger.Warn("Update avatar path failed: Player {Username} not found.", username);
+                logger.Warn("updateAvatarPathAsync: Player not found.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -169,21 +168,17 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task<OperationResultDto> changePasswordAsync(string username, string currentPassword, string newPassword)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+            var inputValidation = validateChangePasswordInput(username, currentPassword, newPassword);
+            if (!inputValidation.Success)
             {
-                logger.Warn("Change password failed for {Username}: One or more fields are null/whitespace.", username ?? "NULL");
-                return new OperationResultDto
-                {
-                    Success = false,
-                    MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED
-                };
+                return inputValidation;
             }
 
             var player = await playerRepository.getPlayerByUsernameWithTrackingAsync(username);
 
             if (player == null)
             {
-                logger.Warn("Change password failed: Player {Username} not found.", username);
+                logger.Warn("changePasswordAsync: Player not found.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -195,7 +190,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (!currentPasswordVerified)
             {
-                logger.Warn("Change password failed for {Username}: Current password verification failed.", username);
+                logger.Warn("changePasswordAsync: Current password verification failed.");
                 return new OperationResultDto
                 {
                     Success = false,
@@ -206,7 +201,7 @@ namespace MindWeaveServer.BusinessLogic
             var policyValidation = passwordPolicyValidator.validate(newPassword);
             if (!policyValidation.Success)
             {
-                logger.Warn("Change password failed for {Username}: New password does not meet policy.", username);
+                logger.Warn("changePasswordAsync: New password does not meet policy.");
                 if (string.IsNullOrEmpty(policyValidation.MessageCode))
                 {
                     policyValidation.MessageCode = MessageCodes.VALIDATION_PASSWORD_TOO_WEAK;
@@ -214,8 +209,7 @@ namespace MindWeaveServer.BusinessLogic
                 return policyValidation;
             }
 
-            string newPasswordHash = passwordService.hashPassword(newPassword);
-            player.password_hash = newPasswordHash;
+            player.password_hash = passwordService.hashPassword(newPassword);
 
             await playerRepository.updatePlayerAsync(player);
 
@@ -243,6 +237,30 @@ namespace MindWeaveServer.BusinessLogic
             return achievementList;
         }
 
+        private OperationResultDto validateChangePasswordInput(string username, string currentPassword, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(currentPassword) || string.IsNullOrWhiteSpace(newPassword))
+            {
+                logger.Warn("changePasswordAsync: One or more fields are null/whitespace.");
+                return new OperationResultDto
+                {
+                    Success = false,
+                    MessageCode = MessageCodes.VALIDATION_FIELDS_REQUIRED
+                };
+            }
+
+            return new OperationResultDto { Success = true };
+        }
+
+        private static List<GenderDto> mapToGenderDtoList(IEnumerable<Gender> genders)
+        {
+            return genders.Select(g => new GenderDto
+            {
+                IdGender = g.idGender,
+                Name = g.gender1
+            }).ToList();
+        }
+
         private static PlayerProfileViewDto mapToPlayerProfileViewDto(Player player)
         {
             return new PlayerProfileViewDto
@@ -253,62 +271,59 @@ namespace MindWeaveServer.BusinessLogic
                 LastName = player.last_name,
                 DateOfBirth = player.date_of_birth,
                 Gender = player.Gender?.gender1,
-
-                Stats = new PlayerStatsDto
-                {
-                    PuzzlesCompleted = player.PlayerStats?.puzzles_completed ?? 0,
-                    PuzzlesWon = player.PlayerStats?.puzzles_won ?? 0,
-                    TotalPlaytime = TimeSpan.FromMinutes(player.PlayerStats?.total_playtime_minutes ?? 0),
-                    HighestScore = player.PlayerStats?.highest_score ?? 0
-                },
-                Achievements = player.Achievements?.Select(ach => new AchievementDto
-                {
-                    Name = ach.name,
-                    Description = ach.description,
-                    IconPath = ach.icon_path
-                }).ToList() ?? new List<AchievementDto>(),
-
-                SocialMedia = player.PlayerSocialMedias?.Select(sm => new PlayerSocialMediaDto
-                {
-                    IdSocialMediaPlatform = sm.IdSocialMediaPlatform,
-                    PlatformName = sm.SocialMediaPlatforms?.Name ?? "Unknown",
-                    Username = sm.Username
-                }).ToList() ?? new List<PlayerSocialMediaDto>()
+                Stats = mapToPlayerStatsDto(player.PlayerStats),
+                Achievements = mapToAchievementDtoList(player.Achievements),
+                SocialMedia = mapToPlayerSocialMediaDtoList(player.PlayerSocialMedias)
             };
         }
 
-        private static UserProfileForEditDto mapToUserProfileForEditDto(Player player, List<GenderDto> allGendersDto, List<SocialMediaPlatforms> allPlatforms)
+        private static PlayerStatsDto mapToPlayerStatsDto(PlayerStats stats)
         {
-            var socialMediaList = new List<PlayerSocialMediaDto>();
-
-            if (player.PlayerSocialMedias != null)
+            return new PlayerStatsDto
             {
-                foreach (var userMedia in player.PlayerSocialMedias)
-                {
-                    socialMediaList.Add(new PlayerSocialMediaDto
-                    {
-                        IdSocialMediaPlatform = userMedia.IdSocialMediaPlatform,
-                        PlatformName = userMedia.SocialMediaPlatforms?.Name ?? "Unknown",
-                        Username = userMedia.Username
-                    });
-                }
+                PuzzlesCompleted = stats?.puzzles_completed ?? 0,
+                PuzzlesWon = stats?.puzzles_won ?? 0,
+                TotalPlaytime = TimeSpan.FromMinutes(stats?.total_playtime_minutes ?? 0),
+                HighestScore = stats?.highest_score ?? 0
+            };
+        }
+
+        private static List<AchievementDto> mapToAchievementDtoList(ICollection<Achievements> achievements)
+        {
+            if (achievements == null)
+            {
+                return new List<AchievementDto>();
             }
 
-            if (allPlatforms != null)
+            return achievements.Select(ach => new AchievementDto
             {
-                var missingPlatforms = allPlatforms
-                    .Where(platform => socialMediaList.All(sm => sm.IdSocialMediaPlatform != platform.IdSocialMediaPlatform))
-                    .Select(platform => new PlayerSocialMediaDto
-                    {
-                        IdSocialMediaPlatform = platform.IdSocialMediaPlatform,
-                        PlatformName = platform.Name,
-                        Username = string.Empty
-                    });
+                Name = ach.name,
+                Description = ach.description,
+                IconPath = ach.icon_path
+            }).ToList();
+        }
 
-                socialMediaList.AddRange(missingPlatforms);
+        private static List<PlayerSocialMediaDto> mapToPlayerSocialMediaDtoList(ICollection<PlayerSocialMedias> socialMedias)
+        {
+            if (socialMedias == null)
+            {
+                return new List<PlayerSocialMediaDto>();
             }
 
-            socialMediaList = socialMediaList.OrderBy(sm => sm.PlatformName).ToList();
+            return socialMedias.Select(sm => new PlayerSocialMediaDto
+            {
+                IdSocialMediaPlatform = sm.IdSocialMediaPlatform,
+                PlatformName = sm.SocialMediaPlatforms?.Name ?? UNKNOWN_PLATFORM_NAME,
+                Username = sm.Username
+            }).ToList();
+        }
+
+        private static UserProfileForEditDto mapToUserProfileForEditDto(
+            Player player,
+            List<GenderDto> allGendersDto,
+            List<SocialMediaPlatforms> allPlatforms)
+        {
+            var socialMediaList = buildSocialMediaList(player.PlayerSocialMedias, allPlatforms);
 
             return new UserProfileForEditDto
             {
@@ -319,6 +334,59 @@ namespace MindWeaveServer.BusinessLogic
                 AvailableGenders = allGendersDto,
                 SocialMedia = socialMediaList
             };
+        }
+
+        private static List<PlayerSocialMediaDto> buildSocialMediaList(
+            ICollection<PlayerSocialMedias> playerSocialMedias,
+            List<SocialMediaPlatforms> allPlatforms)
+        {
+            var socialMediaList = new List<PlayerSocialMediaDto>();
+
+            addExistingPlayerSocialMedias(socialMediaList, playerSocialMedias);
+            addMissingPlatforms(socialMediaList, allPlatforms);
+
+            return socialMediaList.OrderBy(sm => sm.PlatformName).ToList();
+        }
+
+        private static void addExistingPlayerSocialMedias(
+            List<PlayerSocialMediaDto> socialMediaList,
+            ICollection<PlayerSocialMedias> playerSocialMedias)
+        {
+            if (playerSocialMedias == null)
+            {
+                return;
+            }
+
+            foreach (var userMedia in playerSocialMedias)
+            {
+                socialMediaList.Add(new PlayerSocialMediaDto
+                {
+                    IdSocialMediaPlatform = userMedia.IdSocialMediaPlatform,
+                    PlatformName = userMedia.SocialMediaPlatforms?.Name ?? UNKNOWN_PLATFORM_NAME,
+                    Username = userMedia.Username
+                });
+            }
+        }
+
+        private static void addMissingPlatforms(
+            List<PlayerSocialMediaDto> socialMediaList,
+            List<SocialMediaPlatforms> allPlatforms)
+        {
+            if (allPlatforms == null)
+            {
+                return;
+            }
+
+            var missingPlatforms = allPlatforms
+                .Where(platform => socialMediaList.All(sm => sm.IdSocialMediaPlatform != platform.IdSocialMediaPlatform))
+                .Select(platform => new PlayerSocialMediaDto
+                {
+                    IdSocialMediaPlatform = platform.IdSocialMediaPlatform,
+                    PlatformName = platform.Name,
+                    Username = string.Empty
+                });
+
+            socialMediaList.AddRange(missingPlatforms);
         }
 
         private static void applyProfileUpdates(Player player, UserProfileForEditDto updatedProfileData)
@@ -333,12 +401,12 @@ namespace MindWeaveServer.BusinessLogic
             {
                 foreach (var mediaDto in updatedProfileData.SocialMedia)
                 {
-                    UpdateSocialMedia(player, mediaDto);
+                    updateSocialMedia(player, mediaDto);
                 }
             }
         }
 
-        private static void UpdateSocialMedia(Player player, PlayerSocialMediaDto mediaDto)
+        private static void updateSocialMedia(Player player, PlayerSocialMediaDto mediaDto)
         {
             var existingMedia = player.PlayerSocialMedias
                 .FirstOrDefault(pm => pm.IdSocialMediaPlatform == mediaDto.IdSocialMediaPlatform);

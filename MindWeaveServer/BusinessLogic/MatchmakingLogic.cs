@@ -24,14 +24,10 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IMatchmakingRepository matchmakingRepository;
         private readonly LobbyModerationManager moderationManager;
 
-
         private const int ID_REASON_PROFANITY = 2;
         public const int INVALID_PLAYER_ID = 0;
         public const string PROFANITY_REASON_TEXT = "Profanity";
-        [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Major Code Smell",
-        "S107:Methods should not have too many parameters",
-        Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
+
         public MatchmakingLogic(
             ILobbyLifecycleService lifecycleService,
             ILobbyInteractionService interactionService,
@@ -53,7 +49,6 @@ namespace MindWeaveServer.BusinessLogic
 
             logger.Info("MatchmakingLogic Facade initialized.");
         }
-
 
         public async Task<LobbyCreationResultDto> createLobbyAsync(string hostUsername, LobbySettingsDto settings)
         {
@@ -118,125 +113,140 @@ namespace MindWeaveServer.BusinessLogic
 
         public async Task inviteGuestByEmailAsync(GuestInvitationDto invitationData)
         {
-            if (invitationData == null) return;
+            if (invitationData == null)
+            {
+                return;
+            }
             await interactionService.inviteGuestByEmailAsync(invitationData.InviterUsername, invitationData.LobbyCode, invitationData.GuestEmail);
         }
 
         public void registerCallback(string username, IMatchmakingCallback callback)
         {
-            if (string.IsNullOrWhiteSpace(username) || callback == null) return;
+            if (string.IsNullOrWhiteSpace(username) || callback == null)
+            {
+                return;
+            }
             gameStateManager.MatchmakingCallbacks.AddOrUpdate(username, callback, (k, v) => callback);
         }
 
         public async Task expelPlayerAsync(string lobbyCode, string username, string reasonText)
         {
-            logger.Info("ExpelPlayerAsync (System) for {0} in {1}. Reason: {2}", username, lobbyCode, reasonText);
+            logger.Info("ExpelPlayerAsync (System) for lobby: {LobbyCode}. Reason: {Reason}.", lobbyCode, reasonText);
 
-            if (gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var lobbyState))
-            {
-                if (lobbyState.HostUsername == username)
-                {
-                    logger.Info("Host {0} expelled from lobby {1} by System (Profanity). Destroying lobby.", username, lobbyCode);
-
-                    moderationManager.banUser(lobbyCode, username, reasonText);
-
-                    notificationService.broadcastLobbyDestroyed(lobbyState, MessageCodes.NOTIFY_HOST_LEFT);
-
-                    gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
-                    gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
-
-                    return;
-                }
-            }
-            else
+            if (!gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var lobbyState))
             {
                 return;
             }
 
-            int reasonId = ID_REASON_PROFANITY;
-            string messageCode = MessageCodes.NOTIFY_KICKED_PROFANITY;
+            if (isHostBeingExpelled(lobbyState, username))
+            {
+                await handleHostExpulsion(lobbyCode, username, lobbyState, reasonText);
+                return;
+            }
 
+            await handlePlayerExpulsion(lobbyCode, username, reasonText);
+        }
+
+        private static bool isHostBeingExpelled(LobbyStateDto lobbyState, string username)
+        {
+            return lobbyState.HostUsername == username;
+        }
+
+        private Task handleHostExpulsion(string lobbyCode, string username, LobbyStateDto lobbyState, string reasonText)
+        {
+            logger.Info("Host expelled from lobby by System (Profanity). Destroying lobby: {LobbyCode}.", lobbyCode);
+
+            moderationManager.banUser(lobbyCode, username, reasonText);
+            notificationService.broadcastLobbyDestroyed(lobbyState, MessageCodes.NOTIFY_HOST_LEFT);
+
+            gameStateManager.ActiveLobbies.TryRemove(lobbyCode, out _);
+            gameStateManager.GuestUsernamesInLobby.TryRemove(lobbyCode, out _);
+            return Task.CompletedTask;
+        }
+
+        private async Task handlePlayerExpulsion(string lobbyCode, string username, string reasonText)
+        {
             int hostId = await getHostIdAsync(lobbyCode);
 
             moderationManager.banUser(lobbyCode, username, reasonText);
-            logger.Info("User {0} banned from lobby {1}. Reason: {2}", username, lobbyCode, reasonText);
+            logger.Info("User banned from lobby: {LobbyCode}. Reason: {Reason}.", lobbyCode, reasonText);
 
             var session = gameSessionManager.getSession(lobbyCode);
 
             if (session != null)
             {
-                await expelFromActiveSessionAsync(session, username, reasonId, hostId);
+                await expelFromActiveSessionAsync(session, username, hostId);
             }
             else
             {
-                await expelFromLobbyStateAsync(lobbyCode, username, reasonId, hostId, messageCode);
+                await expelFromLobbyStateAsync(lobbyCode, username, hostId);
             }
         }
 
         private async Task<int> getHostIdAsync(string lobbyCode)
         {
-            if (gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var state))
+            if (!gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var state))
             {
-                var hostP = await playerRepository.getPlayerByUsernameAsync(state.HostUsername);
-                return hostP?.idPlayer ?? INVALID_PLAYER_ID;
+                return INVALID_PLAYER_ID;
             }
-            return INVALID_PLAYER_ID;
+
+            var hostPlayer = await playerRepository.getPlayerByUsernameAsync(state.HostUsername);
+            return hostPlayer?.idPlayer ?? INVALID_PLAYER_ID;
         }
 
-        private async Task expelFromActiveSessionAsync(GameSession session, string username, int reasonId, int hostId)
+        private async Task expelFromActiveSessionAsync(GameSession session, string username, int hostId)
         {
             var player = await playerRepository.getPlayerByUsernameAsync(username);
             if (player != null)
             {
-                await session.kickPlayerAsync(player.idPlayer, reasonId, hostId);
+                await session.kickPlayerAsync(player.idPlayer, ID_REASON_PROFANITY, hostId);
             }
             else
             {
-                logger.Warn("ExpelFromActiveSession: Player {0} not found in DB, cannot kick from session.", username);
+                logger.Warn("ExpelFromActiveSession: Player not found in DB, cannot kick from session.");
             }
         }
 
-        private async Task expelFromLobbyStateAsync(string lobbyCode, string username, int reasonId, int hostId, string messageCode)
+        private async Task expelFromLobbyStateAsync(string lobbyCode, string username, int hostId)
         {
-            await registerLobbyExpulsionInDbAsync(lobbyCode, username, reasonId, hostId);
-
-            notificationService.notifyKicked(username, messageCode);
-
+            await registerLobbyExpulsionInDbAsync(lobbyCode, username, hostId);
+            notificationService.notifyKicked(username, MessageCodes.NOTIFY_KICKED_PROFANITY);
             updateLobbyStateAndNotify(lobbyCode, username);
         }
 
-        private async Task registerLobbyExpulsionInDbAsync(string lobbyCode, string username, int reasonId, int hostId)
+        private async Task registerLobbyExpulsionInDbAsync(string lobbyCode, string username, int hostId)
         {
             var match = await matchmakingRepository.getMatchByLobbyCodeAsync(lobbyCode);
             var player = await playerRepository.getPlayerByUsernameAsync(username);
 
-            if (match != null && player != null)
-            {
-                var dto = new ExpulsionDto
-                {
-                    MatchId = match.matches_id,
-                    PlayerId = player.idPlayer,
-                    ReasonId = reasonId,
-                    HostPlayerId = hostId
-                };
-                await matchmakingRepository.registerExpulsionAsync(dto);
-            }
-            else
+            if (match == null || player == null)
             {
                 logger.Warn("RegisterLobbyExpulsionInDb: Match or player not found.");
+                return;
             }
+
+            var dto = new ExpulsionDto
+            {
+                MatchId = match.matches_id,
+                PlayerId = player.idPlayer,
+                ReasonId = ID_REASON_PROFANITY,
+                HostPlayerId = hostId
+            };
+            await matchmakingRepository.registerExpulsionAsync(dto);
         }
 
         private void updateLobbyStateAndNotify(string lobbyCode, string username)
         {
-            if (gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var lobbyState))
+            if (!gameStateManager.ActiveLobbies.TryGetValue(lobbyCode, out var lobbyState))
             {
-                lock (lobbyState)
-                {
-                    lobbyState.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase));
-                }
-                notificationService.broadcastLobbyState(lobbyState);
+                return;
             }
+
+            lock (lobbyState)
+            {
+                lobbyState.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase));
+            }
+            notificationService.broadcastLobbyState(lobbyState);
         }
     }
 }

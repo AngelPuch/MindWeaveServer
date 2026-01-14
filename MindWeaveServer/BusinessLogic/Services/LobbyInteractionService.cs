@@ -12,7 +12,6 @@ using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
 using System.Threading.Tasks;
 
@@ -27,7 +26,6 @@ namespace MindWeaveServer.BusinessLogic.Services
         private readonly INotificationService notificationService;
         private readonly GameSessionManager gameSessionManager;
         private readonly LobbyModerationManager moderationManager;
-
 
         private readonly IMatchmakingRepository matchmakingRepository;
         private readonly IPlayerRepository playerRepository;
@@ -65,8 +63,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             this.playerRepository = playerRepository;
             this.invitationRepository = invitationRepository;
             this.emailService = emailService;
-            this.moderationManager = moderationManager; 
-
+            this.moderationManager = moderationManager;
         }
 
         public async Task invitePlayerAsync(LobbyActionContext context)
@@ -82,7 +79,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
             if (moderationManager.isBanned(context.LobbyCode, context.TargetUsername))
             {
-                logger.Info("Cannot invite banned user {0} to lobby {1}", context.TargetUsername, context.LobbyCode);
+                logger.Info("Cannot invite banned user to lobby {LobbyCode}", context.LobbyCode);
                 notificationService.notifyActionFailed(context.RequesterUsername, MessageCodes.MATCH_CANNOT_INVITE_BANNED);
                 return;
             }
@@ -97,7 +94,10 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             var lobby = getLobby(context.LobbyCode);
 
-            if (lobby == null) return;
+            if (lobby == null)
+            {
+                return;
+            }
 
             var validation = validationService.canKickPlayer(lobby, context.RequesterUsername, context.TargetUsername);
 
@@ -108,8 +108,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
 
             moderationManager.banUser(context.LobbyCode, context.TargetUsername, BAN_REASON_HOST_KICK);
-            logger.Info("User {0} banned from lobby {1} by host decision", context.TargetUsername, context.LobbyCode);
-
+            logger.Info("User banned from lobby {LobbyCode} by host decision", context.LobbyCode);
 
             int hostId = await getPlayerIdAsync(context.RequesterUsername);
             int targetId = await getPlayerIdAsync(context.TargetUsername);
@@ -191,7 +190,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             if (matchId > 0 && await saveGuestInvitationAsync(matchId, inviterId, guestEmail))
             {
                 await emailService.sendEmailAsync(guestEmail, guestEmail, new GuestInviteEmailTemplate(inviterUsername, lobbyCode));
-                logger.Info("Guest invite sent to {0}", guestEmail);
+                logger.Info("Guest invite sent for lobby {LobbyCode}", lobbyCode);
             }
             else
             {
@@ -234,7 +233,11 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private void removePlayerFromMemory(LobbyStateDto lobby, string username)
         {
-            if (lobby == null) return;
+            if (lobby == null)
+            {
+                return;
+            }
+
             lock (lobby)
             {
                 lobby.Players.RemoveAll(p => p.Equals(username, StringComparison.OrdinalIgnoreCase));
@@ -259,44 +262,11 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task createAndNotifySessionAsync(LobbyStateDto lobby, Matches match)
         {
-            var playersMap = new ConcurrentDictionary<int, PlayerSessionData>();
-            var guests = gameStateManager.GuestUsernamesInLobby.GetOrAdd(lobby.LobbyId, new HashSet<string>());
-
-            foreach (var user in lobby.Players)
-            {
-                int pid;
-                string avatarPath = null;
-
-                if (guests.Contains(user))
-                {
-                    pid = -Math.Abs(user.GetHashCode());
-                }
-                else
-                {
-                    var playerEntity = await playerRepository.getPlayerByUsernameAsync(user);
-                    pid = playerEntity?.idPlayer ?? INVALID_ID;
-                    avatarPath = playerEntity?.avatar_path;
-                }
-
-                if (gameStateManager.MatchmakingCallbacks.TryGetValue(user, out IMatchmakingCallback mmCallback))
-                {
-                    playersMap.TryAdd(pid, new PlayerSessionData
-                    {
-                        PlayerId = pid,
-                        Username = user,
-                        AvatarPath = avatarPath,
-                        Callback = mmCallback
-                    });
-                }
-                else
-                {
-                    logger.Warn("CreateSession: No matchmaking callback found for user {0}. They will be excluded.", user);
-                }
-            }
+            var playersMap = await buildPlayersMapAsync(lobby);
 
             if (playersMap.IsEmpty)
             {
-                logger.Warn("CreateSession: Player map is empty (callbacks missing?). Canceling match {0}.", match.matches_id);
+                logger.Warn("CreateSession: Player map is empty (callbacks missing?). Canceling match {MatchId}.", match.matches_id);
                 await updateMatchStatusAsync(lobby.LobbyId, MATCH_STATUS_CANCELED);
                 notificationService.notifyActionFailed(lobby.HostUsername, MessageCodes.MATCH_NO_ACTIVE_CONNECTIONS);
                 return;
@@ -305,14 +275,71 @@ namespace MindWeaveServer.BusinessLogic.Services
             var session = await gameSessionManager.createGameSession(lobby.LobbyId, match.matches_id, match.puzzle_id, match.DifficultyLevels, playersMap);
             session.startMatchTimer(match.DifficultyLevels.time_limit_seconds);
 
-            Action<IMatchmakingCallback> startMsg = cb => cb.onGameStarted(session.PuzzleDefinition, match.DifficultyLevels.time_limit_seconds);
+            notifyAllPlayersGameStarted(playersMap, session, match.DifficultyLevels.time_limit_seconds);
+
+            gameStateManager.ActiveLobbies.TryRemove(lobby.LobbyId, out _);
+        }
+
+        private async Task<ConcurrentDictionary<int, PlayerSessionData>> buildPlayersMapAsync(LobbyStateDto lobby)
+        {
+            var playersMap = new ConcurrentDictionary<int, PlayerSessionData>();
+            var guests = gameStateManager.GuestUsernamesInLobby.GetOrAdd(lobby.LobbyId, new HashSet<string>());
+
+            foreach (var user in lobby.Players)
+            {
+                var playerData = await buildPlayerSessionDataAsync(user, guests);
+
+                if (playerData != null)
+                {
+                    playersMap.TryAdd(playerData.PlayerId, playerData);
+                }
+                else
+                {
+                    logger.Warn("CreateSession: No matchmaking callback found for player. They will be excluded.");
+                }
+            }
+
+            return playersMap;
+        }
+
+        private async Task<PlayerSessionData> buildPlayerSessionDataAsync(string user, HashSet<string> guests)
+        {
+            int pid;
+            string avatarPath = null;
+
+            if (guests.Contains(user))
+            {
+                pid = -Math.Abs(user.GetHashCode());
+            }
+            else
+            {
+                var playerEntity = await playerRepository.getPlayerByUsernameAsync(user);
+                pid = playerEntity?.idPlayer ?? INVALID_ID;
+                avatarPath = playerEntity?.avatar_path;
+            }
+
+            if (!gameStateManager.MatchmakingCallbacks.TryGetValue(user, out IMatchmakingCallback mmCallback))
+            {
+                return null;
+            }
+
+            return new PlayerSessionData
+            {
+                PlayerId = pid,
+                Username = user,
+                AvatarPath = avatarPath,
+                Callback = mmCallback
+            };
+        }
+
+        private void notifyAllPlayersGameStarted(ConcurrentDictionary<int, PlayerSessionData> playersMap, GameSession session, int timeLimitSeconds)
+        {
+            Action<IMatchmakingCallback> startMsg = cb => cb.onGameStarted(session.PuzzleDefinition, timeLimitSeconds);
 
             foreach (var p in playersMap.Values)
             {
                 notificationService.sendToUser(p.Username, startMsg);
             }
-
-            gameStateManager.ActiveLobbies.TryRemove(lobby.LobbyId, out _);
         }
 
         private async Task<bool> persistDifficultyChangeAsync(string lobbyCode, int difficultyId)
@@ -341,7 +368,11 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         private async Task<int> getPlayerIdAsync(string username)
         {
-            if (string.IsNullOrEmpty(username)) return INVALID_ID;
+            if (string.IsNullOrEmpty(username))
+            {
+                return INVALID_ID;
+            }
+
             var p = await playerRepository.getPlayerByUsernameAsync(username);
             return p?.idPlayer ?? INVALID_ID;
         }

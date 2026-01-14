@@ -7,7 +7,7 @@ using NLog;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Security;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic
@@ -19,6 +19,9 @@ namespace MindWeaveServer.BusinessLogic
         private readonly IPuzzleRepository puzzleRepository;
         private readonly IPlayerRepository playerRepository;
 
+        private const string PNG = ".png";
+        private const string JPG = ".jpg";
+        private const string JPEG = ".jpeg";
         private const string UPLOAD_FOLDER_NAME = "UploadedPuzzles";
         private const string DEFAULT_PUZZLES_FOLDER = "DefaultPuzzles";
         private const string DEFAULT_PUZZLE_PREFIX = "puzzleDefault";
@@ -27,8 +30,8 @@ namespace MindWeaveServer.BusinessLogic
 
         public PuzzleLogic(IPuzzleRepository puzzleRepository, IPlayerRepository playerRepository)
         {
-            this.puzzleRepository = puzzleRepository ?? throw new ArgumentNullException(nameof(puzzleRepository));
-            this.playerRepository = playerRepository ?? throw new ArgumentNullException(nameof(playerRepository));
+            this.puzzleRepository = puzzleRepository;
+            this.playerRepository = playerRepository;
         }
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()
@@ -79,13 +82,8 @@ namespace MindWeaveServer.BusinessLogic
             string uniqueFileName = generateUniqueFileName(fileName);
             string filePath = Path.Combine(uploadPath, uniqueFileName);
 
-            try
+            if (!tryWriteFileToDisk(filePath, optimizedBytes))
             {
-                File.WriteAllBytes(filePath, optimizedBytes);
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex, "Failed to write uploaded file to disk: {0}", filePath);
                 return new UploadResultDto { Success = false, MessageCode = MessageCodes.PUZZLE_UPLOAD_FAILED };
             }
 
@@ -136,6 +134,30 @@ namespace MindWeaveServer.BusinessLogic
             return PuzzleGenerator.generatePuzzle(imageBytes, difficulty);
         }
 
+        private static bool tryWriteFileToDisk(string filePath, byte[] bytes)
+        {
+            try
+            {
+                File.WriteAllBytes(filePath, bytes);
+                return true;
+            }
+            catch (IOException ioEx)
+            {
+                logger.Error(ioEx, "I/O error writing file to disk: {FilePath}", filePath);
+                return false;
+            }
+            catch (UnauthorizedAccessException authEx)
+            {
+                logger.Error(authEx, "Access denied writing file to disk: {FilePath}", filePath);
+                return false;
+            }
+            catch (SecurityException secEx)
+            {
+                logger.Error(secEx, "Security error writing file to disk: {FilePath}", filePath);
+                return false;
+            }
+        }
+
         private static byte[] loadPuzzleImageBytesOrThrow(Puzzles puzzleData)
         {
             bool isDefaultPuzzle = puzzleData.image_path.StartsWith(DEFAULT_PUZZLE_PREFIX, StringComparison.OrdinalIgnoreCase);
@@ -145,7 +167,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (bytes == null || bytes.Length == 0)
             {
-                string msg = $"CRITICAL: Puzzle image file NOT FOUND on server. ID: {puzzleData.puzzle_id}, Name: {puzzleData.image_path}. Search Path: {folderPath}";
+                string msg = $"CRITICAL: Puzzle image file NOT FOUND on server. PuzzleId: {puzzleData.puzzle_id}. Search Path: {folderPath}";
                 logger.Error(msg);
                 throw new FileNotFoundException(msg, puzzleData.image_path);
             }
@@ -168,7 +190,7 @@ namespace MindWeaveServer.BusinessLogic
 
             if (!Path.HasExtension(fullPath))
             {
-                string[] extensions = { ".png", ".jpg", ".jpeg" };
+                string[] extensions = { PNG, JPG, JPEG };
                 foreach (var ext in extensions)
                 {
                     string testPath = fullPath + ext;
@@ -188,9 +210,19 @@ namespace MindWeaveServer.BusinessLogic
             {
                 return File.ReadAllBytes(path);
             }
-            catch (Exception ex)
+            catch (IOException ioEx)
             {
-                logger.Error(ex, "Error reading file from disk: {0}", path);
+                logger.Error(ioEx, "I/O error reading file from disk: {FilePath}", path);
+                return Array.Empty<byte>();
+            }
+            catch (UnauthorizedAccessException authEx)
+            {
+                logger.Error(authEx, "Access denied reading file from disk: {FilePath}", path);
+                return Array.Empty<byte>();
+            }
+            catch (SecurityException secEx)
+            {
+                logger.Error(secEx, "Security error reading file from disk: {FilePath}", path);
                 return Array.Empty<byte>();
             }
         }
@@ -225,14 +257,29 @@ namespace MindWeaveServer.BusinessLogic
 
         private static void tryDeleteFileForCleanup(string filePath)
         {
-            if (string.IsNullOrWhiteSpace(filePath)) return;
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                return;
+            }
+
             try
             {
-                if (File.Exists(filePath)) File.Delete(filePath);
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
             }
-            catch
+            catch (IOException ioEx)
             {
-                //ignored
+                logger.Debug(ioEx, "I/O error during cleanup file deletion: {FilePath}", filePath);
+            }
+            catch (UnauthorizedAccessException authEx)
+            {
+                logger.Debug(authEx, "Access denied during cleanup file deletion: {FilePath}", filePath);
+            }
+            catch (SecurityException secEx)
+            {
+                logger.Debug(secEx, "Security error during cleanup file deletion: {FilePath}", filePath);
             }
         }
     }

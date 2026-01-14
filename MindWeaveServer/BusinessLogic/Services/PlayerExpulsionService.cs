@@ -13,8 +13,7 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         public PlayerExpulsionService(Lazy<MatchmakingLogic> matchmakingLogicLazy)
         {
-            this.matchmakingLogicLazy = matchmakingLogicLazy
-                                        ?? throw new ArgumentNullException(nameof(matchmakingLogicLazy));
+            this.matchmakingLogicLazy = matchmakingLogicLazy;
         }
 
         public Task expelPlayerAsync(string lobbyCode, string username, string reason)

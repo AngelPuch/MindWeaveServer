@@ -57,7 +57,6 @@ namespace MindWeaveServer.Tests.BusinessLogic
                 puzzleRepositoryMock.Object,
                 matchmakingRepositoryMock.Object,
                 statsLogic,
-                puzzleGenerator,
                 scoreCalculatorMock.Object
             );
 

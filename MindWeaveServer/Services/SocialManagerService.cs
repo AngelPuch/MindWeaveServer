@@ -17,9 +17,7 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
-    [ServiceBehavior(
-        InstanceContextMode = InstanceContextMode.PerSession,
-        ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class SocialManagerService : ISocialManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
@@ -37,6 +35,13 @@ namespace MindWeaveServer.Services
 
         private const string DISCONNECT_REASON_SESSION_CLOSED = "SessionClosed";
         private const string DISCONNECT_REASON_SESSION_FAULTED = "SessionFaulted";
+
+        private const string OPERATION_SEARCH_PLAYERS = "SearchPlayersOperation";
+        private const string OPERATION_SEND_FRIEND_REQUEST = "SendFriendRequestOperation";
+        private const string OPERATION_RESPOND_FRIEND_REQUEST = "RespondToFriendRequestOperation";
+        private const string OPERATION_REMOVE_FRIEND = "RemoveFriendOperation";
+        private const string OPERATION_GET_FRIENDS_LIST = "GetFriendsListOperation";
+        private const string OPERATION_GET_FRIEND_REQUESTS = "GetFriendRequestsOperation";
 
         public SocialManagerService() : this(
             Bootstrapper.Container.Resolve<SocialLogic>(),
@@ -64,31 +69,15 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                ISocialCallback callbackChannel = tryGetCallbackChannel(username);
-                if (callbackChannel == null)
-                {
-                    return;
-                }
-
-                currentUserCallback = callbackChannel;
-                currentUsername = username;
-
-                Task.Run(async () =>
-                {
-                    var existingCallback = gameStateManager.getUserCallback(currentUsername);
-                    gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
-                    await handleConnectionResult(existingCallback, currentUserCallback);
-                });
-
-                logger.Info("SocialManagerService: User {0} connected via Reliable Session.", username);
+                processConnect(username);
             }
             catch (InvalidOperationException opEx)
             {
-                logger.Error(opEx, "Invalid WCF operation context during Connect for {User}", username);
+                logger.Error(opEx, "Invalid WCF operation context during Connect.");
             }
             catch (ArgumentException argEx)
             {
-                logger.Error(argEx, "Invalid argument provided during Connect for {User}", username);
+                logger.Error(argEx, "Invalid argument provided during Connect.");
             }
         }
 
@@ -104,14 +93,13 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                logger.Info("Player search requested by {UserId}", requesterUsername);
-
+                logger.Info("Player search requested.");
                 validateSession(requesterUsername);
                 return await socialLogic.searchPlayersAsync(requesterUsername, query);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "SearchPlayersOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_SEARCH_PLAYERS);
             }
         }
 
@@ -119,30 +107,21 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                logger.Info("Friend request initiated from {RequesterId} to {TargetId}", requesterUsername, targetUsername);
-
+                logger.Info("Friend request initiated.");
                 validateSession(requesterUsername);
 
                 var result = await socialLogic.sendFriendRequestAsync(requesterUsername, targetUsername);
 
                 if (result.Success)
                 {
-                    if (result.MessageCode == MessageCodes.SOCIAL_FRIEND_REQUEST_ACCEPTED)
-                    {
-                        sendNotificationToUser(targetUsername, cb => cb.notifyFriendResponse(requesterUsername, true));
-                        sendNotificationToUser(targetUsername, cb => cb.notifyFriendStatusChanged(requesterUsername, true));
-                    }
-                    else
-                    {
-                        sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
-                    }
+                    notifyFriendRequestResult(requesterUsername, targetUsername, result.MessageCode);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "SendFriendRequestOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_SEND_FRIEND_REQUEST);
             }
         }
 
@@ -156,14 +135,14 @@ namespace MindWeaveServer.Services
 
                 if (result.Success)
                 {
-                    await handleFriendResponseSuccess(responderUsername, requesterUsername, accepted);
+                    await notifyFriendResponseResult(responderUsername, requesterUsername, accepted);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "RespondToFriendRequestOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_RESPOND_FRIEND_REQUEST);
             }
         }
 
@@ -171,22 +150,21 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                logger.Info("Remove friend requested by {UserId} for target {FriendId}", username, friendToRemoveUsername);
-
+                logger.Info("Remove friend requested.");
                 validateSession(username);
 
                 var result = await socialLogic.removeFriendAsync(username, friendToRemoveUsername);
 
                 if (result.Success)
                 {
-                    sendNotificationToUser(friendToRemoveUsername, cb => cb.notifyFriendStatusChanged(username, false));
+                    notifyFriendRemoved(username, friendToRemoveUsername);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "RemoveFriendOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_REMOVE_FRIEND);
             }
         }
 
@@ -194,15 +172,15 @@ namespace MindWeaveServer.Services
         {
             try
             {
-                logger.Info("GetFriendsList requested for {UserId}", username);
-
+                logger.Info("GetFriendsList requested.");
                 validateSession(username);
+
                 var connectedUsersList = gameStateManager.ConnectedUsers.Keys.ToList();
                 return await socialLogic.getFriendsListAsync(username, connectedUsersList);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "GetFriendsListOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_GET_FRIENDS_LIST);
             }
         }
 
@@ -211,14 +189,107 @@ namespace MindWeaveServer.Services
             try
             {
                 validateSession(username);
-                logger.Info("GetFriendRequests requested for {UserId}", username);
+                logger.Info("GetFriendRequests requested.");
 
                 return await socialLogic.getFriendRequestsAsync(username);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "GetFriendRequestsOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_GET_FRIEND_REQUESTS);
             }
+        }
+
+        private void processConnect(string username)
+        {
+            ISocialCallback callbackChannel = tryGetCallbackChannel();
+            if (callbackChannel == null)
+            {
+                return;
+            }
+
+            currentUserCallback = callbackChannel;
+            currentUsername = username;
+
+            Task.Run(async () =>
+            {
+                var existingCallback = gameStateManager.getUserCallback(currentUsername);
+                gameStateManager.addConnectedUser(currentUsername, currentUserCallback);
+                await handleConnectionResult(existingCallback, currentUserCallback);
+            });
+
+            logger.Info("SocialManagerService: User connected via Reliable Session.");
+        }
+
+        private static ISocialCallback tryGetCallbackChannel()
+        {
+            if (OperationContext.Current == null)
+            {
+                logger.Warn("Connect failed: Invalid context.");
+                return null;
+            }
+
+            try
+            {
+                var channel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
+                if (channel == null)
+                {
+                    logger.Error("Connect failed: Callback channel is null.");
+                }
+                return channel;
+            }
+            catch (InvalidCastException castEx)
+            {
+                logger.Error(castEx, "Channel casting failed. Interface mismatch.");
+                return null;
+            }
+            catch (InvalidOperationException opEx)
+            {
+                logger.Error(opEx, "Invalid operation retrieving callback channel.");
+                return null;
+            }
+        }
+
+        private void notifyFriendRequestResult(string requesterUsername, string targetUsername, string messageCode)
+        {
+            if (messageCode == MessageCodes.SOCIAL_FRIEND_REQUEST_ACCEPTED)
+            {
+                notifyFriendRequestAccepted(requesterUsername, targetUsername);
+            }
+            else
+            {
+                sendNotificationToUser(targetUsername, cb => cb.notifyFriendRequest(requesterUsername));
+            }
+        }
+
+        private void notifyFriendRequestAccepted(string requesterUsername, string targetUsername)
+        {
+            sendNotificationToUser(targetUsername, cb => cb.notifyFriendResponse(requesterUsername, true));
+            sendNotificationToUser(targetUsername, cb => cb.notifyFriendStatusChanged(requesterUsername, true));
+        }
+
+        private async Task notifyFriendResponseResult(string responder, string requester, bool accepted)
+        {
+            sendNotificationToUser(requester, cb => cb.notifyFriendResponse(responder, accepted));
+
+            if (accepted)
+            {
+                await notifyAcceptedFriendResponse(responder, requester);
+            }
+        }
+
+        private async Task notifyAcceptedFriendResponse(string responder, string requester)
+        {
+            await notifyFriendsStatusChange(responder, true);
+
+            if (gameStateManager.isUserConnected(requester))
+            {
+                sendNotificationToUser(responder, cb => cb.notifyFriendStatusChanged(requester, true));
+            }
+        }
+
+        private void notifyFriendRemoved(string username, string friendToRemoveUsername)
+        {
+            sendNotificationToUser(friendToRemoveUsername, cb => cb.notifyFriendStatusChanged(username, false));
         }
 
         private void subscribeToChannelEvents()
@@ -237,56 +308,70 @@ namespace MindWeaveServer.Services
 
         private void onChannelFaulted(object sender, EventArgs e)
         {
-            logger.Warn("SocialManagerService: Channel FAULTED for user {0}. Initiating disconnection.",
-                currentUsername ?? "Unknown");
-
+            logger.Warn("SocialManagerService: Channel FAULTED. Initiating disconnection.");
             initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_FAULTED);
         }
 
         private void onChannelClosed(object sender, EventArgs e)
         {
-            logger.Info("SocialManagerService: Channel CLOSED for user {0}. Initiating disconnection.",
-                currentUsername ?? "Unknown");
-
+            logger.Info("SocialManagerService: Channel CLOSED. Initiating disconnection.");
             initiateDisconnectionAsync(DISCONNECT_REASON_SESSION_CLOSED);
         }
 
         private void initiateDisconnectionAsync(string reason)
         {
-            string usernameToDisconnect;
+            string usernameToDisconnect = tryBeginDisconnection();
+            if (usernameToDisconnect == null)
+            {
+                return;
+            }
 
+            executeDisconnectionAsync(usernameToDisconnect, reason);
+        }
+
+        private string tryBeginDisconnection()
+        {
             lock (disconnectLock)
             {
                 if (isDisconnecting)
                 {
-                    logger.Debug("SocialManagerService: Disconnection already in progress for {0}.", currentUsername);
-                    return;
+                    logger.Debug("SocialManagerService: Disconnection already in progress.");
+                    return null;
                 }
 
                 isDisconnecting = true;
-                usernameToDisconnect = currentUsername;
             }
 
-            if (string.IsNullOrWhiteSpace(usernameToDisconnect))
+            if (string.IsNullOrWhiteSpace(currentUsername))
             {
                 logger.Warn("SocialManagerService: Cannot disconnect - username is null/empty.");
-                return;
+                return null;
             }
 
+            return currentUsername;
+        }
+
+        private void executeDisconnectionAsync(string usernameToDisconnect, string reason)
+        {
             Task.Run(async () =>
             {
                 try
                 {
-                    logger.Info("SocialManagerService: Executing full disconnection for {0}. Reason: {1}",
-                        usernameToDisconnect, reason);
-
+                    logger.Info("SocialManagerService: Executing full disconnection. Reason: {Reason}", reason);
                     await disconnectionHandler.handleFullDisconnectionAsync(usernameToDisconnect, reason);
-
-                    logger.Info("SocialManagerService: Full disconnection completed for {0}.", usernameToDisconnect);
+                    logger.Info("SocialManagerService: Full disconnection completed.");
                 }
-                catch (Exception ex)
+                catch (InvalidOperationException opEx)
                 {
-                    logger.Error(ex, "SocialManagerService: Error during full disconnection for {0}.", usernameToDisconnect);
+                    logger.Error(opEx, "SocialManagerService: Invalid operation during disconnection.");
+                }
+                catch (CommunicationException commEx)
+                {
+                    logger.Error(commEx, "SocialManagerService: Communication error during disconnection.");
+                }
+                catch (TimeoutException timeoutEx)
+                {
+                    logger.Error(timeoutEx, "SocialManagerService: Timeout during disconnection.");
                 }
                 finally
                 {
@@ -304,72 +389,66 @@ namespace MindWeaveServer.Services
             currentUserCallback = null;
         }
 
-        private static ISocialCallback tryGetCallbackChannel(string username)
-        {
-            if (string.IsNullOrWhiteSpace(username) || OperationContext.Current == null)
-            {
-                logger.Warn("Connect failed: Invalid context or empty username.");
-                return null;
-            }
-
-            try
-            {
-                var channel = OperationContext.Current.GetCallbackChannel<ISocialCallback>();
-                if (channel == null)
-                {
-                    logger.Error("Connect failed: Callback channel is null for user {UserId}", username);
-                }
-                return channel;
-            }
-            catch (InvalidCastException castEx)
-            {
-                logger.Error(castEx, "Channel casting failed for user {User}. Interface mismatch.", username);
-                return null;
-            }
-            catch (InvalidOperationException opEx)
-            {
-                logger.Error(opEx, "Invalid operation retrieving callback channel for {User}.", username);
-                return null;
-            }
-        }
-
         private async Task processDisconnect(string username)
         {
-            if (!string.IsNullOrEmpty(currentUsername) &&
-                currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
+            if (isCurrentUser(username))
             {
                 await cleanupAndNotifyDisconnect(currentUsername);
             }
         }
 
+        private bool isCurrentUser(string username)
+        {
+            return !string.IsNullOrEmpty(currentUsername) &&
+                   currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase);
+        }
+
         private async Task handleConnectionResult(ISocialCallback previousCallback, ISocialCallback newCallback)
         {
-            if (previousCallback != null && previousCallback != newCallback && previousCallback is ICommunicationObject oldComm)
+            if (shouldCleanupPreviousCallback(previousCallback, newCallback))
             {
-                cleanupCallbackEvents(oldComm);
+                cleanupCallbackEvents(previousCallback as ICommunicationObject);
             }
 
             setupCallbackEvents(newCallback as ICommunicationObject);
             await notifyFriendsStatusChange(currentUsername, true);
         }
 
+        private static bool shouldCleanupPreviousCallback(ISocialCallback previousCallback, ISocialCallback newCallback)
+        {
+            return previousCallback != null && previousCallback != newCallback;
+        }
+
         private async Task cleanupAndNotifyDisconnect(string username)
         {
-            if (string.IsNullOrEmpty(username)) return;
+            if (string.IsNullOrEmpty(username))
+            {
+                return;
+            }
 
             if (gameStateManager.isUserConnected(username))
             {
-                var callbackToRemove = gameStateManager.getUserCallback(username);
-                gameStateManager.removeConnectedUser(username);
-
-                if (callbackToRemove is ICommunicationObject comm)
-                {
-                    cleanupCallbackEvents(comm);
-                }
-
-                await notifyFriendsStatusChange(username, false);
+                await removeUserAndNotify(username);
             }
 
+            clearCurrentUserIfMatch(username);
+        }
+
+        private async Task removeUserAndNotify(string username)
+        {
+            var callbackToRemove = gameStateManager.getUserCallback(username);
+            gameStateManager.removeConnectedUser(username);
+
+            if (callbackToRemove is ICommunicationObject comm)
+            {
+                cleanupCallbackEvents(comm);
+            }
+
+            await notifyFriendsStatusChange(username, false);
+        }
+
+        private void clearCurrentUserIfMatch(string username)
+        {
             if (currentUsername == username)
             {
                 currentUsername = null;
@@ -377,114 +456,144 @@ namespace MindWeaveServer.Services
             }
         }
 
-        private async Task handleFriendResponseSuccess(string responder, string requester, bool accepted)
-        {
-            sendNotificationToUser(requester, cb => cb.notifyFriendResponse(responder, accepted));
-
-            if (accepted)
-            {
-                await notifyFriendsStatusChange(responder, true);
-                bool isRequesterConnected = gameStateManager.isUserConnected(requester);
-
-                if (isRequesterConnected)
-                {
-                    sendNotificationToUser(responder, cb => cb.notifyFriendStatusChanged(requester, true));
-                }
-            }
-        }
-
         private async Task notifyFriendsStatusChange(string changedUsername, bool isOnline)
         {
-            if (string.IsNullOrWhiteSpace(changedUsername)) return;
+            if (string.IsNullOrWhiteSpace(changedUsername))
+            {
+                return;
+            }
 
             try
             {
-                List<FriendDto> friendsToNotify = await socialLogic.getFriendsListAsync(changedUsername, null);
-
-                if (friendsToNotify == null || !friendsToNotify.Any()) return;
-
-                foreach (var friend in friendsToNotify.Where(f => gameStateManager.isUserConnected(f.Username)))
-                {
-                    sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
-                }
+                await notifyConnectedFriends(changedUsername, isOnline);
             }
             catch (EntityException dbEx)
             {
-                logger.Error(dbEx, "Database error retrieving friend list for status notification of {User}", changedUsername);
+                logger.Error(dbEx, "Database error retrieving friend list for status notification.");
             }
             catch (SqlException sqlEx)
             {
-                logger.Error(sqlEx, "SQL error retrieving friend list for status notification of {User}", changedUsername);
+                logger.Error(sqlEx, "SQL error retrieving friend list for status notification.");
             }
             catch (TimeoutException timeEx)
             {
-                logger.Warn(timeEx, "Timeout retrieving friend list or notifying friends for {User}", changedUsername);
+                logger.Warn(timeEx, "Timeout retrieving friend list or notifying friends.");
+            }
+        }
+
+        private async Task notifyConnectedFriends(string changedUsername, bool isOnline)
+        {
+            List<FriendDto> friendsToNotify = await socialLogic.getFriendsListAsync(changedUsername, null);
+
+            if (friendsToNotify == null || !friendsToNotify.Any())
+            {
+                return;
+            }
+
+            foreach (var friend in friendsToNotify.Where(f => gameStateManager.isUserConnected(f.Username)))
+            {
+                sendNotificationToUser(friend.Username, cb => cb.notifyFriendStatusChanged(changedUsername, isOnline));
             }
         }
 
         private void sendNotificationToUser(string targetUsername, Action<ISocialCallback> action)
         {
-            if (string.IsNullOrWhiteSpace(targetUsername)) return;
+            if (string.IsNullOrWhiteSpace(targetUsername))
+            {
+                return;
+            }
 
             var callback = gameStateManager.getUserCallback(targetUsername);
-            if (callback == null) return;
+            if (callback == null)
+            {
+                return;
+            }
 
+            executeNotification(targetUsername, callback, action);
+        }
+
+        private void executeNotification(string targetUsername, ISocialCallback callback, Action<ISocialCallback> action)
+        {
             try
             {
-                if (callback is ICommunicationObject commObject && commObject.State == CommunicationState.Opened)
+                if (isCallbackOpen(callback))
                 {
                     action(callback);
                 }
                 else
                 {
-                    logger.Warn("Callback channel closed for {UserId}. Removing from session.", targetUsername);
-                    gameStateManager.removeConnectedUser(targetUsername);
+                    handleClosedCallback(targetUsername);
                 }
             }
-            catch (CommunicationException)
+            catch (CommunicationException commEx)
             {
+                logger.Debug(commEx, "Communication error sending notification. Removing user from session.");
                 gameStateManager.removeConnectedUser(targetUsername);
             }
-            catch (TimeoutException)
+            catch (TimeoutException timeoutEx)
             {
+                logger.Debug(timeoutEx, "Timeout sending notification. Removing user from session.");
                 gameStateManager.removeConnectedUser(targetUsername);
             }
-            catch (Exception ex)
+            catch (ObjectDisposedException disposedEx)
             {
-                logger.Warn(ex, "Unexpected error sending notification to {User}", targetUsername);
+                logger.Debug(disposedEx, "Channel disposed while sending notification. Removing user from session.");
+                gameStateManager.removeConnectedUser(targetUsername);
             }
+        }
+
+        private static bool isCallbackOpen(ISocialCallback callback)
+        {
+            return callback is ICommunicationObject commObject && commObject.State == CommunicationState.Opened;
+        }
+
+        private void handleClosedCallback(string targetUsername)
+        {
+            logger.Warn("Callback channel closed. Removing from session.");
+            gameStateManager.removeConnectedUser(targetUsername);
         }
 
         private void setupCallbackEvents(ICommunicationObject commObject)
         {
-            if (commObject != null)
+            if (commObject == null)
             {
-                commObject.Faulted -= onChannelFaulted;
-                commObject.Closed -= onChannelClosed;
-                commObject.Faulted += onChannelFaulted;
-                commObject.Closed += onChannelClosed;
+                return;
             }
+
+            commObject.Faulted -= onChannelFaulted;
+            commObject.Closed -= onChannelClosed;
+            commObject.Faulted += onChannelFaulted;
+            commObject.Closed += onChannelClosed;
         }
 
         private void cleanupCallbackEvents(ICommunicationObject commObject)
         {
-            if (commObject != null)
+            if (commObject == null)
             {
-                commObject.Faulted -= onChannelFaulted;
-                commObject.Closed -= onChannelClosed;
+                return;
             }
+
+            commObject.Faulted -= onChannelFaulted;
+            commObject.Closed -= onChannelClosed;
         }
 
         private void validateSession(string username)
         {
-            if (string.IsNullOrEmpty(currentUsername) ||
-                !currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase))
+            if (isValidSession(username))
             {
-                logger.Warn("Session security check failed. Expected: {Expected}, Got: {Actual}", currentUsername, username);
-                throw new FaultException<ServiceFaultDto>(
-                    new ServiceFaultDto(ServiceErrorType.SecurityError, MessageCodes.ERROR_SESSION_MISMATCH, "Session"),
-                    new FaultReason(MessageCodes.ERROR_SESSION_MISMATCH));
+                return;
             }
+
+            logger.Warn("Session security check failed.");
+            throw new FaultException<ServiceFaultDto>(
+                new ServiceFaultDto(ServiceErrorType.SecurityError, MessageCodes.ERROR_SESSION_MISMATCH, "Session"),
+                new FaultReason(MessageCodes.ERROR_SESSION_MISMATCH));
+        }
+
+        private bool isValidSession(string username)
+        {
+            return !string.IsNullOrEmpty(currentUsername) &&
+                   currentUsername.Equals(username, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

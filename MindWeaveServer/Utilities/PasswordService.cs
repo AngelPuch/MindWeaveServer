@@ -1,4 +1,4 @@
-﻿              using MindWeaveServer.Utilities.Abstractions;
+﻿using MindWeaveServer.Utilities.Abstractions;
 
 namespace MindWeaveServer.Utilities
 {

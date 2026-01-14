@@ -32,13 +32,6 @@ namespace MindWeaveServer.Utilities.Validators
                 .Must(beAValidAge).WithErrorCode(MessageCodes.VALIDATION_AGE_MINIMUM)
                 .Must(beARealisticAge).WithErrorCode(MessageCodes.VALIDATION_AGE_REALISTIC);
 
-            RuleForEach(x => x.SocialMedia).ChildRules(socialMedia =>
-            {
-                socialMedia.RuleFor(sm => sm.Username)
-                    .NotEmpty().WithErrorCode(MessageCodes.VALIDATION_SOCIAL_USERNAME_REQUIRED)
-                    .MaximumLength(USERNAME_MAX_LENGTH).WithErrorCode(MessageCodes.VALIDATION_SOCIAL_USERNAME_LENGTH) 
-                    .Matches(USERNAME_VALIDATOR_REGEX).WithErrorCode(MessageCodes.VALIDATION_SOCIAL_USERNAME_INVALID);
-            });
         }
 
         private static bool notHaveLeadingOrTrailingWhitespace(string value)

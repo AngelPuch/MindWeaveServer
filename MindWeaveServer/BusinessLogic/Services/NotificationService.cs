@@ -26,7 +26,10 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         public void broadcastLobbyState(LobbyStateDto lobbyState)
         {
-            if (lobbyState == null) return;
+            if (lobbyState == null)
+            {
+                return;
+            }
 
             List<string> playersSnapshot;
             lock (lobbyState)
@@ -57,7 +60,10 @@ namespace MindWeaveServer.BusinessLogic.Services
 
         public void sendToUser(string username, Action<IMatchmakingCallback> action)
         {
-            if (string.IsNullOrWhiteSpace(username)) return;
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return;
+            }
 
             if (gameStateManager.MatchmakingCallbacks.TryGetValue(username, out IMatchmakingCallback callback))
             {
@@ -65,13 +71,16 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
-                logger.Warn("Could not send matchmaking notification to {0}: No callback found.", username);
+                logger.Warn("Could not send matchmaking notification: No callback found for target user");
             }
         }
 
         public void sendSocialNotification(string username, Action<ISocialCallback> action)
         {
-            if (string.IsNullOrWhiteSpace(username)) return;
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                return;
+            }
 
             var callback = gameStateManager.getUserCallback(username);
 
@@ -81,13 +90,16 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
             else
             {
-                logger.Warn("Could not send social notification to {0}: No callback found.", username);
+                logger.Warn("Could not send social notification: No callback found for target user");
             }
         }
 
         public void broadcastLobbyDestroyed(LobbyStateDto lobbyState, string reason)
         {
-            if (lobbyState == null) return;
+            if (lobbyState == null)
+            {
+                return;
+            }
 
             List<string> playersSnapshot;
             lock (lobbyState)
@@ -105,33 +117,40 @@ namespace MindWeaveServer.BusinessLogic.Services
         {
             var commObject = callback as ICommunicationObject;
 
-            if (commObject == null) return;
+            if (commObject == null)
+            {
+                return;
+            }
 
+            if (commObject.State != CommunicationState.Opened)
+            {
+                logger.Warn("Callback channel is closed/faulted (State: {ChannelState}). Removing reference.", commObject.State);
+                cleanupUserReference(username, isMatchmaking);
+                return;
+            }
+
+            executeCallbackWithExceptionHandling(callback, username, action, isMatchmaking);
+        }
+
+        private void executeCallbackWithExceptionHandling<T>(T callback, string username, Action<T> action, bool isMatchmaking) where T : class
+        {
             try
             {
-                if (commObject.State == CommunicationState.Opened)
-                {
-                    action(callback);
-                }
-                else
-                {
-                    logger.Warn("Callback channel for {0} is closed/faulted (State: {1}). Removing reference.", username, commObject.State);
-                    cleanupUserReference(username, isMatchmaking);
-                }
+                action(callback);
             }
             catch (CommunicationException ex)
             {
-                logger.Warn(ex, "CommunicationException sending callback to {0}", username);
+                logger.Warn(ex, "CommunicationException sending callback to user");
                 cleanupUserReference(username, isMatchmaking);
             }
             catch (TimeoutException ex)
             {
-                logger.Warn(ex, "TimeoutException sending callback to {0}", username);
+                logger.Warn(ex, "TimeoutException sending callback to user");
                 cleanupUserReference(username, isMatchmaking);
             }
             catch (ObjectDisposedException ex)
             {
-                logger.Warn(ex, "ObjectDisposedException sending callback to {0}", username);
+                logger.Warn(ex, "ObjectDisposedException sending callback to user");
                 cleanupUserReference(username, isMatchmaking);
             }
         }

@@ -17,6 +17,10 @@ namespace MindWeaveServer.Services
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
+        private const string OPERATION_GET_AVAILABLE_PUZZLES = "GetAvailablePuzzlesOperation";
+        private const string OPERATION_GET_PUZZLE_DEFINITION = "GetPuzzleDefinitionOperation";
+        private const string OPERATION_UPLOAD_PUZZLE_IMAGE = "UploadPuzzleImageOperation";
+
         private readonly PuzzleLogic puzzleLogic;
         private readonly IServiceExceptionHandler exceptionHandler;
 
@@ -34,41 +38,40 @@ namespace MindWeaveServer.Services
 
         public async Task<List<PuzzleInfoDto>> getAvailablePuzzlesAsync()
         {
-            logger.Info("Request received: GetAvailablePuzzlesAsync");
+            logger.Info("Request received: GetAvailablePuzzlesAsync.");
             try
             {
                 return await puzzleLogic.getAvailablePuzzlesAsync();
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "GetAvailablePuzzlesOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_GET_AVAILABLE_PUZZLES);
             }
         }
 
         public async Task<PuzzleDefinitionDto> getPuzzleDefinitionAsync(int puzzleId, int difficultyId)
         {
-            logger.Info("Request received: GetPuzzleDefinitionAsync for PuzzleId: {PuzzleId}, DifficultyId: {DifficultyId}", puzzleId, difficultyId);
+            logger.Info("Request received: GetPuzzleDefinitionAsync for PuzzleId: {PuzzleId}, DifficultyId: {DifficultyId}.", puzzleId, difficultyId);
             try
             {
                 return await puzzleLogic.getPuzzleDefinitionAsync(puzzleId, difficultyId);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "GetPuzzleDefinitionOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_GET_PUZZLE_DEFINITION);
             }
         }
 
         public async Task<UploadResultDto> uploadPuzzleImageAsync(string username, byte[] imageBytes, string fileName)
         {
-            logger.Info("Request received: UploadPuzzleImageAsync. User: {Username}, File: {FileName}", username ?? "Unknown", fileName ?? "Unknown");
-
+            logger.Info("Request received: UploadPuzzleImageAsync.");
             try
             {
                 return await puzzleLogic.uploadPuzzleImageAsync(username, imageBytes, fileName);
             }
             catch (Exception ex)
             {
-                throw exceptionHandler.handleException(ex, "UploadPuzzleImageOperation");
+                throw exceptionHandler.handleException(ex, OPERATION_UPLOAD_PUZZLE_IMAGE);
             }
         }
     }
