@@ -5,14 +5,13 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Threading;
+using System.Security.Cryptography;
 
 namespace MindWeaveServer.BusinessLogic
 {
     public class PuzzleGenerator
     {
-        private static readonly ThreadLocal<Random> threadSafeRandom = new ThreadLocal<Random>(() =>
-            new Random(Guid.NewGuid().GetHashCode()));
+        private static readonly RandomNumberGenerator rng = RandomNumberGenerator.Create();
 
         private const int SIDEBAR_OFFSET = 30;
         private const int SIDEBAR_WIDTH = 80;
@@ -175,7 +174,6 @@ namespace MindWeaveServer.BusinessLogic
 
         private static JigsawEdgeType[,][] generateEdgesGrid(GridDimensions dim)
         {
-            Random random = threadSafeRandom.Value;
             var edges = new JigsawEdgeType[dim.Rows, dim.Columns][];
 
             for (int r = 0; r < dim.Rows; r++)
@@ -185,8 +183,8 @@ namespace MindWeaveServer.BusinessLogic
                     edges[r, c] = new JigsawEdgeType[EDGES_PER_PIECE];
 
                     edges[r, c][TOP_EDGE_INDEX] = getTopEdge(r, c, edges);
-                    edges[r, c][RIGHT_EDGE_INDEX] = getRightEdge(c, random, dim);
-                    edges[r, c][BOTTOM_EDGE_INDEX] = getBottomEdge(r, random, dim);
+                    edges[r, c][RIGHT_EDGE_INDEX] = getRightEdge(c, rng, dim);
+                    edges[r, c][BOTTOM_EDGE_INDEX] = getBottomEdge(r, rng, dim);
                     edges[r, c][LEFT_EDGE_INDEX] = getLeftEdge(r, c, edges);
                 }
             }
@@ -206,26 +204,26 @@ namespace MindWeaveServer.BusinessLogic
                 : JigsawEdgeType.Tab;
         }
 
-        private static JigsawEdgeType getRightEdge(int col, Random random, GridDimensions dim)
+        private static JigsawEdgeType getRightEdge(int col, RandomNumberGenerator rng, GridDimensions dim)
         {
             if (col == dim.Columns - 1)
             {
                 return JigsawEdgeType.Flat;
             }
 
-            return random.Next(RANDOM_EDGE_THRESHOLD) == 0
+            return SecureRandomGenerator.getSecureRandomInt(rng, RANDOM_EDGE_THRESHOLD) == 0
                 ? JigsawEdgeType.Tab
                 : JigsawEdgeType.Blank;
         }
 
-        private static JigsawEdgeType getBottomEdge(int row, Random random, GridDimensions dim)
+        private static JigsawEdgeType getBottomEdge(int row, RandomNumberGenerator rng, GridDimensions dim)
         {
             if (row == dim.Rows - 1)
             {
                 return JigsawEdgeType.Flat;
             }
 
-            return random.Next(RANDOM_EDGE_THRESHOLD) == 0
+            return SecureRandomGenerator.getSecureRandomInt(rng, RANDOM_EDGE_THRESHOLD) == 0
                 ? JigsawEdgeType.Tab
                 : JigsawEdgeType.Blank;
         }
@@ -283,8 +281,6 @@ namespace MindWeaveServer.BusinessLogic
             JigsawPieceEdges edges,
             List<SilhouetteData> silhouettes)
         {
-            Random random = threadSafeRandom.Value;
-
             var pathResult = JigsawPathGenerator.createJigsawPath(
                 ctx.PieceWidth,
                 ctx.PieceHeight,
@@ -312,6 +308,13 @@ namespace MindWeaveServer.BusinessLogic
                 Y = correctY
             });
 
+            int rangeX = SIDEBAR_WIDTH;
+            int initialX = ctx.SidebarStart + SecureRandomGenerator.getSecureRandomInt(rng, rangeX);
+
+            int maxY = Math.Max(pathResult.TotalHeight, ctx.ImageHeight - pathResult.TotalHeight);
+
+            int initialY = (maxY > 0) ? SecureRandomGenerator.getSecureRandomInt(rng, maxY) : 0;
+
             return new PuzzlePieceDefinitionDto
             {
                 PieceId = ctx.PieceId,
@@ -325,8 +328,8 @@ namespace MindWeaveServer.BusinessLogic
                 SourceY = ctx.Row * ctx.PieceHeight,
                 CorrectX = correctX,
                 CorrectY = correctY,
-                InitialX = random.Next(ctx.SidebarStart, ctx.SidebarStart + SIDEBAR_WIDTH),
-                InitialY = random.Next(0, Math.Max(pathResult.TotalHeight, ctx.ImageHeight - pathResult.TotalHeight)),
+                InitialX = initialX,
+                InitialY = initialY,
                 PieceImageBytes = pieceBytes
             };
         }

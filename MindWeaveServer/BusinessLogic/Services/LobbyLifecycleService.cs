@@ -271,11 +271,13 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Warn(ex, "Failed to notify player about departure from lobby");
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
+                logger.Warn(ex, "Could not notify player: Connection object disposed.");
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
+                logger.Warn(ex, "Could not notify player: Connection timed out.");
             }
         }
 
@@ -490,11 +492,13 @@ namespace MindWeaveServer.BusinessLogic.Services
             {
                 logger.Warn(ex, "Failed to notify player about lobby destruction");
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException ex)
             {
+                logger.Warn(ex, "Could not notify player about lobby destruction: Connection object disposed.");
             }
-            catch (TimeoutException)
+            catch (TimeoutException ex)
             {
+                logger.Warn(ex, "Could not notify player about lobby destruction: Connection timed out.");
             }
         }
 
