@@ -458,7 +458,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             }
         }
 
-        private class LobbyLeaveResult
+        private sealed class LobbyLeaveResult
         {
             public bool WasInLobby { get; set; }
             public bool IsHost { get; set; }

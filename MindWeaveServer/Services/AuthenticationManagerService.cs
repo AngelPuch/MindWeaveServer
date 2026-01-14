@@ -194,12 +194,12 @@ namespace MindWeaveServer.Services
             catch (DependencyResolutionException depEx)
             {
                 logger.Error(depEx, "Could not resolve SocialLogic to notify friends.");
-                return null;
+                return new List<FriendDto>();
             }
             catch (AggregateException aggEx)
             {
                 logger.Warn(aggEx, "Error retrieving friend list for logout notification.");
-                return null;
+                return new List<FriendDto>();
             }
         }
 

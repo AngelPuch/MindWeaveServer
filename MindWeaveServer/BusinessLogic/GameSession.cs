@@ -340,7 +340,7 @@ namespace MindWeaveServer.BusinessLogic
             removePlayer(playerId);
         }
 
-        private void notifyPlayerOfKick(PlayerSessionData playerSession, int reasonId)
+        private static void notifyPlayerOfKick(PlayerSessionData playerSession, int reasonId)
         {
             try
             {
@@ -391,7 +391,7 @@ namespace MindWeaveServer.BusinessLogic
             }
         }
 
-        private void executeBroadcastSafe(PlayerSessionData targetPlayer, Action<IMatchmakingCallback> action)
+        private static void executeBroadcastSafe(PlayerSessionData targetPlayer, Action<IMatchmakingCallback> action)
         {
             try
             {

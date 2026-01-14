@@ -10,9 +10,7 @@ namespace MindWeaveServer.Utilities.Validators
         private const int NAME_MAX_LENGTH = 45;
         private const int MINIMUM_AGE_YEARS = 13;
         private const int MAX_REALISTIC_AGE_YEARS = 100;
-        private const int USERNAME_MAX_LENGTH = 100; 
         private const string NAME_VALIDATOR_REGEX = @"^(?=.*\p{L})[\p{L}\p{M} '\-]{3,45}$";
-        private const string USERNAME_VALIDATOR_REGEX = @"^[a-zA-Z0-9._-]+$";
         public UserProfileForEditDtoValidator()
         {
             RuleFor(x => x.FirstName)
