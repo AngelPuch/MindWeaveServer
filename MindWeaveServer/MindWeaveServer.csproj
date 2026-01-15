@@ -156,7 +156,6 @@
     <Compile Include="BusinessLogic\AchievementEvaluator.cs" />
     <Compile Include="BusinessLogic\AuthenticationLogic.cs" />
     <Compile Include="BusinessLogic\ChatLogic.cs" />
-    <Compile Include="BusinessLogic\EndGameProcessor.cs" />
     <Compile Include="BusinessLogic\GameSession.cs" />
     <Compile Include="BusinessLogic\JigsawEdgeType.cs" />
     <Compile Include="BusinessLogic\JigsawPathGenerator.cs" />

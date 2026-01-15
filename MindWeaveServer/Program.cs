@@ -7,7 +7,7 @@ using NLog;
 
 namespace MindWeaveServer
 {
-    public class Program
+    public static class Program
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
         private static readonly List<ServiceHost> serviceHosts = new List<ServiceHost>();
@@ -66,21 +66,13 @@ namespace MindWeaveServer
                 Console.WriteLine($"[OK] {serviceName} Service started.");
                 Console.ResetColor();
             }
-            catch (AddressAlreadyInUseException ex)
-            {
-                logger.Error(ex, $"Port already in use for {serviceName} service.");
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[FAIL] {serviceName} Service - Port already in use.");
-                Console.ResetColor();
+            catch (AddressAlreadyInUseException)
+            { 
                 throw;
             }
             catch (CommunicationException ex)
             {
-                logger.Error(ex, $"Communication error starting {serviceName} service.");
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[FAIL] {serviceName} Service - {ex.Message}");
-                Console.ResetColor();
-                throw;
+                throw new InvalidOperationException($"Failed to start {serviceName} service due to communication error.", ex);
             }
         }
 

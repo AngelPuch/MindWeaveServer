@@ -335,7 +335,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             return null;
         }
 
-        private Matches buildNewMatch(string code, LobbySettingsDto settings)
+        private static Matches buildNewMatch(string code, LobbySettingsDto settings)
         {
             return new Matches
             {
@@ -371,7 +371,7 @@ namespace MindWeaveServer.BusinessLogic.Services
             return loadPuzzleFromFile(path);
         }
 
-        private PuzzleResourceResult loadPuzzleFromFile(string path)
+        private static PuzzleResourceResult loadPuzzleFromFile(string path)
         {
             string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, UPLOADED_PUZZLES_FOLDER, path);
 

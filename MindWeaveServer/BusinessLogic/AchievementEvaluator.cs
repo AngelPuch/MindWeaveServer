@@ -8,13 +8,11 @@ namespace MindWeaveServer.BusinessLogic
     {
         public const int ID_NOVICE_WEAVER = 1;
         public const int ID_PUZZLE_MASTER = 2;
-        public const int ID_PIECE_COLLECTOR = 3;
         public const int ID_TIME_WARP = 4;
         public const int ID_FIRST_VICTORY = 5;
         public const int ID_HIGH_SCORER = 6;
         public const int ID_SPEED_DEMON = 7;
         public const int ID_HARDCORE_GAMER = 8;
-        public const int ID_HOST_WITH_THE_MOST = 9;
         public const int ID_SUBJECT_ZERO = 10;
         public const int ID_PARTICIPATION_AWARD = 11;
         public const int ID_JUST_BEGINNING = 12;

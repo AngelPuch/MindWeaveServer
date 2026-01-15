@@ -12,7 +12,6 @@ using NLog;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ServiceModel;
 using System.Threading.Tasks;
 
 namespace MindWeaveServer.BusinessLogic.Services
@@ -43,7 +42,7 @@ namespace MindWeaveServer.BusinessLogic.Services
         [System.Diagnostics.CodeAnalysis.SuppressMessage(
         "Major Code Smell",
         "S107:Methods should not have too many parameters",
-        Justification = "Dependencies are injected via DI container - this is standard practice for service classes")]
+        Justification = "Dependencies are injected via DI container")]
         public LobbyInteractionService(
             IGameStateManager gameStateManager,
             ILobbyValidationService validationService,
