@@ -17,6 +17,17 @@ namespace MindWeaveServer.Utilities
         private const string DATABASE_SOURCE = "Database";
         private const string UNKNOWN_OPERATION = "UnknownOperation";
 
+        private const int SQL_ERROR_UNIQUE_CONSTRAINT_VIOLATION = 2627;
+        private const int SQL_ERROR_DUPLICATE_KEY_VIOLATION = 2601;
+        private const int SQL_ERROR_FOREIGN_KEY_VIOLATION = 547;
+
+        private const int SQL_ERROR_TIMEOUT = -2;
+        private const int SQL_ERROR_NETWORK_PATH_NOT_FOUND = 53;
+        private const int SQL_ERROR_CONNECTION_INITIALIZATION_FAILED = -1;
+        private const int SQL_ERROR_NETWORK_ERROR = 2;
+        private const int SQL_ERROR_SUCCESS_WITH_INFO = 0;
+
+
         public FaultException<ServiceFaultDto> handleException(Exception exception, string operationContext)
         {
             if (exception == null)
@@ -128,7 +139,7 @@ namespace MindWeaveServer.Utilities
             var innerSql = ex.InnerException?.InnerException as SqlException;
             if (innerSql != null)
             {
-                if (innerSql.Number == 2627 || innerSql.Number == 2601)
+                if (innerSql.Number == SQL_ERROR_UNIQUE_CONSTRAINT_VIOLATION || innerSql.Number == SQL_ERROR_DUPLICATE_KEY_VIOLATION)
                 {
                     logger.Warn(ex, "Duplicate record constraint violation. Operation: {0}", context);
                     return createFault(
@@ -138,7 +149,7 @@ namespace MindWeaveServer.Utilities
                         "Duplicate Record");
                 }
 
-                if (innerSql.Number == 547)
+                if (innerSql.Number == SQL_ERROR_FOREIGN_KEY_VIOLATION)
                 {
                     logger.Error(ex, "Foreign key constraint violation. Operation: {0}", context);
                     return createFault(
@@ -159,7 +170,7 @@ namespace MindWeaveServer.Utilities
 
         private FaultException<ServiceFaultDto> handleSqlException(SqlException ex, string context)
         {
-            if (ex.Number == -2 || ex.Number == 53 || ex.Number == -1 || ex.Number == 2 || ex.Number == 0)
+            if (ex.Number == SQL_ERROR_TIMEOUT || ex.Number == SQL_ERROR_NETWORK_PATH_NOT_FOUND || ex.Number == SQL_ERROR_CONNECTION_INITIALIZATION_FAILED || ex.Number == SQL_ERROR_NETWORK_ERROR || ex.Number == SQL_ERROR_SUCCESS_WITH_INFO)
             {
                 logger.Fatal(ex, "SQL Server connection failed. Operation: {0}", context);
                 return createFault(
@@ -169,7 +180,7 @@ namespace MindWeaveServer.Utilities
                     "Database Connection Failed");
             }
 
-            if (ex.Number == -2)
+            if (ex.Number == SQL_ERROR_TIMEOUT)
             {
                 logger.Error(ex, "SQL query timeout. Operation: {0}", context);
                 return createFault(

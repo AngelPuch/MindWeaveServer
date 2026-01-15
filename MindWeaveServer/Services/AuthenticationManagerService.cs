@@ -212,30 +212,47 @@ namespace MindWeaveServer.Services
                 return;
             }
 
-            notifySingleFriend(friendCallback, username, friendUsername, gameStateManager);
+            var context = new FriendNotificationContext
+            {
+                FriendCallback = friendCallback,
+                Username = username,
+                FriendUsername = friendUsername
+            };
+
+            notifySingleFriend(context, gameStateManager);
         }
 
-        private static void notifySingleFriend(ISocialCallback friendCallback, string username, string friendUsername, IGameStateManager gameStateManager)
+        private static void notifySingleFriend(FriendNotificationContext context, IGameStateManager gameStateManager)
         {
             try
             {
-                friendCallback.notifyFriendStatusChanged(username, false);
+                context.FriendCallback.notifyFriendStatusChanged(context.Username, false);
             }
             catch (CommunicationException commEx)
             {
                 logger.Warn(commEx, "Connection lost with friend. Removing from active users.");
-                gameStateManager.removeConnectedUser(friendUsername);
+                gameStateManager.removeConnectedUser(context.FriendUsername);
             }
             catch (TimeoutException timeoutEx)
             {
                 logger.Warn(timeoutEx, "Timeout notifying friend. Removing from active users.");
-                gameStateManager.removeConnectedUser(friendUsername);
+                gameStateManager.removeConnectedUser(context.FriendUsername);
             }
             catch (ObjectDisposedException disposedEx)
             {
                 logger.Warn(disposedEx, "Channel disposed for friend.");
-                gameStateManager.removeConnectedUser(friendUsername);
+                gameStateManager.removeConnectedUser(context.FriendUsername);
             }
         }
+
+
+        private class FriendNotificationContext
+        {
+            public ISocialCallback FriendCallback { get; set; }
+            public string Username { get; set; }
+            public string FriendUsername { get; set; }
+        }
+
+
     }
 }
