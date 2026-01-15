@@ -102,12 +102,6 @@ namespace MindWeaveServer.Tests.DataAccess
         }
 
         [Fact]
-        public async Task SaveChangesAsync_Called_ReturnsZero()
-        {
-            Assert.Equal(0, await repository.saveChangesAsync());
-        }
-
-        [Fact]
         public async Task GetAvailablePuzzlesAsync_EmptyList_ReturnsEmpty()
         {
             puzzlesData.Clear();

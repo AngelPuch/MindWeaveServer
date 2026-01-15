@@ -3,7 +3,6 @@ using MailKit.Security;
 using MimeKit;
 using NLog;
 using System;
-using System.Configuration;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -28,8 +27,6 @@ namespace MindWeaveServer.Utilities.Email
             user = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_USER")?.Trim();
             pass = Environment.GetEnvironmentVariable("MINDWEAVE_SMTP_PASS")?.Trim();
             senderName = "Mind Weave Team";
-
-            logger.Info($"SMTP Config Read - Host: '{host}', Port: '{portStr}', User: '{user}'");
 
             try
             {
@@ -60,8 +57,8 @@ namespace MindWeaveServer.Utilities.Email
             string subject = template.Subject;
             string htmlBody = template.HtmlBody;
 
-            logger.Info("Attempting to send email (MailKit). Template: {TemplateType}, To: {RecipientEmail}, Name: {RecipientName}, Subject: '{Subject}'",
-               template.GetType().Name, recipientEmail ?? "NULL", recipientName ?? "NULL", subject ?? "NULL");
+            logger.Info("Attempting to send email (MailKit). Template: {TemplateType}, Name: {RecipientName}, Subject: '{Subject}'",
+               template.GetType().Name, recipientEmail ?? "NULL", recipientName ?? "NULL");
 
             if (string.IsNullOrWhiteSpace(recipientEmail))
             {
@@ -76,7 +73,7 @@ namespace MindWeaveServer.Utilities.Email
 
             try
             {
-                logger.Debug("Creating MimeMessage for recipient {RecipientEmail}", recipientEmail);
+                logger.Debug("Creating MimeMessage for recipient");
                 var message = new MimeMessage();
                 message.From.Add(new MailboxAddress(senderName, user));
                 message.To.Add(new MailboxAddress(recipientName, recipientEmail));

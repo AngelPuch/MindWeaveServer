@@ -19,7 +19,6 @@ namespace MindWeaveServer.DataAccess.Abstractions
         Task registerExpulsionAsync(ExpulsionDto expulsionData);
         Task finishMatchAsync(int matchId);
         int getMatchDuration(int matchId);
-        Task<int> saveChangesAsync();
         Task<Matches> getMatchByIdAsync(int matchId);
         Task updatePlayerScoreAsync(int matchId, int playerId, int score);
     }

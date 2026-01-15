@@ -55,10 +55,5 @@ namespace MindWeaveServer.DataAccess.Repositories
                 return await context.DifficultyLevels.FindAsync(difficultyId);
             }
         }
-
-        public async Task<int> saveChangesAsync()
-        {
-            return await Task.FromResult(0);
-        }
     }
 }

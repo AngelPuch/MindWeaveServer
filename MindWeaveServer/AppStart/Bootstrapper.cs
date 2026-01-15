@@ -16,7 +16,6 @@ using System;
 using Autofac.Core;
 using MindWeaveServer.BusinessLogic.Manager;
 using MindWeaveServer.BusinessLogic.Services;
-using MindWeaveServer.Services;
 
 namespace MindWeaveServer.AppStart
 {

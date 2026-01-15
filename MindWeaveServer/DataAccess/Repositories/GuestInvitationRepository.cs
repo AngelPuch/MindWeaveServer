@@ -57,10 +57,5 @@ namespace MindWeaveServer.DataAccess.Repositories
                 await context.SaveChangesAsync();
             }
         }
-
-        public async Task<int> saveChangesAsync()
-        {
-            return await Task.FromResult(0);
-        }
     }
 }

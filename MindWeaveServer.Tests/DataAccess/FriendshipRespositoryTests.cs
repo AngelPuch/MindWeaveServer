@@ -113,12 +113,6 @@ namespace MindWeaveServer.Tests.DataAccess
             Assert.Throws<ArgumentNullException>(() => new FriendshipRepository(null));
         }
 
-        [Fact]
-        public async Task SaveChangesAsync_Called_ReturnsZero()
-        {
-            Assert.Equal(0, await repository.saveChangesAsync());
-        }
-
         private static Mock<DbSet<T>> SetupMockDbSet<T>(List<T> sourceList) where T : class
         {
             var mock = new Mock<DbSet<T>>();

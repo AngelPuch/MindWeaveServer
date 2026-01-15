@@ -25,7 +25,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
             {
                 string key = username.Trim().ToLower();
                 activeSessions.TryAdd(key, true);
-                logger.Info("Session registered for user: {0}", username);
+                logger.Info("Session registered");
             }
         }
 
@@ -37,7 +37,7 @@ namespace MindWeaveServer.BusinessLogic.Manager
                 bool removed = activeSessions.TryRemove(key, out _);
                 if (removed)
                 {
-                    logger.Info("Session removed for user: {0}", username);
+                    logger.Info("Session removed");
                 }
             }
         }

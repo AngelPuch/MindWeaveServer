@@ -17,7 +17,5 @@ namespace MindWeaveServer.DataAccess.Abstractions
         void updateFriendship(Friendships friendship);
 
         void removeFriendship(Friendships friendship);
-
-        Task<int> saveChangesAsync();
     }
 }

@@ -9,6 +9,7 @@
 
 namespace MindWeaveServer.DataAccess
 {
+    using MindWeaveServer.Utilities;
     using System;
     using System.Data.Entity;
     using System.Data.Entity.Infrastructure;
@@ -16,7 +17,7 @@ namespace MindWeaveServer.DataAccess
     public partial class MindWeaveDBEntities1 : DbContext
     {
         public MindWeaveDBEntities1()
-            : base("name=MindWeaveDBEntities1")
+            : base(SecureConnection.getConnectionString())
         {
         }
     

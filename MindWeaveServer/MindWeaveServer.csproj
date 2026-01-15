@@ -7,7 +7,7 @@
     <ProductVersion>8.0.50727</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{9003C168-A646-40F1-91F5-FB19498083BC}</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MindWeaveServer</RootNamespace>
     <AssemblyName>MindWeaveServer</AssemblyName>
@@ -27,6 +27,10 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
+    <Prefer32Bit>false</Prefer32Bit>
+    <PreferNativeArm64>true</PreferNativeArm64>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -35,6 +39,9 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject>MindWeaveServer.Program</StartupObject>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Autofac, Version=9.0.0.0, Culture=neutral, PublicKeyToken=17863af14b0044da, processorArchitecture=MSIL">
@@ -132,6 +139,7 @@
       <HintPath>..\packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
     </Reference>
     <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
   </ItemGroup>
@@ -159,6 +167,7 @@
     <Compile Include="BusinessLogic\Manager\LobbyModerationManager.cs" />
     <Compile Include="BusinessLogic\Manager\UserSessionManager.cs" />
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
+    <Compile Include="BusinessLogic\Models\GameSessionConfiguration.cs" />
     <Compile Include="BusinessLogic\Models\LobbyActionContext.cs" />
     <Compile Include="BusinessLogic\Models\ValidationResult.cs" />
     <Compile Include="BusinessLogic\Services\DisconnectionHandler.cs" />
@@ -296,6 +305,7 @@
     <Compile Include="DataAccess\sysdiagrams.cs">
       <DependentUpon>MindWeaveDB.tt</DependentUpon>
     </Compile>
+    <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Resources\Lang.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -381,9 +391,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="BusinessLogic\Jigsaw\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <VSToolsPath Condition="'$(VSToolsPath)' == '' and '$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' != '11.0'">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>

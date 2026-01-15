@@ -58,15 +58,20 @@ namespace MindWeaveServer.BusinessLogic.Manager
 
             PuzzleDefinitionDto puzzleDto = PuzzleGenerator.generatePuzzle(puzzleBytes, difficulty);
 
+            var sessionConfig = new GameSessionConfiguration
+            {
+                LobbyCode = lobbyId,
+                MatchId = matchId,
+                PuzzleId = puzzleId,
+                PuzzleDefinition = puzzleDto,
+                OnSessionEndedCleanup = removeSession
+            };
+
             var gameSession = new GameSession(
-                lobbyId,
-                matchId,
-                puzzleId,
-                puzzleDto,
+                sessionConfig,
                 matchmakingRepository,
                 statsLogic,
                 puzzleRepository,
-                removeSession,
                 scoreCalculator);
 
             foreach (var player in players.Values)

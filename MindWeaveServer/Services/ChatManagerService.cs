@@ -10,9 +10,7 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
-    [ServiceBehavior(
-        InstanceContextMode = InstanceContextMode.PerSession,
-        ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class ChatManagerService : IChatManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();

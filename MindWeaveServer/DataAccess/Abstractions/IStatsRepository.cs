@@ -14,8 +14,6 @@ namespace MindWeaveServer.DataAccess.Abstractions
 
         Task unlockAchievementAsync(int playerId, int achievementId);
 
-        Task<int> saveChangesAsync();
-
         Task<List<Achievements>> getAllAchievementsAsync();
 
         Task<List<int>> unlockAchievementsAsync(int playerId, List<int> potentialAchievementIds);

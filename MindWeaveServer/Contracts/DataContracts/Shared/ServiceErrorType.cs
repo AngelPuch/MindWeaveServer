@@ -15,9 +15,6 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
         DuplicateRecord = 2,    
 
         [EnumMember]
-        ValidationFailed = 3,  
-
-        [EnumMember]
         NotFound = 4,           
 
         [EnumMember]
@@ -25,17 +22,6 @@ namespace MindWeaveServer.Contracts.DataContracts.Shared
 
         [EnumMember]
         CommunicationError = 6,
-        [EnumMember]
-        LobbyFull = 7,     
-
-        [EnumMember]
-        GameInProgress = 8,    
-
-        [EnumMember]
-        LobbyNotFound = 9,    
-
-        [EnumMember]
-        PlayerBanned = 10,
 
         [EnumMember]
         ValidationError = 11,

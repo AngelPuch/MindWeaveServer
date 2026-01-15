@@ -220,12 +220,7 @@ namespace MindWeaveServer.DataAccess.Repositories
                 return DEFAULT_MATCH_DURATION_SECONDS;
             }
         }
-
-        public async Task<int> saveChangesAsync()
-        {
-            return await Task.FromResult(0);
-        }
-
+        
         public async Task<Matches> getMatchByIdAsync(int matchId)
         {
             using (var context = contextFactory())

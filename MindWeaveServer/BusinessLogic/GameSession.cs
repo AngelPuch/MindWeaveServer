@@ -71,31 +71,23 @@ namespace MindWeaveServer.BusinessLogic
         private bool isDisposed;
         private readonly object endGameLock = new object();
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Major Code Smell",
-        "S107:Methods should not have too many parameters",
-        Justification = "Constructor combines session configuration with dependency injection - this is necessary for the session lifecycle pattern")]
         public GameSession(
-            string lobbyCode,
-            int matchId,
-            int puzzleId,
-            PuzzleDefinitionDto puzzleDefinition,
+            GameSessionConfiguration configuration,
             IMatchmakingRepository matchmakingRepository,
             StatsLogic statsLogic,
             IPuzzleRepository puzzleRepository,
-            Action<string> onSessionEndedCleanup,
             IScoreCalculator scoreCalculator)
         {
-            LobbyCode = lobbyCode;
-            MatchId = matchId;
-            PuzzleId = puzzleId;
+            this.LobbyCode = configuration.LobbyCode;
+            this.MatchId = configuration.MatchId;
+            this.PuzzleId = configuration.PuzzleId;
+            this.PuzzleDefinition = configuration.PuzzleDefinition;
+            this.onSessionEndedCleanup = configuration.OnSessionEndedCleanup;
             StartTime = DateTime.UtcNow;
-            PuzzleDefinition = puzzleDefinition;
 
             this.matchmakingRepository = matchmakingRepository;
             this.statsLogic = statsLogic;
             this.puzzleRepository = puzzleRepository;
-            this.onSessionEndedCleanup = onSessionEndedCleanup;
             this.scoreCalculator = scoreCalculator;
 
             initializePieceStates();

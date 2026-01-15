@@ -19,9 +19,7 @@ using System.Threading.Tasks;
 
 namespace MindWeaveServer.Services
 {
-    [ServiceBehavior(
-        InstanceContextMode = InstanceContextMode.PerSession,
-        ConcurrencyMode = ConcurrencyMode.Multiple)]
+    [ServiceBehavior(InstanceContextMode = InstanceContextMode.PerSession, ConcurrencyMode = ConcurrencyMode.Multiple)]
     public class MatchmakingManagerService : IMatchmakingManager
     {
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
@@ -84,16 +82,16 @@ namespace MindWeaveServer.Services
 
         private void onChannelFaulted(object sender, EventArgs e)
         {
-            logger.Warn("MatchmakingManagerService: Channel FAULTED for user {0}. Initiating disconnection.",
-                currentUsername ?? "Unknown");
+            logger.Warn("MatchmakingManagerService: Channel FAULTED for userID {0}. Initiating disconnection.",
+                currentPlayerId ?? 0);
 
             initiateGameCleanupAsync();
         }
 
         private void onChannelClosed(object sender, EventArgs e)
         {
-            logger.Info("MatchmakingManagerService: Channel CLOSED for user {0}. Initiating disconnection.",
-                currentUsername ?? "Unknown");
+            logger.Info("MatchmakingManagerService: Channel CLOSED for userID {0}. Initiating disconnection.",
+                currentPlayerId ?? 0);
 
             initiateGameCleanupAsync();
         }
@@ -296,7 +294,7 @@ namespace MindWeaveServer.Services
                 catch (SqlException ex)
                 {
                     logger.Error(ex, "SQL error starting game for lobby: {0}", lobbyId);
-                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.ERROR_SERVER_GENERIC));
+                    trySendCallback(cb => cb.notifyLobbyActionFailed(MessageCodes.MATCH_START_DB_ERROR));
                 }
                 catch (TimeoutException ex)
                 {
@@ -607,7 +605,7 @@ namespace MindWeaveServer.Services
                     {
                         logger.Warn(ex, "RequestPieceDrop: Communication error broadcasting.");
                     }
-                    catch (Exception ex) 
+                    catch (Exception ex)
                     {
                         logger.Error(ex, "RequestPieceDrop: Unexpected error.");
                     }

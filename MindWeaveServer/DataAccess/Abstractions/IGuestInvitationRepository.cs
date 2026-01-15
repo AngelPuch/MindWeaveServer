@@ -7,6 +7,5 @@ namespace MindWeaveServer.DataAccess.Abstractions
         Task addInvitationAsync(GuestInvitations invitation);
         Task<GuestInvitations> findValidInvitationAsync(int matchId, string guestEmail);
         Task markInvitationAsUsedAsync(GuestInvitations invitation);
-        Task<int> saveChangesAsync();
     }
 }
