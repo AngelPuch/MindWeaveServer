@@ -16,6 +16,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.ServiceModel;
 using System.Threading.Tasks;
+using MindWeaveServer.BusinessLogic.Models;
 
 namespace MindWeaveServer.Services
 {
@@ -564,7 +565,15 @@ namespace MindWeaveServer.Services
             try
             {
                 int playerId = getPlayerIdFromContext(lobbyCode);
-                gameSessionManager.handlePieceMove(lobbyCode, playerId, pieceId, newX, newY);
+                var context = new PieceMovementContext
+                {
+                    LobbyCode = lobbyCode,
+                    PlayerId = playerId,
+                    PieceId = pieceId,
+                    NewX = newX,
+                    NewY = newY
+                };
+                gameSessionManager.handlePieceMove(context);
             }
             catch (InvalidOperationException ex)
             {
@@ -587,11 +596,19 @@ namespace MindWeaveServer.Services
             try
             {
                 int playerId = getPlayerIdFromContext(lobbyCode);
+                var context = new PieceMovementContext
+                {
+                    LobbyCode = lobbyCode,
+                    PlayerId = playerId,
+                    PieceId = pieceId,
+                    NewX = newX,
+                    NewY = newY
+                };
                 Task.Run(async () =>
                 {
                     try
                     {
-                        await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, newX, newY);
+                        await gameSessionManager.handlePieceDrop(context);
                     }
                     catch (EntityException ex)
                     {

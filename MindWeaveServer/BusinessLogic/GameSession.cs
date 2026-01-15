@@ -196,50 +196,50 @@ namespace MindWeaveServer.BusinessLogic
             broadcast(callback => callback.onPieceDragStarted(pieceId, player.Username));
         }
 
-        public void handlePieceMove(int playerId, int pieceId, double newX, double newY)
+        public void handlePieceMove(PieceMovementContext context)
         {
             if (isGameEnded)
             {
                 return;
             }
 
-            if (!PieceStates.TryGetValue(pieceId, out var pieceState))
+            if (!PieceStates.TryGetValue(context.PieceId, out var pieceState))
             {
                 return;
             }
 
-            if (pieceState.HeldByPlayerId != playerId)
+            if (pieceState.HeldByPlayerId != context.PlayerId)
             {
                 return;
             }
 
-            pieceState.CurrentX = newX;
-            pieceState.CurrentY = newY;
+            pieceState.CurrentX = context.NewX;
+            pieceState.CurrentY = context.NewY;
 
-            if (Players.TryGetValue(playerId, out var player))
+            if (Players.TryGetValue(context.PlayerId, out var player))
             {
-                broadcast(callback => callback.onPieceMoved(pieceId, newX, newY, player.Username));
+                broadcast(callback => callback.onPieceMoved(context.PieceId, context.NewX, context.NewY, player.Username));
             }
         }
 
-        public async Task handlePieceDrop(int playerId, int pieceId, double newX, double newY)
+        public async Task handlePieceDrop(PieceMovementContext context)
         {
             if (isGameEnded)
             {
                 return;
             }
 
-            if (!PieceStates.TryGetValue(pieceId, out var pieceState))
+            if (!PieceStates.TryGetValue(context.PieceId, out var pieceState))
             {
                 return;
             }
 
-            if (pieceState.HeldByPlayerId != playerId)
+            if (pieceState.HeldByPlayerId != context.PlayerId)
             {
                 return;
             }
 
-            if (!Players.TryGetValue(playerId, out var player))
+            if (!Players.TryGetValue(context.PlayerId, out var player))
             {
                 return;
             }
@@ -247,9 +247,9 @@ namespace MindWeaveServer.BusinessLogic
             pieceState.HeldByPlayerId = null;
             pieceState.GrabTime = null;
 
-            double distanceToOwnTarget = calculateDistance(newX, newY, pieceState.FinalX, pieceState.FinalY);
+            double distanceToOwnTarget = calculateDistance(context.NewX, context.NewY, pieceState.FinalX, pieceState.FinalY);
             bool isNearOwnTarget = distanceToOwnTarget < SNAP_TOLERANCE;
-            bool isClosestToOwn = isClosestToOwnPosition(pieceId, newX, newY, distanceToOwnTarget);
+            bool isClosestToOwn = isClosestToOwnPosition(context.PieceId, context.NewX, context.NewY, distanceToOwnTarget);
 
             bool isCorrect = !pieceState.IsPlaced && isNearOwnTarget && isClosestToOwn;
             if (isCorrect)
@@ -258,7 +258,7 @@ namespace MindWeaveServer.BusinessLogic
             }
             else
             {
-                handleIncorrectPlacement(player, pieceState, newX, newY);
+                handleIncorrectPlacement(player, pieceState, context.NewX, context.NewY);
             }
         }
 

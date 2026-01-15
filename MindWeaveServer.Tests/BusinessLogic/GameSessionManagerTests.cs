@@ -147,7 +147,16 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
             scoreCalculatorMock.Setup(x => x.calculatePointsForPlacement(It.IsAny<ScoreCalculationContext>()))
                 .Returns(new ScoreResult { Points = 10, BonusType = null });
 
-            await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, pieceState.FinalX, pieceState.FinalY);
+            var context = new PieceMovementContext
+            {
+                LobbyCode = lobbyCode,
+                PlayerId = playerId,
+                PieceId = pieceId,
+                NewX = pieceState.FinalX,
+                NewY = pieceState.FinalY
+            };
+
+            await gameSessionManager.handlePieceDrop(context);
 
             Assert.True(pieceState.IsPlaced);
         }
@@ -168,7 +177,16 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
             double nearMissX = pieceState.FinalX + 40;
             double nearMissY = pieceState.FinalY;
 
-            await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, nearMissX, nearMissY);
+            var context = new PieceMovementContext
+            {
+                LobbyCode = lobbyCode,
+                PlayerId = playerId,
+                PieceId = pieceId,
+                NewX = nearMissX,
+                NewY = nearMissY
+            };
+
+            await gameSessionManager.handlePieceDrop(context);
 
             await Task.Delay(BROADCAST_DELAY_MS);
 
@@ -184,7 +202,16 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
 
             gameSessionManager.handlePieceDrag(lobbyCode, playerId, pieceId);
 
-            await gameSessionManager.handlePieceDrop(lobbyCode, playerId, pieceId, 9999, 9999);
+            var context = new PieceMovementContext
+            {
+                LobbyCode = lobbyCode,
+                PlayerId = playerId,
+                PieceId = pieceId,
+                NewX = 9999,
+                NewY = 9999
+            };
+
+            await gameSessionManager.handlePieceDrop(context);
 
             callbackMock.Verify(x => x.onPlayerPenalty(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<string>()), Times.Never);
         }
@@ -227,9 +254,19 @@ namespace MindWeaveServer.Tests.BusinessLogic.Manager
             string lobbyCode = await createActiveSession();
             int pieceId = 0;
             int playerId = 1;
+
+            var context = new PieceMovementContext
+            {
+                LobbyCode = lobbyCode,
+                PlayerId = playerId,
+                PieceId = pieceId,
+                NewX = 50,
+                NewY = 50
+            };
+
             gameSessionManager.handlePieceDrag(lobbyCode, playerId, pieceId);
 
-            gameSessionManager.handlePieceMove(lobbyCode, playerId, pieceId, 50, 50);
+            gameSessionManager.handlePieceMove(context);
 
             callbackMock.Verify(x => x.onPieceMoved(pieceId, 50, 50, "Player1"), Times.Once);
         }

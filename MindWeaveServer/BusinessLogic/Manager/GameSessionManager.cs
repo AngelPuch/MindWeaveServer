@@ -123,27 +123,31 @@ namespace MindWeaveServer.BusinessLogic.Manager
             }
         }
 
-        public void handlePieceMove(string lobbyCode, int playerId, int pieceId, double newX, double newY)
+        public void handlePieceMove(PieceMovementContext context)
         {
-            var session = getSession(lobbyCode);
+            if (context == null)
+            {
+                throw new ArgumentNullException(nameof(context));
+            }
+            var session = getSession(context.LobbyCode);
 
             if (session != null)
             {
-                session.handlePieceMove(playerId, pieceId, newX, newY);
+                session.handlePieceMove(context);
             }
         }
 
-        public async Task handlePieceDrop(string lobbyCode, int playerId, int pieceId, double newX, double newY)
+        public async Task handlePieceDrop(PieceMovementContext context)
         {
-            var session = getSession(lobbyCode);
+            var session = getSession(context.LobbyCode);
 
             if (session != null)
             {
-                await session.handlePieceDrop(playerId, pieceId, newX, newY);
+                await session.handlePieceDrop(context);
             }
             else
             {
-                logger.Warn("HandlePieceDrop: No active session found for lobby {LobbyCode}", lobbyCode);
+                logger.Warn("HandlePieceDrop: No active session found for lobby {LobbyCode}", context.LobbyCode);
             }
         }
 

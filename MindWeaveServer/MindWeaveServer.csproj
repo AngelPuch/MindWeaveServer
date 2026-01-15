@@ -168,6 +168,7 @@
     <Compile Include="BusinessLogic\MatchmakingLogic.cs" />
     <Compile Include="BusinessLogic\Models\GameSessionConfiguration.cs" />
     <Compile Include="BusinessLogic\Models\LobbyActionContext.cs" />
+    <Compile Include="BusinessLogic\Models\PieceMovementContext.cs" />
     <Compile Include="BusinessLogic\Models\ValidationResult.cs" />
     <Compile Include="BusinessLogic\Services\DisconnectionHandler.cs" />
     <Compile Include="BusinessLogic\Services\PlayerExpulsionService.cs" />
@@ -321,6 +322,7 @@
     <Compile Include="Utilities\Abstractions\IPasswordService.cs" />
     <Compile Include="Utilities\Abstractions\IServiceExceptionHandler.cs" />
     <Compile Include="Utilities\Abstractions\IVerificationCodeService.cs" />
+    <Compile Include="Utilities\Email\Templates\BaseEmailTemplate.cs" />
     <Compile Include="Utilities\Email\Templates\GuestInviteEmailTemplate.cs" />
     <Compile Include="Utilities\Email\Templates\PasswordRecoveryEmailTemplate.cs" />
     <Compile Include="Utilities\Email\Templates\VerificationEmailTemplate.cs" />

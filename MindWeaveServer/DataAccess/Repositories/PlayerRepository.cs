@@ -65,45 +65,71 @@ namespace MindWeaveServer.DataAccess.Repositories
 
             using (var context = contextFactory())
             {
-                var existingPlayer = await context.Player
-                    .Include(p => p.PlayerSocialMedias)
-                    .FirstOrDefaultAsync(p => p.idPlayer == player.idPlayer);
+                var existingPlayer = await getPlayerWithSocialsAsync(context, player.idPlayer);
 
                 if (existingPlayer != null)
                 {
-                    context.Entry(existingPlayer).CurrentValues.SetValues(player);
+                    updatePlayerData(context, existingPlayer, player);
 
                     if (player.PlayerSocialMedias != null)
                     {
-                        var socialMediasToDelete = existingPlayer.PlayerSocialMedias
-                            .Where(existing => player.PlayerSocialMedias.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
-                            .ToList();
-
-                        foreach (var deletedSocial in socialMediasToDelete)
-                        {
-                            context.PlayerSocialMedias.Remove(deletedSocial);
-                        }
-                        foreach (var newSocial in player.PlayerSocialMedias)
-                        {
-                            var existingSocial = existingPlayer.PlayerSocialMedias
-                                .FirstOrDefault(e => e.IdSocialMediaPlatform == newSocial.IdSocialMediaPlatform);
-
-                            if (existingSocial != null)
-                            {
-                                existingSocial.Username = newSocial.Username;
-                            }
-                            else
-                            {
-                                existingPlayer.PlayerSocialMedias.Add(new PlayerSocialMedias
-                                {
-                                    IdPlayer = existingPlayer.idPlayer,
-                                    IdSocialMediaPlatform = newSocial.IdSocialMediaPlatform,
-                                    Username = newSocial.Username
-                                });
-                            }
-                        }
+                        updateSocialMedias(context, existingPlayer, player.PlayerSocialMedias);
                     }
+
                     await context.SaveChangesAsync();
+                }
+            }
+        }
+
+        private async Task<Player> getPlayerWithSocialsAsync(MindWeaveDBEntities1 context, int playerId)
+        {
+            return await context.Player
+                .Include(p => p.PlayerSocialMedias)
+                .FirstOrDefaultAsync(p => p.idPlayer == playerId);
+        }
+
+        private void updatePlayerData(MindWeaveDBEntities1 context, Player existingPlayer, Player newPlayerData)
+        {
+            context.Entry(existingPlayer).CurrentValues.SetValues(newPlayerData);
+        }
+
+        private void updateSocialMedias(MindWeaveDBEntities1 context, Player existingPlayer, ICollection<PlayerSocialMedias> newSocials)
+        {
+            removeObsoleteSocials(context, existingPlayer, newSocials);
+            upsertSocials(existingPlayer, newSocials);
+        }
+
+        private static void removeObsoleteSocials(MindWeaveDBEntities1 context, Player existingPlayer, ICollection<PlayerSocialMedias> newSocials)
+        {
+            var socialMediasToDelete = existingPlayer.PlayerSocialMedias
+                .Where(existing => newSocials.All(newObj => newObj.IdSocialMediaPlatform != existing.IdSocialMediaPlatform))
+                .ToList();
+
+            foreach (var deletedSocial in socialMediasToDelete)
+            {
+                context.PlayerSocialMedias.Remove(deletedSocial);
+            }
+        }
+
+        private void upsertSocials(Player existingPlayer, ICollection<PlayerSocialMedias> newSocials)
+        {
+            foreach (var newSocial in newSocials)
+            {
+                var existingSocial = existingPlayer.PlayerSocialMedias
+                    .FirstOrDefault(e => e.IdSocialMediaPlatform == newSocial.IdSocialMediaPlatform);
+
+                if (existingSocial != null)
+                {
+                    existingSocial.Username = newSocial.Username;
+                }
+                else
+                {
+                    existingPlayer.PlayerSocialMedias.Add(new PlayerSocialMedias
+                    {
+                        IdPlayer = existingPlayer.idPlayer,
+                        IdSocialMediaPlatform = newSocial.IdSocialMediaPlatform,
+                        Username = newSocial.Username
+                    });
                 }
             }
         }
@@ -140,24 +166,14 @@ namespace MindWeaveServer.DataAccess.Repositories
         {
             using (var context = contextFactory())
             {
-                var potentialMatchIds = await context.Player
-                    .Where(p => p.username.Contains(query) && p.idPlayer != requesterId)
-                    .Select(p => p.idPlayer)
-                    .Take(INITIAL_SEARCH_FETCH_LIMIT)
-                    .ToListAsync();
+                var potentialMatchIds = await fetchPotentialPlayerIdsAsync(context, requesterId, query);
 
                 if (!potentialMatchIds.Any())
                 {
                     return new List<PlayerSearchResultDto>();
                 }
 
-                var existingRelationshipIds = await context.Friendships
-                    .Where(f => (f.requester_id == requesterId && potentialMatchIds.Contains(f.addressee_id)) ||
-                                (f.addressee_id == requesterId && potentialMatchIds.Contains(f.requester_id)))
-                    .Where(f => f.status_id == FriendshipStatusConstants.PENDING || f.status_id == FriendshipStatusConstants.ACCEPTED)
-                    .Select(f => f.requester_id == requesterId ? f.addressee_id : f.requester_id)
-                    .Distinct()
-                    .ToListAsync();
+                var existingRelationshipIds = await fetchExistingRelationshipIdsAsync(context, requesterId, potentialMatchIds);
 
                 var validResultIds = potentialMatchIds.Except(existingRelationshipIds).ToList();
 
@@ -166,19 +182,42 @@ namespace MindWeaveServer.DataAccess.Repositories
                     return new List<PlayerSearchResultDto>();
                 }
 
-                var finalResults = await context.Player
-                    .Where(p => validResultIds.Contains(p.idPlayer))
-                    .OrderBy(p => p.username)
-                    .Select(p => new PlayerSearchResultDto
-                    {
-                        Username = p.username,
-                        AvatarPath = p.avatar_path ?? DEFAULT_AVATAR_PATH
-                    })
-                    .Take(maxResults)
-                    .ToListAsync();
-
-                return finalResults;
+                return await fetchFinalPlayerResultsAsync(context, validResultIds, maxResults);
             }
+        }
+
+        private static async Task<List<int>> fetchPotentialPlayerIdsAsync(MindWeaveDBEntities1 context, int requesterId, string query)
+        {
+            return await context.Player
+                .Where(p => p.username.Contains(query) && p.idPlayer != requesterId)
+                .Select(p => p.idPlayer)
+                .Take(INITIAL_SEARCH_FETCH_LIMIT)
+                .ToListAsync();
+        }
+
+        private static async Task<List<int>> fetchExistingRelationshipIdsAsync(MindWeaveDBEntities1 context, int requesterId, List<int> potentialMatchIds)
+        {
+            return await context.Friendships
+                .Where(f => (f.requester_id == requesterId && potentialMatchIds.Contains(f.addressee_id)) ||
+                            (f.addressee_id == requesterId && potentialMatchIds.Contains(f.requester_id)))
+                .Where(f => f.status_id == FriendshipStatusConstants.PENDING || f.status_id == FriendshipStatusConstants.ACCEPTED)
+                .Select(f => f.requester_id == requesterId ? f.addressee_id : f.requester_id)
+                .Distinct()
+                .ToListAsync();
+        }
+
+        private static async Task<List<PlayerSearchResultDto>> fetchFinalPlayerResultsAsync(MindWeaveDBEntities1 context, List<int> validResultIds, int maxResults)
+        {
+            return await context.Player
+                .Where(p => validResultIds.Contains(p.idPlayer))
+                .OrderBy(p => p.username)
+                .Select(p => new PlayerSearchResultDto
+                {
+                    Username = p.username,
+                    AvatarPath = p.avatar_path ?? DEFAULT_AVATAR_PATH
+                })
+                .Take(maxResults)
+                .ToListAsync();
         }
 
         public async Task<Player> getPlayerByUsernameWithTrackingAsync(string username)
